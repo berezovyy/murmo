@@ -8,6 +8,7 @@
   },
   "defaults": {
     "plugins": ["autocorrect"],
+    "requires": ["plugin.autocorrect=release"],
     "trust": "builtin"
   },
   "cases": [

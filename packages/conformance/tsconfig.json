@@ -1,5 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": ["src"],
-  "exclude": ["src/node"]
+  "exclude": ["src/node"],
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false
+  }
 }

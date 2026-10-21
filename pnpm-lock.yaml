@@ -55,6 +55,9 @@ importers:
       '@murmo/config':
         specifier: workspace:*
         version: link:../config
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../core
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
@@ -72,7 +75,17 @@ importers:
         specifier: 0.32.0
         version: 0.32.0
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/provenance':
+        specifier: workspace:*
+        version: link:../provenance
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
 
   packages/executor: {}
 

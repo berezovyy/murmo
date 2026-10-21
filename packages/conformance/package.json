@@ -13,6 +13,7 @@
   "dependencies": {
     "@murmo/api": "workspace:*",
     "@murmo/config": "workspace:*",
+    "@murmo/core": "workspace:*",
     "@murmo/fixtures": "workspace:*",
     "@murmo/provenance": "workspace:*",
     "@murmo/text": "workspace:*"

@@ -135,6 +135,32 @@
         },
         "streamHash": "ccf43c3a58691fe13789375f6efe2dbe549a541e3ad1e0259cccc384fa31f00a"
       }
+    },
+    {
+      "id": "edits-297861102-10000",
+      "input": {
+        "generator": "edits",
+        "seed": 297861102,
+        "size": 10000
+      },
+      "output": {
+        "generator": "edits",
+        "seed": 297861102,
+        "size": 10000,
+        "counts": {
+          "runs": 10000,
+          "keys": 221690,
+          "corrections": 10178,
+          "undoChecks": 3925,
+          "hostUndoKeys": 23091,
+          "pastes": 6550,
+          "busyToggles": 6507,
+          "heldStreams": 2509,
+          "racedStreams": 2500,
+          "degradedStreams": 1005
+        },
+        "streamHash": "23c8c8a28f15b17d180a397bd523ef36955effe2206c276292915b516774bc51"
+      }
     }
   ]
 }

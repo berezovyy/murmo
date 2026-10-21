@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
-import { type GuestRequest, runPure } from '../guest.ts';
+import { coreSuites, type GuestRequest, runCore, runPure } from '../guest.ts';
 import type { LoadedSuite, RunOptions, RunResult } from '../types.ts';
 import { repoRoot } from './fixtures.ts';
 
@@ -38,7 +38,8 @@ export async function buildGuest(outfile: string): Promise<string> {
     bundle: true,
     format: 'iife',
     platform: 'neutral',
-    target: 'es2020',
+    // tools/build.mjs `targets.quickjs`: es2020 lowering of private members leaks in QuickJS.
+    target: 'es2022',
     globalName: guestGlobal,
     mainFields: ['module', 'main'],
     conditions: ['import', 'default'],
@@ -76,6 +77,55 @@ function runQuickjsWasm(bundle: string, request: string): Promise<RunResult> {
   });
 }
 
+/**
+ * The core subject in QuickJS-wasm: `runCore` returns a promise, so the
+ * embedder runs the job loop until it settles. The core's clock is manual and
+ * QuickJS has no timers, so an empty job queue before a result means a hang.
+ */
+function runCoreQuickjsWasm(bundle: string, request: string): Promise<RunResult> {
+  return getQuickJS().then((quickjs) => {
+    const runtime = quickjs.newRuntime();
+    runtime.setMemoryLimit(1 << 30);
+    const vm = runtime.newContext();
+    try {
+      const deadline = Date.now() + coreBudgetMs;
+      runtime.setInterruptHandler(() => Date.now() > deadline);
+      vm.unwrapResult(vm.evalCode(readFileSync(bundle, 'utf8'))).dispose();
+      vm.setProp(vm.global, '__request', vm.newString(request));
+      vm.unwrapResult(
+        vm.evalCode(
+          `${guestGlobal}.runCore(JSON.parse(globalThis.__request)).then(` +
+            '(r) => { globalThis.__out = JSON.stringify(r); }, ' +
+            '(e) => { globalThis.__err = String((e && e.stack) || e); });',
+        ),
+      ).dispose();
+      for (;;) {
+        const jobs = runtime.executePendingJobs();
+        if (jobs.error) {
+          const error = vm.dump(jobs.error);
+          jobs.error.dispose();
+          throw new Error(`quickjs-wasm: core job failed: ${JSON.stringify(error)}`);
+        }
+        const read = (name: string): string | undefined => {
+          const handle = vm.getProp(vm.global, name);
+          const value = vm.typeof(handle) === 'string' ? vm.getString(handle) : undefined;
+          handle.dispose();
+          return value;
+        };
+        const err = read('__err');
+        if (err !== undefined) throw new Error(`quickjs-wasm: core run failed: ${err}`);
+        const out = read('__out');
+        if (out !== undefined) return parseResult('quickjs-wasm', out);
+        if (jobs.value === 0)
+          throw new Error('quickjs-wasm: the core run stopped with no result (a promise never settled)');
+      }
+    } finally {
+      vm.dispose();
+      runtime.dispose();
+    }
+  });
+}
+
 function spawnJson(runtime: string, command: string, args: string[]): RunResult {
   const run = spawnSync(command, args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 256 << 20 });
   if (run.error) throw new Error(`${runtime}: ${run.error.message}`);
@@ -97,6 +147,35 @@ export interface LaunchOptions {
   mode: RunOptions['mode'];
   /** A prebuilt guest bundle; built into a temporary folder when absent. */
   bundle?: string;
+}
+
+/** The runtimes the core subject runs on; rquickjs runs it with the plugin host (phase 10). */
+export const coreRuntimes = ['node', 'bun', 'quickjs-wasm'] as const;
+export type CoreRuntimeName = (typeof coreRuntimes)[number];
+
+/** Interrupt budget for one QuickJS-wasm core run over every editor-ops suite. */
+export const coreBudgetMs = 900_000;
+
+/** Runs every editor-ops suite through the core subject on one runtime. */
+export async function launchCore(
+  runtime: CoreRuntimeName,
+  suites: LoadedSuite[],
+  options: LaunchOptions,
+): Promise<RunResult> {
+  const request: GuestRequest = { runtime, mode: options.mode, suites: coreSuites(suites) };
+  if (runtime === 'node') return runCore(request, () => performance.now());
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-conformance-'));
+  try {
+    const requestFile = join(dir, 'request.json');
+    writeFileSync(requestFile, JSON.stringify(request));
+    if (runtime === 'bun') {
+      return spawnJson('bun', bunCommand(), [join(packageDir, 'src', 'node', 'guest-cli.ts'), '--core', requestFile]);
+    }
+    const bundle = options.bundle ?? (await buildGuest(join(dir, 'conformance-guest.js')));
+    return await runCoreQuickjsWasm(bundle, JSON.stringify(request));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /** Runs every pure suite on one runtime and returns its verdicts. */

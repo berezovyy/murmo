@@ -333,9 +333,27 @@
         "inputOriginEvidence": { "enum": ["host-labeled", "observed-unmarked", "unknown"] },
         "dialogSafe": { "type": "boolean" },
         "unadvertisedKeys": { "$ref": "#/$defs/strings" },
-        "submitTransform": { "type": "boolean" }
+        "submitTransform": { "type": "boolean" },
+        "commitTiming": { "enum": ["hold", "compete", "race"] },
+        "raceText": { "type": "string", "minLength": 1 },
+        "commitStatus": { "$ref": "#/$defs/commitFault" },
+        "restoreStatus": { "$ref": "#/$defs/commitFault" },
+        "edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "atomic": { "type": "boolean" },
+            "end": { "type": "boolean" },
+            "middle": { "type": "boolean" },
+            "multiline": { "type": "boolean" },
+            "exactRestore": { "type": "boolean" },
+            "attributed": { "type": "boolean" }
+          }
+        },
+        "certainty": { "enum": ["authoritative", "tracked", "unknown"] }
       }
     },
+    "commitFault": { "enum": ["stale", "cancelled", "denied", "invalid-range", "unsupported", "error"] },
     "grants": { "type": "object", "additionalProperties": { "$ref": "#/$defs/strings" } },
     "settings": { "type": "object" },
     "project": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/_.-]*$" },

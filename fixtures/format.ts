@@ -137,7 +137,31 @@ export interface HostSetup {
   /** Keys the host does not advertise as interceptable. */
   unadvertisedKeys?: string[];
   submitTransform?: boolean;
+  /**
+   * When the host runs a plugin commit (phase 05): `hold` until the next input
+   * step has landed, `compete` with a change just before the version check,
+   * `race` by typing `raceText` right after the commit applied.
+   */
+  commitTiming?: 'hold' | 'compete' | 'race';
+  /** Typed by `race`, inserted by `compete`; one space by default. */
+  raceText?: string;
+  /** Every plugin commit, or every undo restore, returns this instead of applying. */
+  commitStatus?: CommitFault;
+  restoreStatus?: CommitFault;
+  /** Edit capabilities over the reference adapter's (all true). */
+  edit?: {
+    atomic?: boolean;
+    end?: boolean;
+    middle?: boolean;
+    multiline?: boolean;
+    exactRestore?: boolean;
+    attributed?: boolean;
+  };
+  /** The draft's certainty. */
+  certainty?: 'authoritative' | 'tracked' | 'unknown';
 }
+
+export type CommitFault = 'stale' | 'cancelled' | 'denied' | 'invalid-range' | 'unsupported' | 'error';
 
 export interface Timing {
   /** Each key's synchronous delivery, minus the same-time control's. */
@@ -238,7 +262,7 @@ export interface PureFnFile {
   table?: PureTable;
 }
 
-export type GeneratorName = 'burst' | 'unicode' | 'provenance' | 'ledger';
+export type GeneratorName = 'burst' | 'unicode' | 'provenance' | 'ledger' | 'edits';
 
 export interface GeneratorFile {
   kind: 'generator/v1';
@@ -250,7 +274,9 @@ export interface GeneratorFile {
   /** `shared`: every stream runs in one session, in order, as in rounds 13–14. */
   session: 'shared' | 'fresh';
   /** What runs the generated cases: an editor-ops subject, or a named pure function. */
-  target: { kind: 'editor-ops'; plugins?: PluginRef[]; trust?: Trust } | { kind: 'pure-fn'; fn: string };
+  target:
+    | { kind: 'editor-ops'; plugins?: PluginRef[]; trust?: Trust; host?: HostSetup; requires?: string[] }
+    | { kind: 'pure-fn'; fn: string };
   /** Where a shrunk failing stream is saved as a fixed case. */
   failures: string;
   /** Counts a run of this size must reproduce. */

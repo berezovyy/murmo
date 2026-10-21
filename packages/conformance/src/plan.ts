@@ -138,6 +138,10 @@ export function* planRuns(
         ...(generated.case as EditorCase),
         ...(target.plugins ? { plugins: target.plugins as PluginRef[] } : {}),
         ...(target.trust ? { trust: target.trust } : {}),
+        ...(target.host ? { host: { ...target.host, ...(generated.case as EditorCase).host } } : {}),
+        ...(target.requires
+          ? { requires: [...target.requires, ...((generated.case as EditorCase).requires ?? [])] }
+          : {}),
       };
       yield* editorRuns(suite.file, suite.owner, c, ctx, { seed: g.seed, ...(session ? { session } : {}) });
     }

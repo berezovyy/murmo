@@ -117,6 +117,7 @@
     },
     {
       "id": "C4",
+      "requires": ["core.keys"],
       "steps": [
         {
           "key": "O"
@@ -159,6 +160,7 @@
     },
     {
       "id": "C5",
+      "requires": ["core.keys", "plugin.snippets=release"],
       "steps": [
         {
           "key": ";"
@@ -193,6 +195,7 @@
     },
     {
       "id": "C6",
+      "requires": ["core.keys", "plugin.snippets=release"],
       "steps": [
         {
           "key": ";"
@@ -244,6 +247,7 @@
     },
     {
       "id": "C7",
+      "requires": ["core.keys", "plugin.snippets=release"],
       "steps": [
         {
           "key": ";"
@@ -329,6 +333,7 @@
     },
     {
       "id": "C5-enter-no-expansion",
+      "requires": ["core.keys", "plugin.snippets=release"],
       "steps": [
         {
           "key": ";"
@@ -366,6 +371,7 @@
     },
     {
       "id": "C8",
+      "requires": ["core.submit"],
       "note": "a guard blocks the send and keeps the draft; the todo-guard API sample stands in, Murmo ships no guard",
       "steps": [
         {
@@ -675,6 +681,7 @@
     },
     {
       "id": "V1-Tab-queue",
+      "requires": ["core.submit"],
       "note": "Host requirement: the physical queue key is Tab; otherwise map the configured queue gesture.",
       "host": {
         "tabQueues": true
@@ -697,6 +704,7 @@
     },
     {
       "id": "V1-steer",
+      "requires": ["core.submit"],
       "steps": [
         {
           "type": "TODO"
@@ -736,6 +744,7 @@
     },
     {
       "id": "V1-managed-peer",
+      "requires": ["core.submit"],
       "note": "managed-only: a native peer after the guard can bypass it",
       "host": {
         "guardPosition": "managed",
@@ -759,6 +768,7 @@
     },
     {
       "id": "V1-final-peer",
+      "requires": ["core.submit"],
       "host": {
         "guardPosition": "final-boundary",
         "nativePeer": "inject-todo"
@@ -781,6 +791,7 @@
     },
     {
       "id": "V1-require-final",
+      "requires": ["core.submit"],
       "host": {
         "guardPosition": "managed"
       },

@@ -1,0 +1,22 @@
+{
+  "kind": "generator/v1",
+  "provenance": {
+    "source": "experiments/platform/core/fuzz.mjs (seed 0x11c0ffee, 10,000 runs; r11-platform-core § K6), rebuilt on the 2.0-pre core with held and racing commits",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "generator": "edits",
+  "seed": 297861102,
+  "sizes": {
+    "pr": 10000,
+    "nightly": 10000
+  },
+  "session": "fresh",
+  "target": {
+    "kind": "editor-ops",
+    "plugins": ["autocorrect", "counter", "stale"],
+    "trust": "builtin",
+    "requires": ["core.edits"]
+  },
+  "failures": "core/edits/fuzz-regressions.json"
+}

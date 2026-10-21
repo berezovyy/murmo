@@ -40,6 +40,12 @@
       "variants": 35
     },
     {
+      "file": "core/edits/edits.json",
+      "owner": "05",
+      "cases": 25,
+      "variants": 25
+    },
+    {
       "file": "core/conformance/containment.json",
       "owner": "09, 10",
       "cases": 1,
@@ -48,6 +54,10 @@
     {
       "file": "generators/burst.json",
       "owner": "02, 07"
+    },
+    {
+      "file": "generators/edits.json",
+      "owner": "05"
     },
     {
       "file": "generators/ledger.json",
@@ -59,8 +69,8 @@
     },
     {
       "file": "generators/streams.json",
-      "owner": "02",
-      "cases": 5
+      "owner": "02, 05",
+      "cases": 6
     },
     {
       "file": "generators/unicode.json",

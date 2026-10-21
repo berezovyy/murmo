@@ -3,8 +3,9 @@
 // launchers and CLI in src/node/.
 
 export { compare } from './compare.ts';
+export { type CoreSubjectOptions, capsFor, coreFeatures, createCoreSubject, PEER_TODO } from './core.ts';
 export { evaluate, forTrust, type MenuRow, type Observation } from './expect.ts';
-export { type GuestRequest, runPure } from './guest.ts';
+export { coreSuites, type GuestRequest, runCore, runPure } from './guest.ts';
 export { type DriverDelta, interpretEditorCase, type KeyTiming, namedStates, type StepDriver } from './interpreter.ts';
 export {
   type FixtureSource,
@@ -16,6 +17,7 @@ export {
   variantsOf,
 } from './load.ts';
 export { planRuns, planSuite, unmet } from './plan.ts';
+export { type PluginBuild, pluginFeatures, plugins, type RegisteredPlugin } from './plugins.ts';
 export {
   createPureSubject,
   type PureEntry,

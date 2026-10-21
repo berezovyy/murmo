@@ -51,6 +51,11 @@
       "source": "experiments/platform/devkit/followup/tests.mjs",
       "why": "Small plugins for the third-party rule groups; settings.mode picks one."
     },
+    "edits": {
+      "file": "plugins/edits.js",
+      "source": "new (phase 05)",
+      "why": "One edit on a trigger, interleaved appends, and a change recorder: commit failures, undo order, pending merge."
+    },
     "conflicts": {
       "file": "plugins/conflicts.js",
       "source": "experiments/platform/hosts-r14/conflicts/{A,B,guard}.mjs",

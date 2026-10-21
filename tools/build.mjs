@@ -19,7 +19,9 @@ export const targets = {
   node: { format: 'esm', platform: 'node', target: 'node24', portable: false },
   bun: { format: 'esm', platform: 'neutral', target: 'es2022', portable: true },
   claude: { format: 'esm', platform: 'neutral', target: 'es2022', portable: true },
-  quickjs: { format: 'iife', platform: 'neutral', target: 'es2020', portable: true },
+  // es2022, not es2020: esbuild lowers private class members for es2020 to WeakMaps, and QuickJS
+  // (2025-09-13) never frees the cycles those make with closures; a long core run leaks (phase 05).
+  quickjs: { format: 'iife', platform: 'neutral', target: 'es2022', portable: true },
 };
 
 /** Every (package, bundle, target) the workspace declares. */

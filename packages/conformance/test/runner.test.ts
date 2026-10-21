@@ -20,12 +20,22 @@ const suite = (file: string): LoadedSuite => {
   return found;
 };
 
-/** Capabilities of an editor subject like the core with both executors (no driver: planning only). */
+/** A fully capable editor subject (planning only): unmet `requires` must not hide expansion and declared skips. */
 const editorCaps: Capabilities = {
   kinds: ['editor-ops'],
   executors: ['in-process', 'isolated'],
   trust: ['builtin', 'third-party'],
-  features: {},
+  features: {
+    'core.edits': true,
+    'core.keys': true,
+    'core.submit': true,
+    'core.permissions': true,
+    'core.inline': true,
+    'plugin.snippets': 'release',
+    'plugin.todo-guard': 'sample',
+    'plugin.autocorrect': 'release',
+    'executor.isolated': true,
+  },
 };
 
 function subjectWith(run: () => Observed, caps: Capabilities = editorCaps): Subject {

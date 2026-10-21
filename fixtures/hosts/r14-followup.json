@@ -15,6 +15,7 @@
   "cases": [
     {
       "id": "order-AB-ghost",
+      "requires": ["core.keys"],
       "tags": ["order"],
       "plugins": [
         {
@@ -63,6 +64,7 @@
     },
     {
       "id": "order-AB-menu",
+      "requires": ["core.keys"],
       "tags": ["order"],
       "plugins": [
         {
@@ -149,6 +151,7 @@
     },
     {
       "id": "order-AB-submit",
+      "requires": ["core.submit"],
       "tags": ["order"],
       "note": "Built-in submit transforms run in plugin order.",
       "plugins": [
@@ -188,6 +191,7 @@
     },
     {
       "id": "order-BA-ghost",
+      "requires": ["core.keys"],
       "tags": ["order"],
       "plugins": [
         {
@@ -236,6 +240,7 @@
     },
     {
       "id": "order-BA-menu",
+      "requires": ["core.keys"],
       "tags": ["order"],
       "plugins": [
         {
@@ -322,6 +327,7 @@
     },
     {
       "id": "order-BA-submit",
+      "requires": ["core.submit"],
       "tags": ["order"],
       "note": "Built-in submit transforms run in plugin order.",
       "plugins": [
@@ -361,6 +367,7 @@
     },
     {
       "id": "guard-blocks-submit",
+      "requires": ["core.submit"],
       "plugins": [
         {
           "id": "A",
@@ -401,6 +408,7 @@
     },
     {
       "id": "menu-enter-never-sends",
+      "requires": ["core.keys", "core.submit"],
       "tags": ["menu-enter"],
       "note": "r14 measured Enter in a plugin menu sending on 0/8 host rows after the fix; Enter is not advertised as interceptable.",
       "plugins": [

@@ -1,5 +1,6 @@
 import type { EditorCase, GeneratorName, PureCase } from '../format.ts';
 import { burst } from './burst.ts';
+import { edits } from './edits.ts';
 import { ledger } from './ledger.ts';
 import { provenance } from './provenance.ts';
 import { Sha256 } from './sha256.ts';
@@ -7,6 +8,7 @@ import { addCounts, type Generator } from './types.ts';
 import { unicode } from './unicode.ts';
 
 export { type BurstPart, type BurstSpec, burst, reviewedPairs } from './burst.ts';
+export { type EditsOp, type EditsSpec, type EditsTiming, edits, editTypos } from './edits.ts';
 export { type LedgerOp, type LedgerSpec, ledger, ledgerAlphabet } from './ledger.ts';
 export { type Random, xorshift32 } from './prng.ts';
 export { type ProvenanceOp, type ProvenanceSpec, provenance, provenanceGraphemes } from './provenance.ts';
@@ -20,6 +22,7 @@ export const generators: Record<GeneratorName, Generator<any, EditorCase | PureC
   unicode,
   provenance,
   ledger,
+  edits,
 };
 
 export function generatorOf(name: string): Generator<unknown, EditorCase | PureCase> {

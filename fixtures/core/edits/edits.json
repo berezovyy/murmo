@@ -1,0 +1,1087 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (phase 05): commit failures, the undo window, pending merge, degraded origin and presentation; the interleaved undo from experiments/platform/core/fuzz.mjs",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "both",
+    "requires": ["core.edits"]
+  },
+  "cases": [
+    {
+      "id": "commit-stale",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `stale`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "stale"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.stale": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-cancelled",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `cancelled`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "cancelled"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.cancelled": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-denied",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `denied`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "denied"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.denied": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-invalid-range",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `invalid-range`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "invalid-range"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.invalid-range": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-unsupported",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `unsupported`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "unsupported"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.unsupported": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-error",
+      "tags": ["commit-failure"],
+      "note": "The host answers every commit `error`: nothing changes, no undo is armed, and Backspace goes to the host.",
+      "host": {
+        "commitStatus": "error"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "teh ",
+              "cursor": 4
+            },
+            "stats": {
+              "undoDepth": 0,
+              "commits.error": 1
+            }
+          }
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "commit-version-race",
+      "tags": ["commit-failure"],
+      "note": "A competing change lands just before the host's version check: the commit is stale and the newer text stays.",
+      "host": {
+        "commitTiming": "compete",
+        "raceText": "x"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh x",
+          "cursor": 5
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "commits.stale": 1,
+          "undoDepth": 0
+        }
+      }
+    },
+    {
+      "id": "commit-held-then-typed",
+      "tags": ["commit-failure", "pending-merge"],
+      "note": "The commit is still in flight when the next key lands: it is dropped, and the key's change is published after it.",
+      "host": {
+        "commitTiming": "hold"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "x"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh x",
+          "cursor": 5
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "stale": 1,
+          "applied": 0
+        }
+      }
+    },
+    {
+      "id": "commit-cancelled-by-key",
+      "tags": ["commit-failure"],
+      "note": "A key that changes nothing still starts a new epoch: the in-flight commit is cancelled at the host.",
+      "host": {
+        "commitTiming": "hold"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Escape",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "commits.cancelled": 1
+        }
+      }
+    },
+    {
+      "id": "commit-range-past-draft",
+      "tags": ["commit-failure"],
+      "note": "A plugin edit that ends past the draft is refused by the core before the host sees it.",
+      "plugins": [
+        {
+          "id": "edits",
+          "plugin": "edits",
+          "settings": {
+            "mode": "once",
+            "range": "invalid"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "go"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "go",
+          "cursor": 2
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "commits.invalid-range": 1
+        }
+      }
+    },
+    {
+      "id": "commit-unsafe-text",
+      "tags": ["commit-failure"],
+      "note": "An edit inserting a bidi override is denied with one notice.",
+      "plugins": [
+        {
+          "id": "edits",
+          "plugin": "edits",
+          "settings": {
+            "mode": "once",
+            "insert": "\u202eGO"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "go"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "go",
+          "cursor": 2
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "commits.denied": 1
+        },
+        "notices": ["edits: unsafe text rejected"],
+        "never": {
+          "draft": ["\u202e"]
+        }
+      }
+    },
+    {
+      "id": "commit-unknown-certainty",
+      "tags": ["commit-failure"],
+      "note": "A draft the host can't vouch for is never edited.",
+      "host": {
+        "certainty": "unknown"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "applied": 0
+        }
+      }
+    },
+    {
+      "id": "end-only-host",
+      "tags": ["capabilities"],
+      "note": "A host that can edit only at the end refuses the C2 middle edit and still takes an end edit.",
+      "host": {
+        "edit": {
+          "middle": false
+        }
+      },
+      "steps": [
+        {
+          "type": "a teh"
+        },
+        {
+          "paste": " tail"
+        },
+        {
+          "move": 5
+        },
+        {
+          "key": " "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "a teh  tail",
+              "cursor": 6
+            },
+            "stats": {
+              "commits.unsupported": 1
+            }
+          }
+        },
+        {
+          "move": 11
+        },
+        {
+          "type": " teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "a teh  tail the ",
+          "cursor": 16
+        },
+        "stats": {
+          "applied": 1,
+          "commits.unsupported": 1
+        }
+      }
+    },
+    {
+      "id": "restore-stale",
+      "tags": ["commit-failure", "undo"],
+      "note": "The host refuses the restore: the correction stays, and the undo window is gone.",
+      "host": {
+        "restoreStatus": "stale"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Backspace",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "the ",
+          "cursor": 4
+        },
+        "stats": {
+          "restores": 0,
+          "undoDepth": 0
+        }
+      }
+    },
+    {
+      "id": "no-exact-restore",
+      "tags": ["undo"],
+      "note": "A host without exact restore gets no owned undo: Backspace is the host's own.",
+      "host": {
+        "edit": {
+          "exactRestore": false
+        }
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "the",
+          "cursor": 3
+        },
+        "stats": {
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "interleaved-undo-order",
+      "tags": ["undo"],
+      "note": "Two plugins edit in a row; the undo key restores them newest first, each exactly (prototype fuzz.mjs).",
+      "plugins": [
+        {
+          "id": "first",
+          "plugin": "edits",
+          "settings": {
+            "mode": "append",
+            "after": "!",
+            "insert": "A"
+          }
+        },
+        {
+          "id": "second",
+          "plugin": "edits",
+          "settings": {
+            "mode": "append",
+            "after": "!A",
+            "insert": "B"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "key": "!"
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "!AB",
+              "cursor": 3
+            },
+            "stats": {
+              "undoDepth": 2
+            }
+          }
+        },
+        {
+          "key": "F6",
+          "routing": "consume"
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "!A",
+              "cursor": 2
+            },
+            "stats": {
+              "undoDepth": 1
+            }
+          }
+        },
+        {
+          "key": "F6",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "!",
+          "cursor": 1,
+          "typedSpans": [[0, 1]]
+        },
+        "stats": {
+          "undoDepth": 0,
+          "restores": 2
+        }
+      }
+    },
+    {
+      "id": "undo-after-typing-passes",
+      "tags": ["undo"],
+      "note": "Pi-style redo-after-typing: once a key follows the correction, the undo key is the host's and Murmo's record is gone (lesson 67).",
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "a"
+        },
+        {
+          "key": "F6",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "the a",
+          "cursor": 5
+        },
+        "stats": {
+          "undoDepth": 0,
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "undo-after-move-passes",
+      "tags": ["undo"],
+      "note": "A cursor move closes the undo window: Backspace deletes natively at the new cursor.",
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Left"
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "th ",
+          "cursor": 2
+        },
+        "stats": {
+          "restores": 0
+        }
+      }
+    },
+    {
+      "id": "backspace-restores-typed-spans",
+      "tags": ["undo"],
+      "note": "Backspace after a correction restores the typed word with its typed coverage, minus the separator.",
+      "steps": [
+        {
+          "type": "ok teh "
+        },
+        {
+          "key": "Backspace",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "ok teh",
+          "cursor": 6,
+          "typedSpans": [[0, 6]]
+        },
+        "stats": {
+          "restores": 1
+        }
+      }
+    },
+    {
+      "id": "pending-merge-during-commit",
+      "tags": ["pending-merge"],
+      "note": "Two keys land while the correction commits: they are published after it as one change with both deltas, in order.",
+      "host": {
+        "commitTiming": "race",
+        "raceText": "xy"
+      },
+      "plugins": [
+        "autocorrect",
+        {
+          "id": "rec",
+          "plugin": "edits",
+          "settings": {
+            "mode": "record"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "the xy",
+          "cursor": 6
+        },
+        "stats": {
+          "corrections": 1,
+          "undoDepth": 0
+        },
+        "storage": {
+          "rec": {
+            "includes": [
+              "\"deltas\":[{\"origin\":\"typed\",\"from\":4,\"to\":4,\"insert\":\"x\"},{\"origin\":\"typed\",\"from\":5,\"to\":5,\"insert\":\"y\"}]"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "degraded-observed-unmarked-C1",
+      "tags": ["degraded-origin"],
+      "note": "With `observed-unmarked` input evidence nothing counts as typed: typed-only reads see no typed spans and C1 makes no correction (round 14 on 2.0.0-pre.0).",
+      "host": {
+        "inputOriginEvidence": "observed-unmarked"
+      },
+      "plugins": [
+        "autocorrect",
+        {
+          "id": "reader",
+          "plugin": "rules",
+          "settings": {
+            "mode": "reader"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3,
+          "typedSpans": []
+        },
+        "stats": {
+          "corrections": 0
+        },
+        "storage": {
+          "reader": {
+            "includes": ["\"typedSpans\":[]"],
+            "excludes": ["\"typedSpans\":[["]
+          }
+        }
+      }
+    },
+    {
+      "id": "degraded-unknown-C1",
+      "tags": ["degraded-origin"],
+      "note": "With `unknown` input evidence nothing counts as typed: typed-only reads see no typed spans and C1 makes no correction (round 14 on 2.0.0-pre.0).",
+      "host": {
+        "inputOriginEvidence": "unknown"
+      },
+      "plugins": [
+        "autocorrect",
+        {
+          "id": "reader",
+          "plugin": "rules",
+          "settings": {
+            "mode": "reader"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Backspace",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3,
+          "typedSpans": []
+        },
+        "stats": {
+          "corrections": 0
+        },
+        "storage": {
+          "reader": {
+            "includes": ["\"typedSpans\":[]"],
+            "excludes": ["\"typedSpans\":[["]
+          }
+        }
+      }
+    },
+    {
+      "id": "status-hidden-in-dialog",
+      "tags": ["presentation"],
+      "note": "Status hides while a native dialog shows and comes back after it closes (lesson 74).",
+      "host": {
+        "dialogSafe": true
+      },
+      "plugins": ["counter"],
+      "steps": [
+        {
+          "type": "ab"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "2 chars"
+            }
+          }
+        },
+        {
+          "state": {
+            "dialog": true
+          }
+        },
+        {
+          "check": {
+            "ui": {
+              "status": null
+            }
+          }
+        },
+        {
+          "state": {
+            "dialog": false
+          }
+        }
+      ],
+      "expect": {
+        "ui": {
+          "statusIncludes": "2 chars"
+        }
+      }
+    },
+    {
+      "id": "stale-effects-never-shown",
+      "tags": ["presentation"],
+      "note": "Effects for an older version are dropped: no ghost, menu, highlight or edit from them.",
+      "plugins": ["stale"],
+      "steps": [
+        {
+          "type": "ab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "ab",
+          "cursor": 2
+        },
+        "ui": {
+          "ghost": null,
+          "menu": null
+        },
+        "edits": {
+          "applied": 0
+        },
+        "stats": {
+          "stale": {
+            "min": 8
+          }
+        }
+      }
+    },
+    {
+      "id": "edit-during-submit",
+      "tags": ["submit"],
+      "requires": ["core.edits", "core.submit"],
+      "note": "An edit that commits after the submit snapshot makes that submit block; nothing edited is sent (r14 S1 last-moment rewrite).",
+      "pacing": "unsettled",
+      "plugins": [
+        {
+          "id": "late",
+          "plugin": "edits",
+          "settings": {
+            "mode": "once",
+            "trigger": "send",
+            "insert": "EDITED",
+            "delayMs": 20
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "send"
+        },
+        {
+          "submit": "send"
+        },
+        {
+          "waitMs": 30
+        }
+      ],
+      "expect": {
+        "never": {
+          "request": ["EDITED"]
+        }
+      }
+    }
+  ]
+}

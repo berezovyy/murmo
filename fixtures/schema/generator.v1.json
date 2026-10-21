@@ -8,7 +8,7 @@
   "properties": {
     "kind": { "const": "generator/v1" },
     "provenance": { "$ref": "common.json#/$defs/provenance" },
-    "generator": { "enum": ["burst", "unicode", "provenance", "ledger"] },
+    "generator": { "enum": ["burst", "unicode", "provenance", "ledger", "edits"] },
     "seed": { "type": "integer", "minimum": 1 },
     "sizes": {
       "type": "object",
@@ -26,7 +26,9 @@
           "properties": {
             "kind": { "const": "editor-ops" },
             "plugins": { "$ref": "common.json#/$defs/plugins" },
-            "trust": { "$ref": "common.json#/$defs/trust" }
+            "trust": { "$ref": "common.json#/$defs/trust" },
+            "host": { "$ref": "common.json#/$defs/hostSetup" },
+            "requires": { "$ref": "common.json#/$defs/strings" }
           }
         },
         {

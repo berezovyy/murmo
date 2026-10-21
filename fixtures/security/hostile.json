@@ -228,6 +228,7 @@
     },
     {
       "id": "S2-transform-true",
+      "requires": ["core.submit"],
       "note": "r14: a third-party replace at send rewrote the prompt. 2.0-pre: a third-party replace blocks, whatever the host supports.",
       "plugins": [
         {
@@ -258,6 +259,7 @@
     },
     {
       "id": "S2-transform-false",
+      "requires": ["core.submit"],
       "note": "r14: a third-party replace at send was ignored. 2.0-pre: a third-party replace blocks, whatever the host supports.",
       "plugins": [
         {
@@ -288,6 +290,7 @@
     },
     {
       "id": "S2-defence",
+      "requires": ["core.submit"],
       "note": "r14 blocked the rewrite with a wrapper; 2.0-pre blocks it in the core.",
       "plugins": [
         {
@@ -315,6 +318,7 @@
     },
     {
       "id": "S3-osc52",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -345,6 +349,7 @@
     },
     {
       "id": "S3-osc8",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -375,6 +380,7 @@
     },
     {
       "id": "S3-cursor",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -405,6 +411,7 @@
     },
     {
       "id": "S3-paste",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -435,6 +442,7 @@
     },
     {
       "id": "S3-c1",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -465,6 +473,7 @@
     },
     {
       "id": "S3-bidi",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -495,6 +504,7 @@
     },
     {
       "id": "S3-plain",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -525,6 +535,7 @@
     },
     {
       "id": "S3-zero",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -555,6 +566,7 @@
     },
     {
       "id": "S3-newline",
+      "requires": ["core.keys"],
       "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
       "plugins": [
         {
@@ -658,6 +670,7 @@
     },
     {
       "id": "S5-key-hijack-with-no-permissions",
+      "requires": ["core.keys"],
       "note": "r14: a plugin with no permissions claimed Tab always/consume and swallowed the victim's accept-ghost. 2.0-pre refuses the third-party shared-key claim, so Tab reaches the victim.",
       "plugins": [
         {
@@ -717,6 +730,7 @@
     },
     {
       "id": "S5-name-status-impersonation",
+      "requires": ["core.keys"],
       "note": "A plugin named \"Trusted Guard\" cannot pass for one: status and menu use the real ID.",
       "plugins": [
         {
@@ -743,6 +757,7 @@
     },
     {
       "id": "S5-menu-flood",
+      "requires": ["core.keys"],
       "note": "A 1,000-row menu and a 4 KiB status: the core keeps at most 128 rows per plugin and cuts status to 512 units (phases 05, 06).",
       "plugins": [
         {

@@ -10,6 +10,19 @@ import { Sha256, sha256, summarize, unicode } from '../generators/index.ts';
 const reference = (file: string): GeneratorFile =>
   JSON.parse(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'));
 
+test('edits seed 0x11c0ffee (297861102) pins 10,000-stream counts so a changed oracle cannot hide (E12)', () => {
+  const file = reference('generators/edits.json');
+  const streams = JSON.parse(readFileSync(new URL('../generators/streams.json', import.meta.url), 'utf8')) as {
+    cases: { id: string; output: { counts: Record<string, number>; streamHash: string } }[];
+  };
+  const pinned = streams.cases.find((c) => c.id === 'edits-297861102-10000');
+  assert.ok(file.seed === 297861102 && pinned);
+  const { counts, streamHash } = summarize('edits', file.seed, file.sizes.pr);
+  assert.deepEqual(counts, pinned.output.counts);
+  assert.equal(streamHash, pinned.output.streamHash);
+  assert.equal(counts.runs, 10000);
+});
+
 test('burst seed 1306637 reproduces the r13/r14 per-cohort counts over 10,000 streams', () => {
   const burst = reference('generators/burst.json');
   assert.ok(burst.reference);

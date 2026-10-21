@@ -1,13 +1,13 @@
-// murmo-conformance: load and check the fixtures, run the pure subject on
-// each runtime, compare verdicts across runtimes, self-test the suites.
+// murmo-conformance: load and check the fixtures, run a subject on each
+// runtime, compare verdicts across runtimes, self-test the suites.
 //
 //   node packages/conformance/src/node/cli.ts check
-//   node packages/conformance/src/node/cli.ts run [--runtime <name>|all] [--mode pr|nightly] [--out <file.jsonl>]
+//   node packages/conformance/src/node/cli.ts run [--subject pure|core] [--runtime <name>|all] [--mode pr|nightly] [--out <file.jsonl>]
 //   node packages/conformance/src/node/cli.ts compare <verdicts.jsonl>...
 //   node packages/conformance/src/node/cli.ts self-test
 //
-// `run` with several runtimes also compares them. The core, helper and host
-// subjects plug in from phases 05, 10 and 20; until then only `pure` runs.
+// `run` with several runtimes also compares them. Default subject is `pure`.
+// The helper and host subjects plug in from phases 10 and 20.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -16,7 +16,15 @@ import { createPureSubject } from '../pure.ts';
 import { selfTest } from '../self-test.ts';
 import type { RunOptions, Verdict } from '../types.ts';
 import { loadFixtureDir } from './fixtures.ts';
-import { bunAvailable, launch, type RuntimeName, runtimes } from './launchers.ts';
+import {
+  bunAvailable,
+  type CoreRuntimeName,
+  coreRuntimes,
+  launch,
+  launchCore,
+  type RuntimeName,
+  runtimes,
+} from './launchers.ts';
 
 export const toJsonl = (verdicts: readonly Verdict[]) => verdicts.map((v) => `${JSON.stringify(v)}\n`).join('');
 export const fromJsonl = (text: string): Verdict[] =>
@@ -56,19 +64,27 @@ async function main(argv: string[]): Promise<number> {
     const { values } = parseArgs({
       args: rest,
       options: {
+        subject: { type: 'string', default: 'pure' },
         runtime: { type: 'string', default: 'all' },
         mode: { type: 'string', default: 'pr' },
         out: { type: 'string' },
       },
     });
     const mode = values.mode === 'nightly' ? 'nightly' : 'pr';
-    const chosen: RuntimeName[] =
-      values.runtime === 'all' ? [...runtimes] : [values.runtime as RuntimeName].filter((r) => runtimes.includes(r));
-    if (chosen.length === 0) throw new Error(`unknown runtime "${values.runtime}"; one of ${runtimes.join(', ')}, all`);
+    const subject = values.subject === 'core' ? 'core' : 'pure';
+    const pool: readonly string[] = subject === 'core' ? coreRuntimes : runtimes;
+    const chosen = (values.runtime === 'all' ? [...pool] : [values.runtime]).filter((r) => pool.includes(r));
+    if (chosen.length === 0) throw new Error(`unknown runtime "${values.runtime}"; one of ${pool.join(', ')}, all`);
     if (chosen.includes('bun') && !bunAvailable()) throw new Error('bun is not on PATH (set MURMO_BUN to its path)');
     const { suites } = load();
     const verdicts: Verdict[] = [];
-    for (const runtime of chosen) verdicts.push(...(await launch(runtime, suites, { mode })).verdicts);
+    for (const runtime of chosen) {
+      const result =
+        subject === 'core'
+          ? await launchCore(runtime as CoreRuntimeName, suites, { mode })
+          : await launch(runtime as RuntimeName, suites, { mode });
+      verdicts.push(...result.verdicts);
+    }
     if (values.out) writeFileSync(values.out, toJsonl(verdicts));
     console.log(summary(verdicts));
     const failed = verdicts.filter((v) => v.status === 'fail');
@@ -93,7 +109,7 @@ async function main(argv: string[]): Promise<number> {
     return results.some((r) => r.outcome === 'missed') ? 1 : 0;
   }
   console.error(
-    'usage: cli.ts check | run [--runtime <name>|all] [--mode pr|nightly] [--out file] | compare <files> | self-test',
+    'usage: cli.ts check | run [--subject pure|core] [--runtime <name>|all] [--mode pr|nightly] [--out file] | compare <files> | self-test',
   );
   return 2;
 }
