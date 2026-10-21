@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "common.json",
+  "description": "Shared definitions for every fixture kind. fixtures/format.ts has the same shapes as TypeScript types; change both together.",
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "fnName": { "type": "string", "pattern": "^[a-z]\\w*(\\.[A-Za-z]\\w*)+$" },
+    "provenance": {
+      "type": "object",
+      "required": ["source", "license", "author"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "license": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 }
+      }
+    },
+    "origin": {
+      "enum": ["typed", "paste", "ime", "fill", "history", "native-menu", "plugin", "undo", "unknown"]
+    },
+    "gesture": { "enum": ["send", "queue", "steer", "newline"] },
+    "editorMode": { "enum": ["insert", "normal", "visual", "replace", "unknown"] },
+    "stateName": { "enum": ["busy", "popup", "dialog", "history", "vim-normal", "unknown"] },
+    "textSpec": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["repeat", "times"],
+          "additionalProperties": false,
+          "properties": {
+            "repeat": { "type": "string", "minLength": 1 },
+            "times": { "type": "integer", "minimum": 1 }
+          }
+        },
+        { "type": "array", "items": { "$ref": "#/$defs/textSpec" } }
+      ]
+    },
+    "offset": { "type": "integer", "minimum": 0 },
+    "range": {
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/offset" }, { "$ref": "#/$defs/offset" }],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "count": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "min": { "type": "integer", "minimum": 0 }, "max": { "type": "integer", "minimum": 0 } }
+        }
+      ]
+    },
+    "strings": { "type": "array", "items": { "type": "string" } },
+    "hostState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["prose", "shell", "command", "unknown"] },
+        "popup": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["owner"],
+              "additionalProperties": false,
+              "properties": { "owner": { "type": "string" } }
+            }
+          ]
+        },
+        "dialog": { "type": "boolean" },
+        "busy": { "type": "boolean" },
+        "editorMode": { "$ref": "#/$defs/editorMode" },
+        "history": { "type": "boolean" }
+      }
+    },
+    "stateValue": {
+      "anyOf": [
+        { "$ref": "#/$defs/stateName" },
+        { "const": "$variant" },
+        {
+          "type": "object",
+          "required": ["editorMode"],
+          "additionalProperties": false,
+          "properties": { "editorMode": { "const": "$variant" } }
+        },
+        { "$ref": "#/$defs/hostState" }
+      ]
+    },
+    "burstDelta": {
+      "type": "object",
+      "required": ["origin", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "origin": { "$ref": "#/$defs/origin" },
+        "text": { "$ref": "#/$defs/textSpec" },
+        "from": { "$ref": "#/$defs/offset" },
+        "to": { "$ref": "#/$defs/offset" }
+      }
+    },
+    "step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": { "type": { "$ref": "#/$defs/textSpec" } }
+        },
+        {
+          "type": "object",
+          "required": ["burst"],
+          "additionalProperties": false,
+          "properties": {
+            "burst": { "type": "array", "items": { "$ref": "#/$defs/burstDelta" } },
+            "key": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["paste"],
+          "additionalProperties": false,
+          "properties": { "paste": { "$ref": "#/$defs/textSpec" } }
+        },
+        {
+          "type": "object",
+          "required": ["ime"],
+          "additionalProperties": false,
+          "properties": { "ime": { "$ref": "#/$defs/textSpec" } }
+        },
+        {
+          "type": "object",
+          "required": ["fill"],
+          "additionalProperties": false,
+          "properties": {
+            "fill": { "$ref": "#/$defs/textSpec" },
+            "origin": { "$ref": "#/$defs/origin" },
+            "cursor": { "$ref": "#/$defs/offset" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["history"],
+          "additionalProperties": false,
+          "properties": { "history": { "$ref": "#/$defs/textSpec" } }
+        },
+        {
+          "type": "object",
+          "required": ["key"],
+          "additionalProperties": false,
+          "properties": { "key": { "type": "string", "minLength": 1 }, "routing": { "enum": ["pass", "consume"] } }
+        },
+        {
+          "type": "object",
+          "required": ["move"],
+          "additionalProperties": false,
+          "properties": { "move": { "$ref": "#/$defs/offset" } }
+        },
+        {
+          "type": "object",
+          "required": ["select"],
+          "additionalProperties": false,
+          "properties": { "select": { "$ref": "#/$defs/range" } }
+        },
+        {
+          "type": "object",
+          "required": ["state"],
+          "additionalProperties": false,
+          "properties": { "state": { "$ref": "#/$defs/stateValue" } }
+        },
+        {
+          "type": "object",
+          "required": ["submit"],
+          "additionalProperties": false,
+          "properties": { "submit": { "$ref": "#/$defs/gesture" } }
+        },
+        {
+          "type": "object",
+          "required": ["settle"],
+          "additionalProperties": false,
+          "properties": { "settle": { "const": true } }
+        },
+        {
+          "type": "object",
+          "required": ["waitMs"],
+          "additionalProperties": false,
+          "properties": { "waitMs": { "type": "number", "minimum": 0 } }
+        },
+        {
+          "type": "object",
+          "required": ["check"],
+          "additionalProperties": false,
+          "properties": { "check": { "$ref": "#/$defs/expect" } }
+        }
+      ]
+    },
+    "expectFields": {
+      "draft": {
+        "type": "object",
+        "additionalProperties": false,
+        "anyOf": [{ "required": ["text"] }, { "required": ["endsWith"] }],
+        "properties": {
+          "text": { "$ref": "#/$defs/textSpec" },
+          "endsWith": { "type": "string", "minLength": 1 },
+          "cursor": { "$ref": "#/$defs/offset" },
+          "selection": { "$ref": "#/$defs/range" },
+          "typedSpans": { "type": "array", "items": { "$ref": "#/$defs/range" } }
+        }
+      },
+      "requests": { "type": "array", "items": { "$ref": "#/$defs/textSpec" } },
+      "ui": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ghost": { "type": ["string", "null"] },
+          "menu": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/strings" }] },
+          "menuOwners": { "$ref": "#/$defs/strings" },
+          "menuRows": { "$ref": "#/$defs/count" },
+          "status": { "type": ["string", "null"] },
+          "statusIncludes": { "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/strings" }] },
+          "statusLength": { "$ref": "#/$defs/count" },
+          "safeText": { "type": "array", "items": { "enum": ["status", "menu", "ghost"] } }
+        }
+      },
+      "notices": { "$ref": "#/$defs/strings" },
+      "stats": { "type": "object", "additionalProperties": { "$ref": "#/$defs/count" } },
+      "disabled": { "$ref": "#/$defs/strings" },
+      "enabled": { "$ref": "#/$defs/strings" },
+      "edits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applied": { "$ref": "#/$defs/count" },
+          "unattributed": { "$ref": "#/$defs/count" },
+          "attributedTo": { "$ref": "#/$defs/strings" }
+        }
+      },
+      "storage": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "includes": { "$ref": "#/$defs/strings" }, "excludes": { "$ref": "#/$defs/strings" } }
+        }
+      },
+      "never": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request": { "$ref": "#/$defs/strings" },
+          "draft": { "$ref": "#/$defs/strings" },
+          "status": { "$ref": "#/$defs/strings" }
+        }
+      },
+      "withinMs": { "type": "number", "minimum": 0 }
+    },
+    "expectBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "draft": { "$ref": "#/$defs/expectFields/draft" },
+        "requests": { "$ref": "#/$defs/expectFields/requests" },
+        "ui": { "$ref": "#/$defs/expectFields/ui" },
+        "notices": { "$ref": "#/$defs/expectFields/notices" },
+        "stats": { "$ref": "#/$defs/expectFields/stats" },
+        "disabled": { "$ref": "#/$defs/expectFields/disabled" },
+        "enabled": { "$ref": "#/$defs/expectFields/enabled" },
+        "edits": { "$ref": "#/$defs/expectFields/edits" },
+        "storage": { "$ref": "#/$defs/expectFields/storage" },
+        "never": { "$ref": "#/$defs/expectFields/never" },
+        "withinMs": { "$ref": "#/$defs/expectFields/withinMs" }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "draft": { "$ref": "#/$defs/expectFields/draft" },
+        "requests": { "$ref": "#/$defs/expectFields/requests" },
+        "ui": { "$ref": "#/$defs/expectFields/ui" },
+        "notices": { "$ref": "#/$defs/expectFields/notices" },
+        "stats": { "$ref": "#/$defs/expectFields/stats" },
+        "disabled": { "$ref": "#/$defs/expectFields/disabled" },
+        "enabled": { "$ref": "#/$defs/expectFields/enabled" },
+        "edits": { "$ref": "#/$defs/expectFields/edits" },
+        "storage": { "$ref": "#/$defs/expectFields/storage" },
+        "never": { "$ref": "#/$defs/expectFields/never" },
+        "withinMs": { "$ref": "#/$defs/expectFields/withinMs" },
+        "thirdParty": { "$ref": "#/$defs/expectBase" }
+      }
+    },
+    "pluginRef": {
+      "anyOf": [
+        { "$ref": "#/$defs/id" },
+        {
+          "type": "object",
+          "required": ["id", "plugin"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "plugin": { "$ref": "#/$defs/id" },
+            "settings": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "plugins": { "type": "array", "items": { "$ref": "#/$defs/pluginRef" } },
+    "trust": { "enum": ["builtin", "third-party", "both"] },
+    "requires": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z][\\w.:-]*(=[^=]+)?$" } },
+    "skip": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason"],
+        "additionalProperties": false,
+        "properties": {
+          "runtime": { "type": "string" },
+          "executor": { "type": "string" },
+          "subject": { "type": "string" },
+          "trust": { "enum": ["builtin", "third-party"] },
+          "reason": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "hostSetup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "guardPosition": { "enum": ["managed", "final-boundary"] },
+        "nativePeer": { "const": "inject-todo" },
+        "tabQueues": { "type": "boolean" },
+        "inputOriginEvidence": { "enum": ["host-labeled", "observed-unmarked", "unknown"] },
+        "dialogSafe": { "type": "boolean" },
+        "unadvertisedKeys": { "$ref": "#/$defs/strings" },
+        "submitTransform": { "type": "boolean" }
+      }
+    },
+    "grants": { "type": "object", "additionalProperties": { "$ref": "#/$defs/strings" } },
+    "settings": { "type": "object" },
+    "project": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/_.-]*$" },
+    "pacing": { "enum": ["settled", "unsettled"] },
+    "editorCase": {
+      "type": "object",
+      "required": ["id", "steps", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "tags": { "$ref": "#/$defs/strings" },
+        "note": { "type": "string" },
+        "requires": { "$ref": "#/$defs/requires" },
+        "plugins": { "$ref": "#/$defs/plugins" },
+        "grants": { "$ref": "#/$defs/grants" },
+        "settings": { "$ref": "#/$defs/settings" },
+        "project": { "$ref": "#/$defs/project" },
+        "trust": { "$ref": "#/$defs/trust" },
+        "host": { "$ref": "#/$defs/hostSetup" },
+        "core": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "guardPolicy": { "const": "final-boundary" } }
+        },
+        "pacing": { "$ref": "#/$defs/pacing" },
+        "variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "states": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/stateName" } },
+            "editorModes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/editorMode" } }
+          }
+        },
+        "control": { "type": "boolean" },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "keyMs": { "type": "number", "minimum": 0 },
+            "changeMs": { "type": "number", "minimum": 0 },
+            "baseline": {
+              "type": "object",
+              "required": ["case", "factor"],
+              "additionalProperties": false,
+              "properties": { "case": { "$ref": "#/$defs/id" }, "factor": { "type": "number", "minimum": 1 } }
+            }
+          }
+        },
+        "measure": {
+          "type": "object",
+          "required": ["key", "repeat", "quantiles", "unit", "scope"],
+          "additionalProperties": false,
+          "properties": {
+            "key": { "type": "string" },
+            "repeat": { "type": "integer", "minimum": 1 },
+            "quantiles": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+            "unit": { "const": "us" },
+            "scope": { "const": "callback" }
+          }
+        },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
+        "expect": { "$ref": "#/$defs/expect" },
+        "skip": { "$ref": "#/$defs/skip" }
+      }
+    },
+    "pureCase": {
+      "type": "object",
+      "required": ["id", "input", "output"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "fn": { "$ref": "#/$defs/fnName" },
+        "tags": { "$ref": "#/$defs/strings" },
+        "note": { "type": "string" },
+        "requires": { "$ref": "#/$defs/requires" },
+        "input": true,
+        "output": true,
+        "skip": { "$ref": "#/$defs/skip" }
+      }
+    }
+  }
+}

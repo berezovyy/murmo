@@ -1,0 +1,16 @@
+{
+  "kind": "moved/v1",
+  "provenance": {
+    "source": "experiments/names/match/splitter-fixture.json (29 cases; NFC rules stated in the file)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "files": [
+    {
+      "path": "splitter-fixture.json",
+      "source": "experiments/names/match/splitter-fixture.json",
+      "sha256": "e5a5cd661043cd5b58976b2dc2b16ee4e748bda26d7f862a494593c4f833d0cf",
+      "bytes": 2932
+    }
+  ]
+}

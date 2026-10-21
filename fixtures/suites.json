@@ -1,0 +1,100 @@
+{
+  "kind": "suites/v1",
+  "suites": [
+    {
+      "file": "autocorrect/round4.json",
+      "owner": "13",
+      "cases": 50,
+      "variants": 50
+    },
+    {
+      "file": "autocorrect/unicode-r7.json",
+      "owner": "13",
+      "cases": 24,
+      "variants": 24
+    },
+    {
+      "file": "core/conformance/cases.json",
+      "owner": "05, 06, 07, 08, 09",
+      "cases": 27,
+      "variants": 35
+    },
+    {
+      "file": "core/conformance/containment.json",
+      "owner": "09, 10",
+      "cases": 1,
+      "variants": 1
+    },
+    {
+      "file": "generators/burst.json",
+      "owner": "02, 07"
+    },
+    {
+      "file": "generators/provenance.json",
+      "owner": "02, 04"
+    },
+    {
+      "file": "generators/streams.json",
+      "owner": "02",
+      "cases": 4
+    },
+    {
+      "file": "generators/unicode.json",
+      "owner": "02, 04"
+    },
+    {
+      "file": "hosts/r14-followup.json",
+      "owner": "20, 29",
+      "cases": 14,
+      "variants": 14
+    },
+    {
+      "file": "names/moved.json",
+      "owner": "19"
+    },
+    {
+      "file": "names/splitter.json",
+      "owner": "19, 36",
+      "cases": 29
+    },
+    {
+      "file": "security/followup-rules.json",
+      "owner": "09",
+      "cases": 10,
+      "variants": 10
+    },
+    {
+      "file": "security/hostile.json",
+      "owner": "09, 32",
+      "cases": 28,
+      "variants": 28
+    },
+    {
+      "file": "shortcuts/moved.json",
+      "owner": "15"
+    },
+    {
+      "file": "stress/huge-paste.json",
+      "owner": "02, 05",
+      "cases": 2,
+      "variants": 2
+    },
+    {
+      "file": "stress/ime-normalization.json",
+      "owner": "02, 04, 13",
+      "cases": 6,
+      "variants": 6
+    },
+    {
+      "file": "stress/regex-heavy.json",
+      "owner": "02, 13",
+      "cases": 5,
+      "variants": 5
+    },
+    {
+      "file": "text/offsets-r7.json",
+      "owner": "04",
+      "cases": 10
+    }
+  ]
+}

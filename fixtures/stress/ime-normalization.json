@@ -1,0 +1,134 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/02 § New stress cases; knowledge § Impact). Stand-ins for real IME, which stays a human test (phase 30)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "ime-japanese",
+      "note": "An IME commit is never corrected, even when it holds a reviewed typo.",
+      "steps": [
+        {
+          "type": "a "
+        },
+        {
+          "ime": "日本語のテスト teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "a 日本語のテスト teh ",
+          "cursor": 14,
+          "typedSpans": [[0, 2]]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "ime-pinyin",
+      "note": "Pinyin commits are Latin letters: origin, not script, keeps them uncorrected.",
+      "steps": [
+        {
+          "type": "a "
+        },
+        {
+          "ime": "ni hao teh adn "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "a ni hao teh adn ",
+          "cursor": 17,
+          "typedSpans": [[0, 2]]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "ime-ukrainian",
+      "note": "A Ukrainian layout commit through an IME.",
+      "steps": [
+        {
+          "type": "a "
+        },
+        {
+          "ime": "привіт teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "a привіт teh ",
+          "cursor": 13,
+          "typedSpans": [[0, 2]]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "nfd-typed",
+      "note": "NFD é typed as e + U+0301: offsets count both units.",
+      "steps": [
+        {
+          "type": "cafe\u0301 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "cafe\u0301 ",
+          "cursor": 6
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "nfc-typed",
+      "steps": [
+        {
+          "type": "café "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "café ",
+          "cursor": 5
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "fullwidth-space",
+      "note": "U+3000 is not a word boundary for correction.",
+      "steps": [
+        {
+          "type": "teh\u3000"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh\u3000",
+          "cursor": 4
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/names/match/splitter-fixture.json, read in place",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "names.splitWords",
+  "table": {
+    "file": "splitter-fixture.json",
+    "cases": "cases",
+    "input": "input",
+    "output": "words"
+  }
+}

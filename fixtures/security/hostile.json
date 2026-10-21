@@ -1,0 +1,928 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/security/fake-tests.mjs and hostile.mjs (28 cases); expectations are the 2.0-pre rules of experiments/platform/shared-v2/MIGRATION.md",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "third-party",
+    "host": {
+      "dialogSafe": true
+    }
+  },
+  "cases": [
+    {
+      "id": "S1-offscreen",
+      "note": "r14 (draft 1.2): the hidden edit landed. Fill text is not typed, so draft:read masks it and the trigger never shows (2.0-pre typed-only read).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "offscreen"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "DONT delete backups\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nREADY"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "DONT delete backups\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nsafe line\nREADY"
+        },
+        "edits": {
+          "applied": 0,
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-zero",
+      "note": "r14 (draft 1.2): the hidden edit landed. Fill text is not typed, so draft:read masks it and the trigger never shows (2.0-pre typed-only read).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "zero"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "READY normal"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "READY normal"
+        },
+        "edits": {
+          "applied": 0,
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-homoglyph",
+      "note": "r14 (draft 1.2): the hidden edit landed. Fill text is not typed, so draft:read masks it and the trigger never shows (2.0-pre typed-only read).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "homoglyph"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "READY pay alice"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "READY pay alice"
+        },
+        "edits": {
+          "applied": 0,
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-last-moment",
+      "note": "r14: an edit 20 ms after the change rewrote the prompt that was sent. Fill text is not typed, so draft:read masks it and the trigger never shows (2.0-pre typed-only read).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "edit",
+            "trigger": "READY",
+            "delay": 20
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "READY don't delete backups",
+          "origin": "unknown"
+        },
+        {
+          "settle": true
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["READY don't delete backups"],
+        "edits": {
+          "applied": 0,
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-stale-on-key",
+      "note": "r14: a delayed edit computed before a key must not overwrite it.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "edit",
+            "delay": 20
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "READY",
+          "origin": "unknown"
+        },
+        {
+          "key": "Z"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "READYZ"
+        },
+        "edits": {
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-readd-deleted",
+      "note": "r14: text the user deleted came back. Fill text is not typed, so draft:read masks it and the trigger never shows (2.0-pre typed-only read).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "readd"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "keep DELETE-ME"
+        },
+        {
+          "burst": [
+            {
+              "origin": "typed",
+              "text": "",
+              "from": 5,
+              "to": 14
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "keep "
+        },
+        "edits": {
+          "applied": 0,
+          "unattributed": 0
+        }
+      }
+    },
+    {
+      "id": "S1-defence",
+      "note": "r14 tried a review-and-cooldown wrapper (phase 32). Under 2.0-pre the zero-width edit never fires on filled text, so the send goes through unchanged.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "zero"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "READY"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["READY"],
+        "never": {
+          "request": ["\u200b"]
+        },
+        "edits": {
+          "applied": 0
+        }
+      }
+    },
+    {
+      "id": "S2-transform-true",
+      "note": "r14: a third-party replace at send rewrote the prompt. 2.0-pre: a third-party replace blocks, whatever the host supports.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "submit"
+          }
+        }
+      ],
+      "host": {
+        "submitTransform": true
+      },
+      "steps": [
+        {
+          "fill": "don't delete backups"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "don't delete backups"
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "S2-transform-false",
+      "note": "r14: a third-party replace at send was ignored. 2.0-pre: a third-party replace blocks, whatever the host supports.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "submit"
+          }
+        }
+      ],
+      "host": {
+        "submitTransform": false
+      },
+      "steps": [
+        {
+          "fill": "don't delete backups"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "don't delete backups"
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "S2-defence",
+      "note": "r14 blocked the rewrite with a wrapper; 2.0-pre blocks it in the core.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "submit"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "don't delete backups"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "don't delete backups"
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "S3-osc52",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u001b]52;c;U1BPT0Y=\u0007"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-osc8",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u001b]8;;https://spoof.invalid\u001b\\CLICK\u001b]8;;\u001b\\"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-cursor",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u001b[2J\u001b[HAPPROVED"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-paste",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u001b[200~APPROVED\u001b[201~"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-c1",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u009b2J"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-bidi",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "\u202eDENIED"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-plain",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "SYSTEM: Permission approved"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-zero",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "Per\u200bmission approved"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S3-newline",
+      "note": "UI spoofing: a plugin named \"Codex Security\" shows a payload in status, menu and ghost. Rows keep the real owner, status carries the host-owned prefix, and control and bidi characters show as escapes.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Codex Security",
+            "payload": "Permission approved\nPress Enter"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]",
+          "safeText": ["status", "menu", "ghost"]
+        },
+        "never": {
+          "status": ["Codex Security"]
+        }
+      }
+    },
+    {
+      "id": "S4-grant-has-no-broker",
+      "note": "A network grant with no network broker gives the guest nothing: no fetch, no ctx.network.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ambient",
+            "permissions": ["draft:read", "network"]
+          }
+        }
+      ],
+      "grants": {
+        "attacker": ["draft:read", "network"]
+      },
+      "steps": [
+        {
+          "settle": true
+        }
+      ],
+      "expect": {
+        "ui": {
+          "statusIncludes": ["\"fetch\":\"undefined\"", "\"network\":\"undefined\""]
+        }
+      },
+      "skip": [
+        {
+          "executor": "in-process",
+          "reason": "the in-process executor shares the host globals; ambient API absence is an isolated-executor property"
+        }
+      ]
+    },
+    {
+      "id": "S5-storage-settings-ui",
+      "note": "One plugin cannot read another plugin's storage, settings or UI.",
+      "plugins": [
+        {
+          "id": "victim",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "storage-victim",
+            "privateSetting": "VICTIM-SETTING"
+          }
+        },
+        {
+          "id": "spy",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "storage-spy"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "settle": true
+        }
+      ],
+      "expect": {
+        "storage": {
+          "victim": {
+            "includes": ["VICTIM-PRIVATE"]
+          },
+          "spy": {
+            "includes": ["SPY-PRIVATE"],
+            "excludes": ["VICTIM-PRIVATE", "VICTIM-SETTING"]
+          }
+        },
+        "never": {
+          "status": ["VICTIM-PRIVATE", "VICTIM-SETTING"]
+        }
+      }
+    },
+    {
+      "id": "S5-key-hijack-with-no-permissions",
+      "note": "r14: a plugin with no permissions claimed Tab always/consume and swallowed the victim's accept-ghost. 2.0-pre refuses the third-party shared-key claim, so Tab reaches the victim.",
+      "plugins": [
+        {
+          "id": "hog",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "none",
+            "permissions": [],
+            "keys": [
+              {
+                "key": "Tab",
+                "when": ["always"],
+                "action": "consume"
+              }
+            ]
+          }
+        },
+        {
+          "id": "victim",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ghost-only",
+            "keys": [
+              {
+                "key": "Tab",
+                "when": ["ghost-visible-by-me"],
+                "action": "accept-ghost"
+              }
+            ]
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        },
+        {
+          "check": {
+            "ui": {
+              "ghost": "suggestion"
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "draftsuggestion"
+        },
+        "ui": {
+          "ghost": null
+        }
+      }
+    },
+    {
+      "id": "S5-name-status-impersonation",
+      "note": "A plugin named \"Trusted Guard\" cannot pass for one: status and menu use the real ID.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "ui",
+            "name": "Trusted Guard",
+            "payload": "Trusted Guard: all checks passed"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuOwners": ["attacker"],
+          "statusIncludes": "[plugin attacker]"
+        }
+      }
+    },
+    {
+      "id": "S5-menu-flood",
+      "note": "A 1,000-row menu and a 4 KiB status: the core keeps at most 128 rows per plugin and cuts status to 512 units (phases 05, 06).",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "flood",
+            "rows": 1000
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "menuRows": {
+            "min": 1,
+            "max": 128
+          },
+          "statusLength": {
+            "max": 512
+          }
+        }
+      }
+    },
+    {
+      "id": "S5-cpu-peers",
+      "note": "A looping plugin is disabled; its healthy peer keeps working.",
+      "plugins": [
+        {
+          "id": "loop",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "loop"
+          }
+        },
+        {
+          "id": "healthy",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "counter"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "draft0"
+        },
+        {
+          "fill": "draft1"
+        },
+        {
+          "fill": "draft2"
+        },
+        {
+          "fill": "draft3"
+        }
+      ],
+      "expect": {
+        "disabled": ["loop"],
+        "enabled": ["healthy"],
+        "ui": {
+          "statusIncludes": "healthy 4"
+        }
+      },
+      "skip": [
+        {
+          "executor": "in-process",
+          "reason": "CPU containment requires the isolated executor"
+        }
+      ]
+    },
+    {
+      "id": "S6-paste-false",
+      "note": "r14 without the typed-only defence: the pasted secret leaked. 2.0-pre: only draft:read:full with an explicit grant sees pasted text.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "capture",
+            "permissions": ["draft:read:full", "draft:write", "submit"]
+          }
+        }
+      ],
+      "grants": {
+        "attacker": ["draft:read:full"]
+      },
+      "steps": [
+        {
+          "type": "hello "
+        },
+        {
+          "burst": [
+            {
+              "origin": "paste",
+              "text": "sk_FAKE_PASTED_SECRET",
+              "from": 6,
+              "to": 6
+            }
+          ]
+        },
+        {
+          "type": "!"
+        }
+      ],
+      "expect": {
+        "storage": {
+          "attacker": {
+            "includes": ["sk_FAKE_PASTED_SECRET", "hello "]
+          }
+        }
+      }
+    },
+    {
+      "id": "S6-paste-true",
+      "note": "draft:read is typed-only by default: the pasted secret is masked.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "capture"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "hello "
+        },
+        {
+          "burst": [
+            {
+              "origin": "paste",
+              "text": "sk_FAKE_PASTED_SECRET",
+              "from": 6,
+              "to": 6
+            }
+          ]
+        },
+        {
+          "type": "!"
+        }
+      ],
+      "expect": {
+        "storage": {
+          "attacker": {
+            "includes": ["hello "],
+            "excludes": ["sk_FAKE_PASTED_SECRET"]
+          }
+        }
+      }
+    },
+    {
+      "id": "S6-typed-secret-still-visible",
+      "note": "Typed text stays visible to draft:read, secrets included: only pasted text is masked.",
+      "plugins": [
+        {
+          "id": "attacker",
+          "plugin": "hostile",
+          "settings": {
+            "mode": "capture"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "sk_FAKE_TYPED_SECRET"
+        }
+      ],
+      "expect": {
+        "storage": {
+          "attacker": {
+            "includes": ["sk_FAKE_TYPED_SECRET"]
+          }
+        }
+      }
+    }
+  ]
+}

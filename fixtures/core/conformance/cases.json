@@ -1,0 +1,807 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/shared-v2/conformance/cases.json (schemaVersion 2, 28 cases); runner semantics from run.mjs",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect", "snippets", "todo-guard", "counter"],
+    "project": "shortcuts/replacements",
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "C1-backspace",
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "Backspace"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh",
+          "cursor": 3
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C1-undo",
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "F6"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C2",
+      "note": "Programmatic fill is deliberately not typed; type the full draft before moving the cursor.",
+      "steps": [
+        {
+          "type": "a teh"
+        },
+        {
+          "paste": " tail"
+        },
+        {
+          "move": 5
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "a the  tail",
+          "cursor": 6
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C3",
+      "note": "Latest result may apply; any result for a previous key must be dropped. Dispose immediately after assertion.",
+      "plugins": ["slow50", "stale"],
+      "pacing": "unsettled",
+      "steps": [
+        {
+          "key": "a"
+        },
+        {
+          "key": "b"
+        },
+        {
+          "waitMs": 65
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "slowab",
+          "cursor": 6
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C4",
+      "steps": [
+        {
+          "key": "O"
+        },
+        {
+          "key": "u"
+        },
+        {
+          "key": "t"
+        },
+        {
+          "check": {
+            "ui": {
+              "ghost": "boxWorker"
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "check": {
+            "ui": {
+              "ghost": null
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "OutboxWorker",
+          "cursor": 12
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C5",
+      "steps": [
+        {
+          "key": ";"
+        },
+        {
+          "key": "r"
+        },
+        {
+          "key": "v"
+        },
+        {
+          "key": "w"
+        },
+        {
+          "check": {
+            "ui": {
+              "menu": ["rvw"]
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.",
+          "cursor": 139
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C6",
+      "steps": [
+        {
+          "key": ";"
+        },
+        {
+          "key": "b"
+        },
+        {
+          "key": "i"
+        },
+        {
+          "key": "g"
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "check": {
+            "draft": {
+              "text": [
+                {
+                  "repeat": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\n",
+                  "times": 40
+                },
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit,"
+              ]
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": [
+          [
+            {
+              "repeat": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\n",
+              "times": 40
+            },
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit,"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "C7",
+      "steps": [
+        {
+          "key": ";"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "m"
+        },
+        {
+          "key": "o"
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "Ship it 🚀 — 👨\u200d👩\u200d👧 🇺🇦 café 日本語"
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": ["Ship it 🚀 — 👨\u200d👩\u200d👧 🇺🇦 café 日本語"]
+      }
+    },
+    {
+      "id": "C7-combining",
+      "steps": [
+        {
+          "key": "e"
+        },
+        {
+          "key": "\u0301"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "👨"
+        },
+        {
+          "key": "\u200d"
+        },
+        {
+          "key": "👩"
+        },
+        {
+          "key": "\u200d"
+        },
+        {
+          "key": "👧"
+        },
+        {
+          "key": " "
+        },
+        {
+          "key": "🇺"
+        },
+        {
+          "key": "🇦"
+        },
+        {
+          "key": "Enter"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": ["e\u0301 👨\u200d👩\u200d👧 🇺🇦"]
+      }
+    },
+    {
+      "id": "C5-enter-no-expansion",
+      "steps": [
+        {
+          "key": ";"
+        },
+        {
+          "key": "r"
+        },
+        {
+          "key": "v"
+        },
+        {
+          "key": "w"
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "check": {
+            "draft": {
+              "text": ";rvw"
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": [";rvw"]
+      }
+    },
+    {
+      "id": "C8",
+      "note": "a guard blocks the send and keeps the draft; the todo-guard API sample stands in, Murmo ships no guard",
+      "steps": [
+        {
+          "key": "T"
+        },
+        {
+          "key": "O"
+        },
+        {
+          "key": "D"
+        },
+        {
+          "key": "O"
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "TODO"
+            }
+          }
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "TODO",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C10",
+      "control": true,
+      "steps": [
+        {
+          "key": "x"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "1 chars"
+            },
+            "withinMs": 16.67
+          }
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "x",
+          "cursor": 1
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C11",
+      "control": true,
+      "measure": {
+        "key": "a",
+        "repeat": 5000,
+        "quantiles": [0.5, 0.95, 0.99],
+        "unit": "us",
+        "scope": "callback"
+      },
+      "steps": [
+        {
+          "key": "t"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "h"
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "the ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C12",
+      "note": "No synchronous plugin code on key path; CPU interrupt and guest memory cap must contain bad plugins; observed max key delivery <=16ms.",
+      "plugins": ["autocorrect", "snippets", "todo-guard", "counter", "thrower", "looper"],
+      "control": true,
+      "timing": {
+        "keyMs": 16
+      },
+      "steps": [
+        {
+          "key": "a"
+        },
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "axxxx",
+          "cursor": 5
+        },
+        "requests": [],
+        "disabled": ["looper"],
+        "enabled": ["autocorrect", "snippets", "todo-guard", "counter"]
+      },
+      "skip": [
+        {
+          "executor": "in-process",
+          "reason": "CPU containment requires the isolated executor (helper-conformance.json: the one declared skip)"
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "variants": {
+        "states": ["busy", "popup", "dialog", "history", "vim-normal", "unknown"]
+      },
+      "steps": [
+        {
+          "state": "$variant"
+        },
+        {
+          "fill": "teh ",
+          "origin": "unknown",
+          "cursor": 4
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "C14",
+      "steps": [
+        {
+          "key": "h"
+        },
+        {
+          "key": "e"
+        },
+        {
+          "key": "l"
+        },
+        {
+          "key": "l"
+        },
+        {
+          "key": "o"
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        },
+        {
+          "key": "Escape",
+          "routing": "pass"
+        },
+        {
+          "key": "Up",
+          "routing": "pass"
+        },
+        {
+          "key": "Enter",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": ["hello"]
+      }
+    },
+    {
+      "id": "V1-pasted-word",
+      "steps": [
+        {
+          "fill": "teh",
+          "origin": "paste",
+          "cursor": 3
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-filled-word",
+      "steps": [
+        {
+          "fill": "teh",
+          "origin": "unknown",
+          "cursor": 3
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-pasted-separator",
+      "steps": [
+        {
+          "type": "teh"
+        },
+        {
+          "paste": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-shell",
+      "steps": [
+        {
+          "type": "teh"
+        },
+        {
+          "state": {
+            "mode": "shell"
+          }
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-editor-mode",
+      "variants": {
+        "editorModes": ["normal", "visual", "replace", "unknown"]
+      },
+      "steps": [
+        {
+          "type": "teh"
+        },
+        {
+          "state": {
+            "editorMode": "$variant"
+          }
+        },
+        {
+          "key": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh ",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-Tab-queue",
+      "note": "Host requirement: the physical queue key is Tab; otherwise map the configured queue gesture.",
+      "host": {
+        "tabQueues": true
+      },
+      "steps": [
+        {
+          "type": "TODO"
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "TODO",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-steer",
+      "steps": [
+        {
+          "type": "TODO"
+        },
+        {
+          "submit": "steer"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "TODO",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-newline",
+      "steps": [
+        {
+          "type": "first"
+        },
+        {
+          "submit": "newline"
+        },
+        {
+          "type": "second"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "first\nsecond",
+          "cursor": 12
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-managed-peer",
+      "note": "managed-only: a native peer after the guard can bypass it",
+      "host": {
+        "guardPosition": "managed",
+        "nativePeer": "inject-todo"
+      },
+      "steps": [
+        {
+          "type": "safe"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "",
+          "cursor": 0
+        },
+        "requests": ["safe TODO"]
+      }
+    },
+    {
+      "id": "V1-final-peer",
+      "host": {
+        "guardPosition": "final-boundary",
+        "nativePeer": "inject-todo"
+      },
+      "steps": [
+        {
+          "type": "safe"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "safe",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "V1-require-final",
+      "host": {
+        "guardPosition": "managed"
+      },
+      "core": {
+        "guardPolicy": "final-boundary"
+      },
+      "steps": [
+        {
+          "type": "safe"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "safe",
+          "cursor": 4
+        },
+        "requests": []
+      }
+    }
+  ]
+}

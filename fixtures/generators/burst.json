@@ -1,0 +1,37 @@
+{
+  "kind": "generator/v1",
+  "provenance": {
+    "source": "experiments/platform/devkit/regression/burst-fuzz.mjs (= core/r13/burst-fuzz.mjs)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "generator": "burst",
+  "seed": 1306637,
+  "sizes": {
+    "pr": 1000,
+    "nightly": 10000
+  },
+  "session": "shared",
+  "target": {
+    "kind": "editor-ops",
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "failures": "core/inline/burst-regressions.json",
+  "reference": {
+    "size": 10000,
+    "counts": {
+      "runs": 10000,
+      "keys": 189268,
+      "corrections": 12489,
+      "undoChecks": 9658,
+      "coalesced": 5038,
+      "chunked": 4962,
+      "history": 6348,
+      "originChecks": 25322,
+      "filledChecks": 2987,
+      "ledgerChecks": 68936
+    },
+    "source": "experiments/platform/devkit/followup/evidence/fuzz-node.json (same in fuzz-bun.json and r13)"
+  }
+}

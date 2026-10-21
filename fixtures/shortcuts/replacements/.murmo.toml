@@ -1,0 +1,13 @@
+# Shared round 8 fixture for text replacements. Do not edit; copy it.
+version = 1
+
+[replace]
+tst   = 'Run the test suite, fix failures, and do not edit the tests.'
+rvw   = '''
+Review this change for bugs, edge cases and missing tests.
+List issues by severity. Be concise.
+Quote file paths like `src/app.ts` exactly.'''
+shrug = '¯\_(ツ)_/¯'
+emo   = 'Ship it 🚀 — 👨‍👩‍👧 🇺🇦 café 日本語'
+";dc" = { file = ".murmo/deploy-check.md" }
+";big" = { file = ".murmo/big.md" }

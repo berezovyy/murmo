@@ -14,6 +14,7 @@
     "format": "biome format --write .",
     "test": "tools/offline/run.sh node tools/test-all.mjs",
     "test:portable": "tools/offline/run.sh node tools/test-portable.mjs",
+    "test:conformance": "tools/offline/run.sh node tools/test-conformance.mjs",
     "check:licenses": "node tools/licenses.mjs",
     "api:report": "node tools/api-report.mjs --write",
     "check:api": "node tools/api-report.mjs --check",

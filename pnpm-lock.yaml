@@ -24,7 +24,22 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  fixtures: {}
+
   packages/api: {}
+
+  packages/conformance:
+    dependencies:
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      quickjs-emscripten:
+        specifier: 0.32.0
+        version: 0.32.0
 
   packages/core: {}
 

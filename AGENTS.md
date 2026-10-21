@@ -11,7 +11,8 @@ pnpm check                 # tsc --noEmit for every package and the tools
 pnpm build                 # esbuild bundles + portability gate
 pnpm build:verify          # ... and two builds must be byte-identical
 pnpm test                  # JS unit tests, offline
-pnpm test:portable         # QuickJS parity (and conformance runners from phase 02), offline
+pnpm test:portable         # QuickJS parity and the conformance gate, offline
+pnpm test:conformance      # fixtures check + pure subject on Node, Bun, QuickJS-wasm, rquickjs (needs Bun or MURMO_BUN)
 pnpm rust test --offline   # any cargo command, through tools/cargo.mjs
 pnpm check:licenses        # JS + Rust dependency licenses against the allowlist
 ```
@@ -23,6 +24,7 @@ Tests never run with network access: `pnpm test` goes through `tools/offline/run
 - **Every test has a reason**: name the failure it catches or the guarantee/lesson it proves. No tests for the sake of tests.
 - **Release code**: build the final implementation of a phase; no throwaway versions.
 - Portable packages (`"murmo": {"runtime": "portable"}`) use no `node:*`, `bun:*`, `process`, `Buffer`, timers or `Intl` without a fallback; the portability gate enforces it.
+- **Every bug found on a real host adds a fixture case** in `fixtures/` (see `fixtures/README.md`) before the fix lands.
 - Real hosts only through the phase 20 harness and its safety rules (fake model server on localhost, network blocked, throwaway homes, never a real model).
 
 ## Disk hygiene

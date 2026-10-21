@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plugins.v1.json",
+  "description": "fixtures/plugins.json: every plugin name a case may use. Fixture plugins are test code stored here; provided plugins come from the subject (our own plugins and the API samples). A case naming anything else fails loading.",
+  "type": "object",
+  "required": ["kind", "provenance", "fixture", "provided"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "plugins/v1" },
+    "provenance": { "$ref": "common.json#/$defs/provenance" },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["file", "source", "why"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/_.-]*\\.js$" },
+          "source": { "type": "string", "minLength": 1 },
+          "why": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "provided": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 10 }
+    }
+  }
+}

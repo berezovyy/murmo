@@ -1,0 +1,194 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/02 § New stress cases)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "fence-1.1m",
+      "note": "Baseline: an unclosed code fence at the start of a 1.1M-unit draft (about 6 ms to scan in knowledge § 3); the typed word is inside the fence.",
+      "steps": [
+        {
+          "paste": [
+            "```\n",
+            {
+              "repeat": "x",
+              "times": 1099996
+            }
+          ]
+        },
+        {
+          "type": " teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            "```\n",
+            {
+              "repeat": "x",
+              "times": 1099996
+            },
+            " teh "
+          ]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "a-100k-no-space",
+      "steps": [
+        {
+          "paste": {
+            "repeat": "a",
+            "times": 100000
+          }
+        },
+        {
+          "type": "teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            {
+              "repeat": "a",
+              "times": 100000
+            },
+            "teh "
+          ]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      },
+      "timing": {
+        "baseline": {
+          "case": "fence-1.1m",
+          "factor": 10
+        }
+      }
+    },
+    {
+      "id": "nested-brackets-10k",
+      "steps": [
+        {
+          "paste": [
+            {
+              "repeat": "(",
+              "times": 10000
+            },
+            {
+              "repeat": ")",
+              "times": 10000
+            }
+          ]
+        },
+        {
+          "type": " teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            {
+              "repeat": "(",
+              "times": 10000
+            },
+            {
+              "repeat": ")",
+              "times": 10000
+            },
+            " the "
+          ]
+        },
+        "stats": {
+          "corrections": 1
+        }
+      },
+      "timing": {
+        "baseline": {
+          "case": "fence-1.1m",
+          "factor": 10
+        }
+      }
+    },
+    {
+      "id": "url-chain",
+      "steps": [
+        {
+          "paste": {
+            "repeat": "https://example.invalid/a/b?c=d&e=f#g ",
+            "times": 20000
+          }
+        },
+        {
+          "type": "teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            {
+              "repeat": "https://example.invalid/a/b?c=d&e=f#g ",
+              "times": 20000
+            },
+            "the "
+          ]
+        },
+        "stats": {
+          "corrections": 1
+        }
+      },
+      "timing": {
+        "baseline": {
+          "case": "fence-1.1m",
+          "factor": 10
+        }
+      }
+    },
+    {
+      "id": "path-chain",
+      "steps": [
+        {
+          "paste": {
+            "repeat": "/usr/local/lib/node_modules",
+            "times": 20000
+          }
+        },
+        {
+          "type": "/teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            {
+              "repeat": "/usr/local/lib/node_modules",
+              "times": 20000
+            },
+            "/teh "
+          ]
+        },
+        "stats": {
+          "corrections": 0
+        }
+      },
+      "timing": {
+        "baseline": {
+          "case": "fence-1.1m",
+          "factor": 10
+        }
+      }
+    }
+  ]
+}

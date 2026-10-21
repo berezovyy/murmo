@@ -1,0 +1,40 @@
+{
+  "kind": "moved/v1",
+  "provenance": {
+    "source": "experiments/replacements/fixture/ (r8 project file and expected expansion bytes; used by C5-C7)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "files": [
+    {
+      "path": "replacements/.murmo.toml",
+      "source": "experiments/replacements/fixture/.murmo.toml",
+      "sha256": "2972133d555d3ea46a290c08d8c3818bf5fc73df77eae9540aa887bd0279d213",
+      "bytes": 494
+    },
+    {
+      "path": "replacements/.murmo/big.md",
+      "source": "experiments/replacements/fixture/.murmo/big.md",
+      "sha256": "b032666b1bdf4dab7e853561c9167faab072a0fb74939821485feef99b7d4f34",
+      "bytes": 4097
+    },
+    {
+      "path": "replacements/.murmo/deploy-check.md",
+      "source": "experiments/replacements/fixture/.murmo/deploy-check.md",
+      "sha256": "030da28035fff7a75d9a2d7592a17a46238e4cb11e48b7c2990f6627179a2b1d",
+      "bytes": 123
+    },
+    {
+      "path": "replacements/expected.json",
+      "source": "experiments/replacements/fixture/expected.json",
+      "sha256": "0fb06e836bcd63ac49d3144fade44259026340fcc488db07b77acc83795b7c74",
+      "bytes": 4613
+    },
+    {
+      "path": "replacements/README.md",
+      "source": "experiments/replacements/fixture/README.md",
+      "sha256": "80e105e83d73f77e386dfedfebcce5d1e850733059873b8c5bd6a4b874fc6020",
+      "bytes": 392
+    }
+  ]
+}

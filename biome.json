@@ -3,7 +3,15 @@
   "root": true,
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["**", "!experiments", "!**/dist", "!docs", "!packages/api/report"]
+    "includes": [
+      "**",
+      "!experiments",
+      "!**/dist",
+      "!docs",
+      "!fixtures/shortcuts/replacements",
+      "!fixtures/names/splitter-fixture.json",
+      "!packages/api/report"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

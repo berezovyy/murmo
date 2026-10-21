@@ -1,0 +1,96 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/02 § New stress cases)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "paste-1mib-mid-draft",
+      "note": "A 1 MiB paste of typo-looking words between typed words: nothing inside the paste is corrected; typed words around it are.",
+      "steps": [
+        {
+          "type": "Fix teh tail"
+        },
+        {
+          "move": 8
+        },
+        {
+          "paste": {
+            "repeat": "teh adn recieve ",
+            "times": 65536
+          }
+        },
+        {
+          "move": 1048588
+        },
+        {
+          "type": " wich "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            "Fix the ",
+            {
+              "repeat": "teh adn recieve ",
+              "times": 65536
+            },
+            "tail which "
+          ],
+          "cursor": 1048595
+        },
+        "stats": {
+          "corrections": 2
+        }
+      },
+      "control": true,
+      "timing": {
+        "changeMs": 16
+      }
+    },
+    {
+      "id": "paste-4mib",
+      "note": "4 MiB: the Claude $.fs read size, chosen, not measured as a paste.",
+      "steps": [
+        {
+          "type": "teh "
+        },
+        {
+          "paste": {
+            "repeat": "teh adn recieve ",
+            "times": 262144
+          }
+        },
+        {
+          "type": "adn "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": [
+            "the ",
+            {
+              "repeat": "teh adn recieve ",
+              "times": 262144
+            },
+            "and "
+          ]
+        },
+        "stats": {
+          "corrections": 2
+        }
+      },
+      "control": true,
+      "timing": {
+        "changeMs": 16
+      }
+    }
+  ]
+}

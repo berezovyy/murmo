@@ -1,0 +1,109 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: counts and stream hashes of the seeded generators; burst 10,000 reproduces the r13/r14 counts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "generators.summary",
+  "cases": [
+    {
+      "id": "burst-1306637-10000",
+      "input": {
+        "generator": "burst",
+        "seed": 1306637,
+        "size": 10000
+      },
+      "output": {
+        "generator": "burst",
+        "seed": 1306637,
+        "size": 10000,
+        "counts": {
+          "runs": 10000,
+          "keys": 189268,
+          "corrections": 12489,
+          "undoChecks": 9658,
+          "coalesced": 5038,
+          "chunked": 4962,
+          "history": 6348,
+          "originChecks": 25322,
+          "filledChecks": 2987,
+          "ledgerChecks": 68936
+        },
+        "streamHash": "e62b96b00205c9114de265d07aa61c4cc43ba956c2856135ff939171ee481488"
+      }
+    },
+    {
+      "id": "burst-1306637-1000",
+      "input": {
+        "generator": "burst",
+        "seed": 1306637,
+        "size": 1000
+      },
+      "output": {
+        "generator": "burst",
+        "seed": 1306637,
+        "size": 1000,
+        "counts": {
+          "runs": 1000,
+          "keys": 18558,
+          "corrections": 1231,
+          "undoChecks": 949,
+          "coalesced": 516,
+          "chunked": 484,
+          "history": 607,
+          "originChecks": 2474,
+          "filledChecks": 299,
+          "ledgerChecks": 6690
+        },
+        "streamHash": "135c930d97b80bbd229c3e07b32f03b89eb3cc1a3a5eb0188b80ca29e9a21003"
+      }
+    },
+    {
+      "id": "unicode-508126-4000",
+      "input": {
+        "generator": "unicode",
+        "seed": 508126,
+        "size": 4000
+      },
+      "output": {
+        "generator": "unicode",
+        "seed": 508126,
+        "size": 4000,
+        "counts": {
+          "drafts": 4000,
+          "cursors": 32000,
+          "units": 102995
+        },
+        "streamHash": "b1953c933c3bb8796395c89bf35b0edb47c3bd43a8b7b0442309547da93e9f0c"
+      }
+    },
+    {
+      "id": "provenance-297861102-1000",
+      "input": {
+        "generator": "provenance",
+        "seed": 297861102,
+        "size": 1000
+      },
+      "output": {
+        "generator": "provenance",
+        "seed": 297861102,
+        "size": 1000,
+        "counts": {
+          "sequences": 1000,
+          "operations": 6331,
+          "type": 1957,
+          "ime": 605,
+          "paste": 611,
+          "fill": 604,
+          "backspace": 909,
+          "history": 605,
+          "select": 466,
+          "move": 574
+        },
+        "streamHash": "f234c51356c55ce262356509dca1c4efe0f3800c137aeff29dddf4da12f6e5ae"
+      }
+    }
+  ]
+}

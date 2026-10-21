@@ -1,0 +1,327 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/engine-v2/unicode.test.ts (fixed cases of \"adjacent emoji separate words; CJK and combining-letter lines remain protected\")",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "emoji-grin-before-word",
+      "steps": [
+        {
+          "type": "😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "😀the "
+        }
+      }
+    },
+    {
+      "id": "emoji-grin-after-word",
+      "steps": [
+        {
+          "type": "teh😀 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh😀 "
+        }
+      }
+    },
+    {
+      "id": "emoji-technologist-before-word",
+      "steps": [
+        {
+          "type": "👩\u200d💻teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "👩\u200d💻the "
+        }
+      }
+    },
+    {
+      "id": "emoji-technologist-after-word",
+      "steps": [
+        {
+          "type": "teh👩\u200d💻 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh👩\u200d💻 "
+        }
+      }
+    },
+    {
+      "id": "emoji-flag-ua-before-word",
+      "steps": [
+        {
+          "type": "🇺🇦teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "🇺🇦the "
+        }
+      }
+    },
+    {
+      "id": "emoji-flag-ua-after-word",
+      "steps": [
+        {
+          "type": "teh🇺🇦 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh🇺🇦 "
+        }
+      }
+    },
+    {
+      "id": "emoji-thumb-tone-before-word",
+      "steps": [
+        {
+          "type": "👍🏽teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "👍🏽the "
+        }
+      }
+    },
+    {
+      "id": "emoji-thumb-tone-after-word",
+      "steps": [
+        {
+          "type": "teh👍🏽 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh👍🏽 "
+        }
+      }
+    },
+    {
+      "id": "emoji-family-before-word",
+      "steps": [
+        {
+          "type": "👨\u200d👩\u200d👧\u200d👦teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "👨\u200d👩\u200d👧\u200d👦the "
+        }
+      }
+    },
+    {
+      "id": "emoji-family-after-word",
+      "steps": [
+        {
+          "type": "teh👨\u200d👩\u200d👧\u200d👦 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh👨\u200d👩\u200d👧\u200d👦 "
+        }
+      }
+    },
+    {
+      "id": "emoji-keycap-before-word",
+      "steps": [
+        {
+          "type": "1\ufe0f\u20e3teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "1\ufe0f\u20e3the "
+        }
+      }
+    },
+    {
+      "id": "emoji-keycap-after-word",
+      "steps": [
+        {
+          "type": "teh1\ufe0f\u20e3 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh1\ufe0f\u20e3 "
+        }
+      }
+    },
+    {
+      "id": "cjk-before",
+      "steps": [
+        {
+          "type": "字teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "字teh "
+        }
+      }
+    },
+    {
+      "id": "cjk-after",
+      "steps": [
+        {
+          "type": "teh字 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh字 "
+        }
+      }
+    },
+    {
+      "id": "combining-before",
+      "steps": [
+        {
+          "type": "e\u0301teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "e\u0301teh "
+        }
+      }
+    },
+    {
+      "id": "combining-after",
+      "steps": [
+        {
+          "type": "teh\u0301 "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh\u0301 "
+        }
+      }
+    },
+    {
+      "id": "word-emoji-word",
+      "steps": [
+        {
+          "type": "keep😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "keep😀the "
+        }
+      }
+    },
+    {
+      "id": "emoji-bracket-word",
+      "steps": [
+        {
+          "type": "😀(teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "😀(the "
+        }
+      }
+    },
+    {
+      "id": "protected-path",
+      "steps": [
+        {
+          "type": "/tmp/😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "/tmp/😀teh "
+        }
+      }
+    },
+    {
+      "id": "protected-snake",
+      "steps": [
+        {
+          "type": "teh_😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh_😀teh "
+        }
+      }
+    },
+    {
+      "id": "protected-flag",
+      "steps": [
+        {
+          "type": "--😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "--😀teh "
+        }
+      }
+    },
+    {
+      "id": "protected-digit-name",
+      "steps": [
+        {
+          "type": "name2😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "name2😀teh "
+        }
+      }
+    },
+    {
+      "id": "protected-camel",
+      "steps": [
+        {
+          "type": "TehClient😀teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "TehClient😀teh "
+        }
+      }
+    },
+    {
+      "id": "cjk-line-then-crlf",
+      "steps": [
+        {
+          "type": "日本語\r\nteh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "日本語\r\nthe "
+        }
+      }
+    }
+  ]
+}

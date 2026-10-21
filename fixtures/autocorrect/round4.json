@@ -1,0 +1,906 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/engine-v2/logs/round4-fixture.json (50 rows: 30 original + 20 adversarial; 0 wrong, 0 missed in round 4)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "r4-01-plain-typo",
+      "steps": [
+        {
+          "type": "Fix teh failing test. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Fix the failing test. ",
+          "cursor": 22
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-02-title-case",
+      "steps": [
+        {
+          "type": "Teh request should recieve a retry. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "The request should receive a retry. ",
+          "cursor": 36
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-03-two-typos",
+      "steps": [
+        {
+          "type": "Explain wich branch fails adn why. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Explain which branch fails and why. ",
+          "cursor": 36
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-04-long-mapped-typos",
+      "steps": [
+        {
+          "type": "Retry becuase this is definately flaky. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Retry because this is definitely flaky. ",
+          "cursor": 40
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-05-pronoun",
+      "steps": [
+        {
+          "type": "i want a minimal patch. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "I want a minimal patch. ",
+          "cursor": 24
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-06-inline-code",
+      "steps": [
+        {
+          "type": "Keep `const teh = user_id + 1` unchanged. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep `const teh = user_id + 1` unchanged. ",
+          "cursor": 42
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-07-fenced-code",
+      "steps": [
+        {
+          "type": "Inspect this code:\n```ts\nconst teh = recieve(x);\n```\nThen explain teh issue. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Inspect this code:\n```ts\nconst teh = recieve(x);\n```\nThen explain the issue. ",
+          "cursor": 77
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-08-paths",
+      "steps": [
+        {
+          "type": "Open ./src/teh.ts and /tmp/recieve.log first. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Open ./src/teh.ts and /tmp/recieve.log first. ",
+          "cursor": 46
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-09-flags",
+      "steps": [
+        {
+          "type": "Run tests with --teh --recieve=1 -i flags. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Run tests with --teh --recieve=1 -i flags. ",
+          "cursor": 43
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-10-snake-identifiers",
+      "steps": [
+        {
+          "type": "Compare teh_parser and recieve_count before editing. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Compare teh_parser and recieve_count before editing. ",
+          "cursor": 53
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-11-camel-identifiers",
+      "steps": [
+        {
+          "type": "Keep TehClient and recieveData public. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep TehClient and recieveData public. ",
+          "cursor": 39
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-12-digit-identifiers",
+      "steps": [
+        {
+          "type": "Check teh2 adn3 and v9recieve values. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Check teh2 adn3 and v9recieve values. ",
+          "cursor": 38
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-13-urls",
+      "steps": [
+        {
+          "type": "Inspect https://example.test/teh?q=recieve and http://localhost:3000/adn. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Inspect https://example.test/teh?q=recieve and http://localhost:3000/adn. ",
+          "cursor": 74
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-14-mention-command-shell",
+      "steps": [
+        {
+          "type": "/teh @recieve !adn --wich .becuase "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "/teh @recieve !adn --wich .becuase ",
+          "cursor": 35
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-15-apostrophes",
+      "steps": [
+        {
+          "type": "Don't rewrite cant or dont; keep user's intent. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Don't rewrite cant or dont; keep user's intent. ",
+          "cursor": 48
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-16-hyphens",
+      "steps": [
+        {
+          "type": "Keep re-use and teh-parser as written. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep re-use and teh-parser as written. ",
+          "cursor": 39
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-17-abbreviations",
+      "steps": [
+        {
+          "type": "Review e.g. and i.e. in the docs. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Review e.g. and i.e. in the docs. ",
+          "cursor": 34
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-18-quoted-prose",
+      "steps": [
+        {
+          "type": "Explain \"teh\" and (wich) in prose. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Explain \"the\" and (which) in prose. ",
+          "cursor": 36
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-19-emoji-offsets",
+      "steps": [
+        {
+          "type": "😀 Fix teh bug; recieve events safely. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "😀 Fix the bug; receive events safely. ",
+          "cursor": 39
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-20-ukrainian-mixed",
+      "steps": [
+        {
+          "type": "Перевір teh файл і recieve дані без змін. "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "uk"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "Перевір teh файл і recieve дані без змін. ",
+          "cursor": 42
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-21-german-mixed",
+      "steps": [
+        {
+          "type": "Prüfe teh Datei und recieve Daten unverändert. "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "de"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "Prüfe teh Datei und recieve Daten unverändert. ",
+          "cursor": 47
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-22-japanese-mixed",
+      "steps": [
+        {
+          "type": "日本語 teh の説明と recieve を保持。 "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "ja"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "日本語 teh の説明と recieve を保持。 ",
+          "cursor": 26
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-23-ascii-german",
+      "steps": [
+        {
+          "type": "Bitte den Wert und die Art der API beibehalten. "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "de"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "Bitte den Wert und die Art der API beibehalten. ",
+          "cursor": 48
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-24-technical-prose",
+      "steps": [
+        {
+          "type": "Use pnpm and ripgrep to inspect protobuf configs. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Use pnpm and ripgrep to inspect protobuf configs. ",
+          "cursor": 50
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-25-technical-names",
+      "steps": [
+        {
+          "type": "Keep murmo vite vitest zod and zustand in the manifest. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep murmo vite vitest zod and zustand in the manifest. ",
+          "cursor": 56
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-26-bare-filename",
+      "steps": [
+        {
+          "type": "Rename teh.ts after checking recieve.json. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Rename teh.ts after checking recieve.json. ",
+          "cursor": 43
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-27-bare-project-symbol",
+      "steps": [
+        {
+          "type": "The public export is named teh and must stay compatible. "
+        }
+      ],
+      "settings": {
+        "vocabulary": ["teh", "recieve", "wich"]
+      },
+      "expect": {
+        "draft": {
+          "text": "The public export is named teh and must stay compatible. ",
+          "cursor": 57
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-28-shell-fence",
+      "steps": [
+        {
+          "type": "```sh\ncurl https://example.test/teh --recieve\n```\nCheck exit status. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "```sh\ncurl https://example.test/teh --recieve\n```\nCheck exit status. ",
+          "cursor": 69
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-29-normal-engineering",
+      "steps": [
+        {
+          "type": "Add idempotency and backpressure without changing behavior. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Add idempotency and backpressure without changing behavior. ",
+          "cursor": 60
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-30-punctuation",
+      "steps": [
+        {
+          "type": "Fix teh, recieve; wich: adn! becuase? "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Fix the, receive; which: and! because? ",
+          "cursor": 39
+        },
+        "stats": {
+          "corrections": 5
+        }
+      }
+    },
+    {
+      "id": "r4-31-nested-bare-extension",
+      "steps": [
+        {
+          "type": "Keep \"recieve.test.ts\" and teh.2.ts untouched. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep \"recieve.test.ts\" and teh.2.ts untouched. ",
+          "cursor": 47
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-32-domain",
+      "steps": [
+        {
+          "type": "Resolve teh.example.com before editing. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Resolve teh.example.com before editing. ",
+          "cursor": 40
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-33-email",
+      "steps": [
+        {
+          "type": "Send nothing to teh@example.com or recieve@localhost. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Send nothing to teh@example.com or recieve@localhost. ",
+          "cursor": 54
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-34-windows-path",
+      "steps": [
+        {
+          "type": "Inspect C:\\src\\teh\\recieve.ts locally. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Inspect C:\\src\\teh\\recieve.ts locally. ",
+          "cursor": 39
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-35-quoted-typo-sentence",
+      "steps": [
+        {
+          "type": "Explain \"teh.\" "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Explain \"the.\" ",
+          "cursor": 15
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-36-ellipsis",
+      "steps": [
+        {
+          "type": "Fix teh... "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Fix the... ",
+          "cursor": 11
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-37-digit-continuation",
+      "steps": [
+        {
+          "type": "Preserve i.2 and teh.9 keys. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Preserve i.2 and teh.9 keys. ",
+          "cursor": 29
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-38-all-caps-and-camel",
+      "steps": [
+        {
+          "type": "TEH TehClient tEh recieveHTTP "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "TEH TehClient tEh recieveHTTP ",
+          "cursor": 30
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-39-nested-wrapper",
+      "steps": [
+        {
+          "type": "Explain [(teh)] and (recieve). "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Explain [(the)] and (receive). ",
+          "cursor": 31
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-40-smart-apostrophe",
+      "steps": [
+        {
+          "type": "Keep teh’s and recieve’s identifiers. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep teh’s and recieve’s identifiers. ",
+          "cursor": 38
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-41-straight-apostrophe",
+      "steps": [
+        {
+          "type": "Keep teh's and recieve's names. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Keep teh's and recieve's names. ",
+          "cursor": 32
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-42-unclosed-code",
+      "steps": [
+        {
+          "type": "Do not change:\n```ts\nteh recieve wich "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Do not change:\n```ts\nteh recieve wich ",
+          "cursor": 38
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-43-tilde-fence",
+      "steps": [
+        {
+          "type": "~~~ts\nteh recieve\n~~~\nFix teh bug. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "~~~ts\nteh recieve\n~~~\nFix the bug. ",
+          "cursor": 35
+        },
+        "stats": {
+          "corrections": 1
+        }
+      }
+    },
+    {
+      "id": "r4-44-multi-backticks",
+      "steps": [
+        {
+          "type": "Preserve ``teh ` recieve`` exactly. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Preserve ``teh ` recieve`` exactly. ",
+          "cursor": 36
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-45-ascii-german-verb",
+      "steps": [
+        {
+          "type": "Er wich dem Fehler aus. "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "de"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "Er wich dem Fehler aus. ",
+          "cursor": 24
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-46-mixed-english-ukrainian",
+      "steps": [
+        {
+          "type": "Fix teh помилку і recieve дані. "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "uk"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "Fix teh помилку і recieve дані. ",
+          "cursor": 32
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-47-japanese-english-mixed",
+      "steps": [
+        {
+          "type": "日本語 teh recieve を保持。 "
+        }
+      ],
+      "settings": {
+        "autocorrect": {
+          "language": "ja"
+        }
+      },
+      "expect": {
+        "draft": {
+          "text": "日本語 teh recieve を保持。 ",
+          "cursor": 21
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-48-project-typo-symbols",
+      "steps": [
+        {
+          "type": "Keep teh recieve and wich exports compatible. "
+        }
+      ],
+      "settings": {
+        "vocabulary": ["teh", "recieve", "wich"]
+      },
+      "expect": {
+        "draft": {
+          "text": "Keep teh recieve and wich exports compatible. ",
+          "cursor": 46
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    },
+    {
+      "id": "r4-49-emoji-expansion",
+      "steps": [
+        {
+          "type": "😀 Please recieve teh event. "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "😀 Please receive the event. ",
+          "cursor": 29
+        },
+        "stats": {
+          "corrections": 2
+        }
+      }
+    },
+    {
+      "id": "r4-50-slash-mention-flags",
+      "steps": [
+        {
+          "type": "/teh @recieve !wich --adn ./becuase .definately "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "/teh @recieve !wich --adn ./becuase .definately ",
+          "cursor": 48
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    }
+  ]
+}

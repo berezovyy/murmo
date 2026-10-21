@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "editor-ops.v1.json",
+  "description": "Editor-operation cases: steps an editor sees (typing, bursts, paste, IME, fill, keys, state) and what must follow. Run by the core, helper and host subjects.",
+  "type": "object",
+  "required": ["kind", "offsets", "provenance", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "editor-ops/v1" },
+    "offsets": { "const": "utf16" },
+    "provenance": { "$ref": "common.json#/$defs/provenance" },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plugins": { "$ref": "common.json#/$defs/plugins" },
+        "trust": { "$ref": "common.json#/$defs/trust" },
+        "pacing": { "$ref": "common.json#/$defs/pacing" },
+        "host": { "$ref": "common.json#/$defs/hostSetup" },
+        "settings": { "$ref": "common.json#/$defs/settings" },
+        "project": { "$ref": "common.json#/$defs/project" },
+        "requires": { "$ref": "common.json#/$defs/requires" },
+        "grants": { "$ref": "common.json#/$defs/grants" }
+      }
+    },
+    "cases": { "type": "array", "minItems": 1, "items": { "$ref": "common.json#/$defs/editorCase" } }
+  }
+}

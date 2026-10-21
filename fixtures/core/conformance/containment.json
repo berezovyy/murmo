@@ -1,0 +1,65 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/shared-v2/conformance/run.mjs runContainment() and cases.json extensions V1-C12-memory",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "V1-C12-memory",
+      "note": "All 11 plugins under the CPU interrupt and the 8 MiB guest memory cap. slow50 may prepend \"slow\" a timing-dependent number of times, so only the typed ending is exact (run.mjs strips a leading run of \"slow\").",
+      "plugins": [
+        "autocorrect",
+        "snippets",
+        "todo-guard",
+        "counter",
+        "fast",
+        "slow50",
+        "thrower",
+        "looper",
+        "memhog",
+        "keyhog",
+        "stale"
+      ],
+      "control": true,
+      "timing": {
+        "keyMs": 16
+      },
+      "steps": [
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        },
+        {
+          "key": "x"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "endsWith": "xxxx"
+        },
+        "never": {
+          "draft": ["stale"]
+        },
+        "disabled": ["looper", "memhog", "thrower"],
+        "enabled": ["autocorrect", "snippets", "todo-guard", "counter"]
+      },
+      "skip": [
+        {
+          "executor": "in-process",
+          "reason": "memory and CPU containment need the isolated executor"
+        }
+      ]
+    }
+  ]
+}

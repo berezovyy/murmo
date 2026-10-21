@@ -1,5 +1,5 @@
-// Portable-runtime checks that need built bundles or the Rust toolchain.
-// Phase 02 adds the conformance runners here.
+// Portable-runtime checks that need built bundles or the Rust toolchain:
+// QuickJS parity of a smoke bundle, then the conformance gate (phase 02).
 //
 // QuickJS parity: the same guest bundle must give the same result in Node, in
 // QuickJS-wasm (used by executor tests) and in the rquickjs build the Codex
@@ -14,6 +14,7 @@ import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
 import { manifestParity } from './api-parity.mjs';
 import { targets } from './build.mjs';
+import { runConformance } from './test-conformance.mjs';
 import { root } from './workspace.mjs';
 
 async function quickjsParity() {
@@ -82,3 +83,4 @@ console.log('quickjs parity: Node, QuickJS-wasm and rquickjs agree');
 const manifest = await manifestParity();
 console.log(`manifest parity: ${manifest.cases} cases agree on ${manifest.runtimes.join(', ')}`);
 for (const skip of manifest.skipped) console.log(`manifest parity: SKIP ${skip}`);
+await runConformance();

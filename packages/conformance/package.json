@@ -1,0 +1,33 @@
+{
+  "name": "@murmo/conformance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "murmo-conformance": "./src/node/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "dependencies": {
+    "@murmo/fixtures": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "quickjs-emscripten": "0.32.0"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "conformance-guest",
+        "entry": "src/guest.ts",
+        "targets": [
+          "quickjs"
+        ],
+        "global": "MurmoConformance"
+      }
+    ]
+  }
+}

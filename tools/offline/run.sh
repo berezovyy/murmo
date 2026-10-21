@@ -41,10 +41,17 @@ Linux)
     registry=${MURMO_CARGO_REGISTRY:-$CARGO_HOME/registry}
     target=${CARGO_TARGET_DIR:-$(node "$repo/tools/cargo.mjs" --print-target-dir)}
     mkdir -p "$registry" "$target"
+    # The image has no Bun; the conformance runner's Bun launcher uses the
+    # host's binary, mounted read-only, when MURMO_BUN names it.
+    bun_mount=""
+    if [ -n "${MURMO_BUN:-}" ]; then
+      bun_mount="-v $MURMO_BUN:/opt/murmo-bun/bun:ro -e MURMO_BUN=/opt/murmo-bun/bun"
+    fi
+    # shellcheck disable=SC2086 # bun_mount is deliberately split into words.
     exec docker run --rm --network none --init --user "$(id -u):$(id -g)" \
       -e MURMO_OFFLINE_CONTAINER=1 -e CARGO_TARGET_DIR=/target \
       -v "$repo:$repo" -w "$repo" \
-      -v "$registry:/cargo/registry" -v "$target:/target" \
+      -v "$registry:/cargo/registry" -v "$target:/target" $bun_mount \
       "$image" sh "$repo/tools/offline/run.sh" "$@"
   fi
   ;;

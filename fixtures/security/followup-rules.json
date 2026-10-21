@@ -1,0 +1,311 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/devkit/followup/tests.mjs groups -typed-only-and-explicit-full-scope, -submit-transform-and-observe-authority, -host-owned-attribution-and-rate, -shared-key-native-menu-dialog-origin",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "third-party",
+    "host": {
+      "dialogSafe": true
+    }
+  },
+  "cases": [
+    {
+      "id": "typed-only-read",
+      "plugins": [
+        {
+          "id": "reader",
+          "plugin": "rules",
+          "settings": {
+            "mode": "reader"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "sk_FAKE_SECRET",
+          "origin": "paste"
+        },
+        {
+          "type": "typed"
+        }
+      ],
+      "expect": {
+        "storage": {
+          "reader": {
+            "includes": ["typed"],
+            "excludes": ["sk_FAKE_SECRET"]
+          }
+        }
+      }
+    },
+    {
+      "id": "full-read-with-grant",
+      "plugins": [
+        {
+          "id": "full",
+          "plugin": "rules",
+          "settings": {
+            "mode": "full"
+          }
+        }
+      ],
+      "grants": {
+        "full": ["draft:read:full"]
+      },
+      "steps": [
+        {
+          "fill": "secret",
+          "origin": "paste"
+        }
+      ],
+      "expect": {
+        "storage": {
+          "full": {
+            "includes": ["secret"]
+          }
+        }
+      }
+    },
+    {
+      "id": "third-party-replace-blocks",
+      "plugins": [
+        {
+          "id": "a",
+          "plugin": "rules",
+          "settings": {
+            "mode": "replace"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "don't delete backups"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "don't delete backups"
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "observe-has-no-submit-authority",
+      "plugins": [
+        {
+          "id": "o",
+          "plugin": "rules",
+          "settings": {
+            "mode": "observer"
+          }
+        }
+      ],
+      "grants": {
+        "o": ["draft:read:full", "submit:observe"]
+      },
+      "steps": [
+        {
+          "type": "accepted"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["accepted"],
+        "storage": {
+          "o": {
+            "includes": ["accepted"]
+          }
+        }
+      }
+    },
+    {
+      "id": "builtin-replace-transforms",
+      "trust": "builtin",
+      "plugins": [
+        {
+          "id": "builtin",
+          "plugin": "rules",
+          "settings": {
+            "mode": "replace"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "don't delete backups"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["do delete backups"]
+      }
+    },
+    {
+      "id": "attribution-and-edit-rate",
+      "note": "One edit per change for 30 typed keys: at most 20 apply in a second, all attributed to the real ID; the rest are denied.",
+      "plugins": [
+        {
+          "id": "real-id",
+          "plugin": "rules",
+          "settings": {
+            "mode": "edit-flood"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": {
+            "repeat": "x",
+            "times": 30
+          }
+        }
+      ],
+      "expect": {
+        "edits": {
+          "applied": {
+            "min": 1,
+            "max": 20
+          },
+          "unattributed": 0,
+          "attributedTo": ["real-id"]
+        },
+        "stats": {
+          "denied": {
+            "min": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "status-uses-real-id",
+      "plugins": [
+        {
+          "id": "real-id",
+          "plugin": "rules",
+          "settings": {
+            "mode": "edit-flood"
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "status"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "statusIncludes": "[plugin real-id]"
+        }
+      }
+    },
+    {
+      "id": "shared-key-always-refused",
+      "plugins": [
+        {
+          "id": "h",
+          "plugin": "rules",
+          "settings": {
+            "mode": "hijack"
+          }
+        }
+      ],
+      "host": {
+        "tabQueues": true
+      },
+      "steps": [
+        {
+          "key": "Tab",
+          "routing": "pass"
+        },
+        {
+          "fill": "/"
+        },
+        {
+          "state": {
+            "popup": {
+              "owner": "host"
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "requests": []
+      }
+    },
+    {
+      "id": "menu-enter-never-sends",
+      "plugins": [
+        {
+          "id": "m",
+          "plugin": "rules",
+          "settings": {
+            "mode": "menu"
+          }
+        }
+      ],
+      "host": {
+        "unadvertisedKeys": ["Enter"]
+      },
+      "steps": [
+        {
+          "type": "x"
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "check": {
+            "requests": []
+          }
+        },
+        {
+          "state": {
+            "dialog": true
+          }
+        }
+      ],
+      "expect": {
+        "requests": [],
+        "ui": {
+          "status": null
+        }
+      }
+    },
+    {
+      "id": "unknown-origin-no-correction",
+      "trust": "builtin",
+      "plugins": ["autocorrect"],
+      "host": {
+        "inputOriginEvidence": "unknown"
+      },
+      "steps": [
+        {
+          "type": "teh "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "teh "
+        },
+        "stats": {
+          "corrections": 0
+        }
+      }
+    }
+  ]
+}

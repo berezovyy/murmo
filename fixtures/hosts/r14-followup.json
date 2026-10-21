@@ -1,0 +1,644 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/hosts-r14/conflicts/{A,B,guard}.mjs, tools/conflict-fake.mjs, evidence/conflict-fake.json; lesson 74 fixes",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "host": {
+      "inputOriginEvidence": "host-labeled"
+    }
+  },
+  "cases": [
+    {
+      "id": "order-AB-ghost",
+      "tags": ["order"],
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14key "
+        },
+        {
+          "check": {
+            "ui": {
+              "ghost": "A"
+            }
+          }
+        },
+        {
+          "key": "F6",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14key A"
+        }
+      }
+    },
+    {
+      "id": "order-AB-menu",
+      "tags": ["order"],
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14menu "
+        },
+        {
+          "check": {
+            "ui": {
+              "menu": ["same-id", "same-id"],
+              "menuOwners": ["A", "B"]
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14menu A"
+        }
+      }
+    },
+    {
+      "id": "order-AB-edit",
+      "tags": ["order"],
+      "note": "Both plugins edit the same range at the same version: the first in order applies, the other is stale.",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14word target "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14word A "
+        }
+      }
+    },
+    {
+      "id": "order-AB-submit",
+      "tags": ["order"],
+      "note": "Built-in submit transforms run in plugin order.",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "r14submit-safe"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["r14submit-safe|A|B"]
+      }
+    },
+    {
+      "id": "order-BA-ghost",
+      "tags": ["order"],
+      "plugins": [
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14key "
+        },
+        {
+          "check": {
+            "ui": {
+              "ghost": "B"
+            }
+          }
+        },
+        {
+          "key": "F6",
+          "routing": "consume"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14key B"
+        }
+      }
+    },
+    {
+      "id": "order-BA-menu",
+      "tags": ["order"],
+      "plugins": [
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14menu "
+        },
+        {
+          "check": {
+            "ui": {
+              "menu": ["same-id", "same-id"],
+              "menuOwners": ["B", "A"]
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14menu B"
+        }
+      }
+    },
+    {
+      "id": "order-BA-edit",
+      "tags": ["order"],
+      "note": "Both plugins edit the same range at the same version: the first in order applies, the other is stale.",
+      "plugins": [
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "r14word target "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14word B "
+        }
+      }
+    },
+    {
+      "id": "order-BA-submit",
+      "tags": ["order"],
+      "note": "Built-in submit transforms run in plugin order.",
+      "plugins": [
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "r14submit-safe"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["r14submit-safe|B|A"]
+      }
+    },
+    {
+      "id": "guard-blocks-submit",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "fill": "r14submit-deny"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14submit-deny"
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "menu-enter-never-sends",
+      "tags": ["menu-enter"],
+      "note": "r14 measured Enter in a plugin menu sending on 0/8 host rows after the fix; Enter is not advertised as interceptable.",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "host": {
+        "unadvertisedKeys": ["Enter"]
+      },
+      "steps": [
+        {
+          "type": "r14menu "
+        },
+        {
+          "key": "Enter"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "r14menu "
+        },
+        "requests": [],
+        "ui": {
+          "menu": null
+        }
+      }
+    },
+    {
+      "id": "native-popup-tab-slash",
+      "tags": ["native-tab"],
+      "note": "Tab in a native popup belongs to the host, even where Tab queues (Codex).",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "host": {
+        "tabQueues": true
+      },
+      "steps": [
+        {
+          "type": "/"
+        },
+        {
+          "state": {
+            "popup": {
+              "owner": "host"
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "requests": []
+      }
+    },
+    {
+      "id": "native-popup-tab-at",
+      "tags": ["native-tab"],
+      "note": "Tab in a native popup belongs to the host, even where Tab queues (Codex).",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "host": {
+        "tabQueues": true
+      },
+      "steps": [
+        {
+          "type": "@"
+        },
+        {
+          "state": {
+            "popup": {
+              "owner": "host"
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "routing": "pass"
+        }
+      ],
+      "expect": {
+        "requests": []
+      }
+    },
+    {
+      "id": "status-hidden-over-dialog",
+      "tags": ["dialog-status"],
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "host": {
+        "dialogSafe": true
+      },
+      "steps": [
+        {
+          "type": "r14status"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "R14_STATUS_"
+            }
+          }
+        },
+        {
+          "state": {
+            "dialog": true
+          }
+        }
+      ],
+      "expect": {
+        "ui": {
+          "status": null
+        }
+      }
+    },
+    {
+      "id": "status-hidden-without-dialog-safe",
+      "tags": ["dialog-status"],
+      "note": "OpenCode cannot report its approval dialog, so status stays hidden unless the host proves dialog safety.",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        },
+        {
+          "id": "B",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "B"
+          }
+        },
+        {
+          "id": "guard",
+          "plugin": "conflicts",
+          "settings": {
+            "guard": true
+          }
+        }
+      ],
+      "host": {
+        "dialogSafe": false
+      },
+      "steps": [
+        {
+          "type": "r14status"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "status": null
+        }
+      }
+    }
+  ]
+}

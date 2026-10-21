@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generator.v1.json",
+  "description": "A seeded generator run: which generator, the seed, how many streams in PR and nightly runs, what runs the generated cases, and where a shrunk failure is saved.",
+  "type": "object",
+  "required": ["kind", "provenance", "generator", "seed", "sizes", "session", "target", "failures"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "generator/v1" },
+    "provenance": { "$ref": "common.json#/$defs/provenance" },
+    "generator": { "enum": ["burst", "unicode", "provenance"] },
+    "seed": { "type": "integer", "minimum": 1 },
+    "sizes": {
+      "type": "object",
+      "required": ["pr", "nightly"],
+      "additionalProperties": false,
+      "properties": { "pr": { "type": "integer", "minimum": 1 }, "nightly": { "type": "integer", "minimum": 1 } }
+    },
+    "session": { "enum": ["shared", "fresh"] },
+    "target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "editor-ops" },
+            "plugins": { "$ref": "common.json#/$defs/plugins" },
+            "trust": { "$ref": "common.json#/$defs/trust" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "fn"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "pure-fn" },
+            "fn": { "$ref": "common.json#/$defs/fnName" }
+          }
+        }
+      ]
+    },
+    "failures": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/_.-]*\\.json$" },
+    "reference": {
+      "type": "object",
+      "required": ["size", "counts", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "type": "integer", "minimum": 1 },
+        "counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

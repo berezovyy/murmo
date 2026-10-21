@@ -1,0 +1,203 @@
+{
+  "normalization": "NFC; Unicode case boundaries; digit runs remain attached; all-uppercase plural URLs becomes URL; separator punctuation discarded",
+  "cases": [
+    {
+      "input": "HTTPServer",
+      "words": [
+        "http",
+        "server"
+      ]
+    },
+    {
+      "input": "IOError",
+      "words": [
+        "io",
+        "error"
+      ]
+    },
+    {
+      "input": "URLs",
+      "words": [
+        "url"
+      ]
+    },
+    {
+      "input": "getURL",
+      "words": [
+        "get",
+        "url"
+      ]
+    },
+    {
+      "input": "get_url",
+      "words": [
+        "get",
+        "url"
+      ]
+    },
+    {
+      "input": "utf8",
+      "words": [
+        "utf8"
+      ]
+    },
+    {
+      "input": "v2Api",
+      "words": [
+        "v2",
+        "api"
+      ]
+    },
+    {
+      "input": "i18n",
+      "words": [
+        "i18n"
+      ]
+    },
+    {
+      "input": "x",
+      "words": [
+        "x"
+      ]
+    },
+    {
+      "input": "I",
+      "words": [
+        "i"
+      ]
+    },
+    {
+      "input": "XMLHTTPParser",
+      "words": [
+        "xmlhttp",
+        "parser"
+      ]
+    },
+    {
+      "input": "HTTP2Server",
+      "words": [
+        "http2",
+        "server"
+      ]
+    },
+    {
+      "input": "parseUTF8",
+      "words": [
+        "parse",
+        "utf8"
+      ]
+    },
+    {
+      "input": "outbox-worker",
+      "words": [
+        "outbox",
+        "worker"
+      ]
+    },
+    {
+      "input": "src/outbox-worker.test.ts",
+      "words": [
+        "src",
+        "outbox",
+        "worker",
+        "test",
+        "ts"
+      ]
+    },
+    {
+      "input": "a.b",
+      "words": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "input": "A::b",
+      "words": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "input": "drain_queu()",
+      "words": [
+        "drain",
+        "queu"
+      ]
+    },
+    {
+      "input": "ÜberWorker",
+      "words": [
+        "über",
+        "worker"
+      ]
+    },
+    {
+      "input": "привітСвіт",
+      "words": [
+        "привіт",
+        "світ"
+      ]
+    },
+    {
+      "input": "日本語変数",
+      "words": [
+        "日本語変数"
+      ]
+    },
+    {
+      "input": "caféWorker",
+      "words": [
+        "café",
+        "worker"
+      ]
+    },
+    {
+      "input": "__init__",
+      "words": [
+        "init"
+      ]
+    },
+    {
+      "input": "foo2bar",
+      "words": [
+        "foo2bar"
+      ]
+    },
+    {
+      "input": "v1.2",
+      "words": [
+        "v1",
+        "2"
+      ]
+    },
+    {
+      "input": "URLParser",
+      "words": [
+        "url",
+        "parser"
+      ]
+    },
+    {
+      "input": "नामWorker",
+      "words": [
+        "नाम",
+        "worker"
+      ]
+    },
+    {
+      "input": "漢字Worker",
+      "words": [
+        "漢字",
+        "worker"
+      ]
+    },
+    {
+      "input": "äWorker",
+      "words": [
+        "ä",
+        "worker"
+      ]
+    }
+  ]
+}

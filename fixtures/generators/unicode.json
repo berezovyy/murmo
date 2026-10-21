@@ -1,0 +1,20 @@
+{
+  "kind": "generator/v1",
+  "provenance": {
+    "source": "experiments/engine-v2/unicode.test.ts (seeded random cursors; the r7 LCG replaced by xorshift32)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "generator": "unicode",
+  "seed": 508126,
+  "sizes": {
+    "pr": 1000,
+    "nightly": 4000
+  },
+  "session": "fresh",
+  "target": {
+    "kind": "pure-fn",
+    "fn": "text.boundaries"
+  },
+  "failures": "text/unicode-regressions.json"
+}

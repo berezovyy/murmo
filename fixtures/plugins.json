@@ -1,0 +1,66 @@
+{
+  "kind": "plugins/v1",
+  "provenance": {
+    "source": "experiments/platform/shared-v2/synthetic, security/hostile.mjs, devkit/followup/tests.mjs, hosts-r14/conflicts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fixture": {
+    "fast": {
+      "file": "plugins/fast.js",
+      "source": "experiments/platform/shared-v2/synthetic/fast.ts",
+      "why": "A no-op plugin that fills out the eleven-plugin containment list."
+    },
+    "keyhog": {
+      "file": "plugins/keyhog.js",
+      "source": "experiments/platform/shared-v2/synthetic/keyhog.ts",
+      "why": "Claims Tab always and consumes it (shared-key theft)."
+    },
+    "looper": {
+      "file": "plugins/looper.js",
+      "source": "experiments/platform/shared-v2/synthetic/looper.ts",
+      "why": "Busy-waits on a key: CPU containment."
+    },
+    "memhog": {
+      "file": "plugins/memhog.js",
+      "source": "experiments/platform/shared-v2/synthetic/memhog.ts",
+      "why": "Touches 200 MiB: guest memory cap."
+    },
+    "slow50": {
+      "file": "plugins/slow50.js",
+      "source": "experiments/platform/shared-v2/synthetic/slow50.ts",
+      "why": "A slow async edit: only the latest result may apply (C3)."
+    },
+    "stale": {
+      "file": "plugins/stale.js",
+      "source": "experiments/platform/shared-v2/synthetic/stale.ts",
+      "why": "Effects against an old version: all dropped (C3)."
+    },
+    "thrower": {
+      "file": "plugins/thrower.js",
+      "source": "experiments/platform/shared-v2/synthetic/thrower.ts",
+      "why": "Throws on every change: disabled without hurting peers."
+    },
+    "hostile": {
+      "file": "plugins/hostile.js",
+      "source": "experiments/platform/security/hostile.mjs",
+      "why": "The r14 attack plugin; settings.mode picks the attack."
+    },
+    "rules": {
+      "file": "plugins/rules.js",
+      "source": "experiments/platform/devkit/followup/tests.mjs",
+      "why": "Small plugins for the third-party rule groups; settings.mode picks one."
+    },
+    "conflicts": {
+      "file": "plugins/conflicts.js",
+      "source": "experiments/platform/hosts-r14/conflicts/{A,B,guard}.mjs",
+      "why": "Two plugins answering the same trigger, and a submit guard: plugin order."
+    }
+  },
+  "provided": {
+    "autocorrect": "Our autocorrect plugin (phase 13); the prototype is shared-v2/plugins/autocorrect.ts.",
+    "snippets": "Our shortcuts plugin (phase 15) reading the project folder; prototype shared-v2/plugins/snippets.ts.",
+    "counter": "The status counter sample (\"N chars\"); prototype shared-v2/plugins/counter.ts, an API sample in phase 03.",
+    "todo-guard": "The TODO guard API sample: blocks a send that says TODO; the required guard in the submit cases."
+  }
+}

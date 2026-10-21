@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pure-fn.v1.json",
+  "description": "Pure-function cases: a named function, an input and the exact output. Run by the pure subject on Node, Bun, QuickJS-wasm and rquickjs. Cases are inline, or read from a moved file through a table.",
+  "type": "object",
+  "required": ["kind", "offsets", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "pure-fn/v1" },
+    "offsets": { "const": "utf16" },
+    "provenance": { "$ref": "common.json#/$defs/provenance" },
+    "fn": { "$ref": "common.json#/$defs/fnName" },
+    "cases": { "type": "array", "minItems": 1, "items": { "$ref": "common.json#/$defs/pureCase" } },
+    "table": {
+      "type": "object",
+      "required": ["file", "cases", "input", "output"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "pattern": "^[\\w.-]+$" },
+        "cases": { "type": "string" },
+        "id": { "type": "string" },
+        "input": { "type": "string" },
+        "output": { "type": "string" }
+      }
+    }
+  },
+  "oneOf": [{ "required": ["cases"] }, { "required": ["table"] }]
+}
