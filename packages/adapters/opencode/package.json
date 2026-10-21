@@ -1,0 +1,25 @@
+{
+  "name": "@murmo/adapter-opencode",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tui": "./src/tui.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/config": "workspace:*",
+    "@murmo/core": "workspace:*",
+    "@murmo/executor": "workspace:*",
+    "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/plugin-rescue": "workspace:*",
+    "@murmo/plugin-shortcuts": "workspace:*",
+    "@murmo/provenance": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "node"
+  }
+}
