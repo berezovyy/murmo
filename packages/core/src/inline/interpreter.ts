@@ -319,7 +319,9 @@ function lookupAtBoundary(
   rejected: ReadonlySet<string>,
 ): Proposal | null {
   const prefix = w.text.slice(0, at);
-  const raw = /\S+$/.exec(prefix)?.[0];
+  // Tokens are short; `\S+$` on a 1.1M-character prefix of `x`s then ` teh` is O(n²).
+  const window = prefix.length > 256 ? prefix.slice(-256) : prefix;
+  const raw = /\S+$/.exec(window)?.[0];
   if (!raw) return null;
   if (rule.vocabulary.has(raw.toLowerCase())) return null;
   // Exact match only (phase 15): a declared `rvw` does not expand `;rvw`.

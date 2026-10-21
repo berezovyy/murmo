@@ -63,6 +63,8 @@ export {
   type ShortcutCounts,
   type TableReceipt,
   type WordPolicy,
+  type WordPolicyQuery,
+  type WordProposal,
 } from './inline/index.ts';
 export { type Decision, KeyRouter, type KeyRouterDeps } from './keys.ts';
 export { MENU_MAX_PER_PLUGIN, MENU_WINDOW, Menu, type MenuChoice, type MenuDeps, visibleWindow } from './menu.ts';

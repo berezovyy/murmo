@@ -64,6 +64,9 @@ importers:
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
+      '@murmo/plugin-autocorrect':
+        specifier: workspace:*
+        version: link:../plugin-autocorrect
       '@murmo/plugin-shortcuts':
         specifier: workspace:*
         version: link:../plugins/shortcuts
@@ -112,6 +115,24 @@ importers:
       '@murmo/lang':
         specifier: workspace:*
         version: link:../lang
+
+  packages/plugin-autocorrect:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../core
+      '@murmo/lang':
+        specifier: workspace:*
+        version: link:../lang
+      '@murmo/lang-en':
+        specifier: workspace:*
+        version: link:../lang-en
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
 
   packages/plugins/shortcuts:
     dependencies:

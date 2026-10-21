@@ -16,6 +16,7 @@
 
 import type { Draft, Permission } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
+import autocorrectSample from '@murmo/api/examples/autocorrect';
 import {
   type CapsPatch,
   canonicalKey,
@@ -25,6 +26,12 @@ import {
   testInlineRules,
 } from '@murmo/core/testing';
 import type { EditorCase, HostSetup, PluginRef } from '@murmo/fixtures';
+import {
+  englishInlineRules,
+  englishPackAsset,
+  installTestPolicy,
+  resolveAutocorrectSettings,
+} from '@murmo/plugin-autocorrect';
 import { compileShortcuts, shortcutsInlineRules } from '@murmo/plugin-shortcuts';
 import type { Observation } from './expect.ts';
 import { type DriverDelta, interpretEditorCase, type KeyTiming, type StepDriver } from './interpreter.ts';
@@ -75,19 +82,22 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
     const registered = plugins[plugin];
     if (!registered) throw new Error(`no plugin "${plugin}" in the core subject's registry`);
     const fromCase = c.settings?.[id] as Record<string, unknown> | undefined;
+    const mergedSettings = { ...fromCase, ...settings };
     const spec: DirectPluginSpec = {
       id,
       builtin,
       factory: registered.factory,
-      settings: { ...fromCase, ...settings },
+      settings: mergedSettings,
     };
-    // Phase 07 test policy only when the case asks for it, so async-edit fixtures
-    // keep the sample plugin's versioned commits (commit-stale, C1 via undo log).
-    if (builtin && plugin === 'autocorrect' && (c.requires ?? []).includes('core.inline')) {
+    const requires = c.requires ?? [];
+    // Phase 07 test table: exact-lookup stand-in so burst counts stay on the
+    // reviewed pairs. Async-edit fixtures keep the sample plugin.
+    if (builtin && plugin === 'autocorrect' && requires.includes('core.inline')) {
+      installTestPolicy();
       const bundle = testInlineRules(id);
       return { ...spec, inline: [bundle.rules], assets: bundle.assets };
     }
-    if (builtin && plugin === 'shortcuts' && (c.requires ?? []).includes('core.inline')) {
+    if (builtin && plugin === 'shortcuts' && requires.includes('core.inline')) {
       const replacements = (spec.settings?.replacements as Readonly<Record<string, string>> | undefined) ?? {};
       const compiled = compileShortcuts({
         replacements: Object.entries(replacements).map(([shortcut, text]) => ({ shortcut, text, origin: 'user' })),
@@ -96,6 +106,17 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
       return { ...spec, inline: [shortcutsInlineRules(id, compiled, { asyncEdits: c.host?.edit?.atomic !== false })] };
     }
     if (plugin === 'todo-guard') return { ...spec, requiredGuard: true };
+    if (builtin && plugin === 'autocorrect' && requires.includes('plugin.autocorrect=release')) {
+      const pack = englishPackAsset();
+      if (!pack) return spec;
+      const resolved = resolveAutocorrectSettings(mergedSettings);
+      const vocabulary = Array.isArray(c.settings?.vocabulary) ? (c.settings.vocabulary as string[]) : [];
+      const bundle = englishInlineRules({ owner: id, pack, settings: resolved, vocabulary });
+      return { ...spec, inline: [bundle.rules], assets: bundle.assets };
+    }
+    if (plugin === 'autocorrect') {
+      return { ...spec, factory: autocorrectSample };
+    }
     return spec;
   });
 }

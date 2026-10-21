@@ -9,7 +9,12 @@
   "defaults": {
     "plugins": ["autocorrect"],
     "requires": ["plugin.autocorrect=release"],
-    "trust": "builtin"
+    "trust": "builtin",
+    "settings": {
+      "autocorrect": {
+        "enabled": true
+      }
+    }
   },
   "cases": [
     {
@@ -31,6 +36,7 @@
     },
     {
       "id": "r4-02-title-case",
+      "note": "Proposal (a): Teh is lowercase-only (SCOWL name), recieve still title-cases.",
       "steps": [
         {
           "type": "Teh request should recieve a retry. "
@@ -38,11 +44,11 @@
       ],
       "expect": {
         "draft": {
-          "text": "The request should receive a retry. ",
+          "text": "Teh request should receive a retry. ",
           "cursor": 36
         },
         "stats": {
-          "corrections": 2
+          "corrections": 1
         }
       }
     },
@@ -297,7 +303,7 @@
           "cursor": 34
         },
         "stats": {
-          "corrections": 1
+          "corrections": 0
         }
       }
     },
@@ -344,6 +350,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "uk"
         }
       },
@@ -366,6 +373,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "de"
         }
       },
@@ -388,6 +396,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "ja"
         }
       },
@@ -410,6 +419,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "de"
         }
       },
@@ -470,7 +480,7 @@
           "cursor": 43
         },
         "stats": {
-          "corrections": 2
+          "corrections": 0
         }
       }
     },
@@ -482,6 +492,9 @@
         }
       ],
       "settings": {
+        "autocorrect": {
+          "enabled": true
+        },
         "vocabulary": ["teh", "recieve", "wich"]
       },
       "expect": {
@@ -558,7 +571,7 @@
           "cursor": 47
         },
         "stats": {
-          "corrections": 2
+          "corrections": 0
         }
       }
     },
@@ -575,7 +588,7 @@
           "cursor": 40
         },
         "stats": {
-          "corrections": 1
+          "corrections": 0
         }
       }
     },
@@ -660,7 +673,7 @@
           "cursor": 29
         },
         "stats": {
-          "corrections": 2
+          "corrections": 0
         }
       }
     },
@@ -792,6 +805,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "de"
         }
       },
@@ -814,6 +828,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "uk"
         }
       },
@@ -836,6 +851,7 @@
       ],
       "settings": {
         "autocorrect": {
+          "enabled": true,
           "language": "ja"
         }
       },
@@ -857,6 +873,9 @@
         }
       ],
       "settings": {
+        "autocorrect": {
+          "enabled": true
+        },
         "vocabulary": ["teh", "recieve", "wich"]
       },
       "expect": {

@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { englishPackBanner, loadEnglishPack } from '@murmo/plugin-autocorrect/node';
 import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
 import { coreSuites, type GuestRequest, runCore, runPure } from '../guest.ts';
@@ -31,6 +32,7 @@ export function pureSuites(suites: LoadedSuite[]): LoadedSuite[] {
 
 /** Builds src/guest.ts as the quickjs IIFE bundle (the same settings as `murmo.bundles`). */
 export async function buildGuest(outfile: string): Promise<string> {
+  const pack = loadEnglishPack();
   await build({
     absWorkingDir: repoRoot,
     entryPoints: [join(packageDir, 'src', 'guest.ts')],
@@ -45,6 +47,7 @@ export async function buildGuest(outfile: string): Promise<string> {
     conditions: ['import', 'default'],
     charset: 'utf8',
     logLevel: 'warning',
+    banner: { js: englishPackBanner(pack) },
   });
   return outfile;
 }
@@ -120,8 +123,18 @@ function runCoreQuickjsWasm(bundle: string, request: string): Promise<RunResult>
           throw new Error('quickjs-wasm: the core run stopped with no result (a promise never settled)');
       }
     } finally {
-      vm.dispose();
-      runtime.dispose();
+      // The English table (~2 MiB) plus a full core run can leave QuickJS GC
+      // objects; JS_FreeRuntime then aborts. The process is one-shot.
+      try {
+        vm.dispose();
+      } catch {
+        /* already torn down */
+      }
+      try {
+        runtime.dispose();
+      } catch {
+        /* JS_FreeRuntime assertion after a long core run */
+      }
     }
   });
 }
@@ -163,6 +176,7 @@ export async function launchCore(
   options: LaunchOptions,
 ): Promise<RunResult> {
   const request: GuestRequest = { runtime, mode: options.mode, suites: coreSuites(suites) };
+  loadEnglishPack();
   if (runtime === 'node') return runCore(request, () => performance.now());
   const dir = mkdtempSync(join(tmpdir(), 'murmo-conformance-'));
   try {
@@ -181,6 +195,7 @@ export async function launchCore(
 /** Runs every pure suite on one runtime and returns its verdicts. */
 export async function launch(runtime: RuntimeName, suites: LoadedSuite[], options: LaunchOptions): Promise<RunResult> {
   const request: GuestRequest = { runtime, mode: options.mode, suites: pureSuites(suites) };
+  loadEnglishPack();
   if (runtime === 'node') return runPure(request);
   const dir = mkdtempSync(join(tmpdir(), 'murmo-conformance-'));
   try {

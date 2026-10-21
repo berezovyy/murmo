@@ -16,6 +16,7 @@
     "@murmo/core": "workspace:*",
     "@murmo/executor": "workspace:*",
     "@murmo/fixtures": "workspace:*",
+    "@murmo/plugin-autocorrect": "workspace:*",
     "@murmo/plugin-shortcuts": "workspace:*",
     "@murmo/provenance": "workspace:*",
     "@murmo/text": "workspace:*"
@@ -26,6 +27,9 @@
   },
   "murmo": {
     "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
     "bundles": [
       {
         "name": "conformance-guest",

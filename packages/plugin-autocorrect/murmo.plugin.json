@@ -1,0 +1,45 @@
+{
+  "name": "autocorrect",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the words you type so a fully typed typo can be corrected." },
+    { "name": "draft:write", "reason": "Register the English inline table; the core applies it, not this plugin." }
+  ],
+  "capabilities": {
+    "required": {
+      "edit.atomic": true,
+      "edit.exactRestore": true
+    },
+    "optional": {
+      "inputOriginEvidence": "host-labeled",
+      "inlineRewrite": ["same-transaction", "immediate-managed-transport", "next-key"],
+      "status": true,
+      "ui.dialogSafe": true
+    }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in until human validation (phase 30). Off by default."
+      },
+      "language": {
+        "type": "string",
+        "default": "en",
+        "maxLength": 16,
+        "description": "Language tag. Only en is shipped; any other value turns correction off."
+      },
+      "allow": {
+        "type": "string",
+        "default": "",
+        "maxLength": 4096,
+        "description": "Whitespace- or comma-separated words that must never be corrected."
+      }
+    },
+    "additionalProperties": false
+  }
+}

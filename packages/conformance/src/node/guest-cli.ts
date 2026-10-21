@@ -5,7 +5,10 @@
 //   bun packages/conformance/src/node/guest-cli.ts [--core] <request.json>
 
 import { readFileSync } from 'node:fs';
+import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
 import { type GuestRequest, runCore, runPure } from '../guest.ts';
+
+loadEnglishPack();
 
 const args = process.argv.slice(2);
 const core = args.includes('--core');

@@ -189,6 +189,8 @@ class CoreSession implements Session {
   #settled = 0;
   #subscribed = false;
   #disposed = false;
+  /** First inline typo/shortcut in this session; names the rejection keys once. */
+  #firstInlineFix = false;
   #disposing: Promise<void> | undefined;
   #killNotice: string | undefined;
 
@@ -479,6 +481,12 @@ class CoreSession implements Session {
     this.#counters.inlineCorrections += corrections;
     this.#counters.shortcutExpanded += shortcutExpanded;
     this.#counters.shortcutUndone += shortcutUndone;
+    if (corrections > 0 && !this.#firstInlineFix) {
+      this.#firstInlineFix = true;
+      if (this.#hostCaps?.ui.dialogSafe) {
+        this.#presentation?.notice('Autocorrect: Backspace or Undo restores the typed word.');
+      }
+    }
     if (!deferred.length || commit.status !== 'applied') return;
     this.#enqueue(async () => {
       const edits = this.#edits;

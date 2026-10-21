@@ -10,6 +10,7 @@
 
 import type { PureCase } from '@murmo/fixtures';
 import { sha256, summarize } from '@murmo/fixtures/generators';
+import { lookupWord } from '@murmo/plugin-autocorrect';
 import { configFunctions } from './fns/config.ts';
 import { provenanceFunctions } from './fns/provenance.ts';
 import { shortcutsFunctions } from './fns/shortcuts.ts';
@@ -40,6 +41,7 @@ function summary(input: unknown): unknown {
 /** Every pure function registered so far. */
 export const pureFunctions: Readonly<Record<string, PureEntry>> = {
   'generators.summary': summary,
+  'autocorrect.lookupWord': lookupWord,
   ...textFunctions,
   ...provenanceFunctions,
   ...configFunctions,
