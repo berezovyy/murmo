@@ -70,13 +70,17 @@ function writePack(options: Options = {}): { dir: string; record: string } {
 }
 
 /** Rewrites a file in place and puts its mtime back, as a same-size corruption that stat can't see. */
+// Edits a file and puts its mtime back, as an attacker would. utimes takes
+// float seconds, so a fractional-millisecond mtime can come back 1 ms off;
+// whole seconds round-trip exactly, so the file gets one before and after.
 function tamper(path: string, edit: (bytes: Buffer) => void): void {
-  const { atime, mtime } = statSync(path);
   const bytes = readFileSync(path);
   edit(bytes);
   writeFileSync(path, bytes);
-  utimesSync(path, atime, mtime);
+  utimesSync(path, WHOLE_SECOND, WHOLE_SECOND);
 }
+
+const WHOLE_SECOND = 1_792_540_800; // 2026-10-21T00:00:00Z
 
 function problem(dir: string, record: string, hash = true): PackProblem | 'ok' {
   const result = openLanguagePack(dir, record, { hash });
@@ -99,6 +103,7 @@ test('an installed pack opens with lookups and its case policy, and says how it 
 
 test('a same-size flipped table byte with its mtime restored disables correction where a native hash runs', () => {
   const { dir, record } = writePack();
+  utimesSync(join(dir, 'typos.bin'), WHOLE_SECOND, WHOLE_SECOND);
   installLanguagePack(dir, record);
   tamper(join(dir, 'typos.bin'), (b) => {
     b[b.length - 1] = (b[b.length - 1] as number) ^ 0x01;

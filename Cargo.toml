@@ -10,7 +10,7 @@ publish = false
 # Exact pins: the versions the round 12-14 prototypes ran on real hosts.
 [workspace.dependencies]
 rquickjs = "=0.12.2"
-serde_json = "=1.0.154"
+serde_json = "=1.0.151"
 libc = "=0.2.190"
 vt100 = "=0.16.2"
 unicode-segmentation = "=1.13.3"
