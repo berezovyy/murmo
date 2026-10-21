@@ -25,6 +25,7 @@ import type {
 import { HOOKS, type PluginDescriptor } from '@murmo/api/adapter';
 import { projectTyped } from '@murmo/provenance';
 import type { HookCall, HookRunner, LoadedPlugin, RunnerHealth } from '../hooks.ts';
+import { uniquePluginIds } from '../order.ts';
 import { CancelledError } from './clock.ts';
 
 export interface DirectPluginSpec {
@@ -156,7 +157,12 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
   return {
     runtime: { executor: 'in-process', hooks: hookNames, services: ['clock', 'storage'] },
 
+    ids(): readonly string[] {
+      return options.plugins.map((spec) => spec.id);
+    },
+
     async load(): Promise<readonly LoadedPlugin[]> {
+      uniquePluginIds(options.plugins.map((spec) => spec.id));
       const out: LoadedPlugin[] = [];
       for (const spec of options.plugins) {
         try {

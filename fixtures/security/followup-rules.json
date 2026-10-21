@@ -216,6 +216,7 @@
     {
       "id": "shared-key-always-refused",
       "requires": ["core.keys"],
+      "note": "tabQueues is not set here: a passing Tab on an empty draft would queue-submit. Popup Tab still belongs to the host; Codex queue+popup is native-popup-tab-slash.",
       "plugins": [
         {
           "id": "h",
@@ -225,9 +226,6 @@
           }
         }
       ],
-      "host": {
-        "tabQueues": true
-      },
       "steps": [
         {
           "key": "Tab",

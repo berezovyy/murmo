@@ -1,8 +1,10 @@
 // @murmo/core: the session between one host adapter and the plugins (docs/plan/05–09).
 // Phase 05: draft state, ordered deltas, versioned edits, owned undo, the
-// stale-result check, presentation and the fail-open guard. The reference
-// adapter, a direct hook runner and a driver live in `@murmo/core/testing`.
+// stale-result check, presentation and the fail-open guard. Phase 06: key
+// router, claim validation, explicit plugin order and the merged menu. The
+// reference adapter, a direct hook runner and a driver live in `@murmo/core/testing`.
 
+export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
 export { type Accepted, DraftState, degradeOrigins } from './draft-state.ts';
 export {
   attributionLabel,
@@ -28,8 +30,11 @@ export {
   type PluginEntry,
   type RunnerHealth,
 } from './hooks.ts';
+export { type Decision, KeyRouter, type KeyRouterDeps } from './keys.ts';
+export { MENU_MAX_PER_PLUGIN, MENU_WINDOW, Menu, type MenuChoice, type MenuDeps, visibleWindow } from './menu.ts';
+export { type PluginOrderCode, PluginOrderError, resolveOrder, uniquePluginIds } from './order.ts';
 export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type VisibleGhost } from './present.ts';
 export { createSession, KILL_NOTICE, type Session, type SessionOptions } from './session.ts';
 export { isCurrent, issueTicket, type SessionView, type StaleReason, staleReason, type Ticket } from './stale.ts';
-export { Counters, type PluginHealth, type SessionStats, type Surface } from './stats.ts';
+export { Counters, type DecisionBy, type PluginHealth, type SessionStats, type Surface } from './stats.ts';
 export { restoredExactly, restoreTarget, type UndoGesture, UndoLog, type UndoRecord } from './undo.ts';

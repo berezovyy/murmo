@@ -160,7 +160,7 @@
     },
     {
       "id": "C5",
-      "requires": ["core.keys", "plugin.snippets=release"],
+      "requires": ["core.keys"],
       "steps": [
         {
           "key": ";"
@@ -195,7 +195,7 @@
     },
     {
       "id": "C6",
-      "requires": ["core.keys", "plugin.snippets=release"],
+      "requires": ["core.keys"],
       "steps": [
         {
           "key": ";"
@@ -247,7 +247,7 @@
     },
     {
       "id": "C7",
-      "requires": ["core.keys", "plugin.snippets=release"],
+      "requires": ["core.keys"],
       "steps": [
         {
           "key": ";"
@@ -333,7 +333,7 @@
     },
     {
       "id": "C5-enter-no-expansion",
-      "requires": ["core.keys", "plugin.snippets=release"],
+      "requires": ["core.keys"],
       "steps": [
         {
           "key": ";"

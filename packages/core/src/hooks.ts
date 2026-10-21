@@ -11,10 +11,12 @@ import type {
   Draft,
   EffectType,
   HostState,
+  PluginAction,
   PluginHook,
   RuntimeCapabilities,
 } from '@murmo/api';
 import { type ExecutorFault, type ExecutorFaultCode, type PluginDescriptor, routesFor } from '@murmo/api/adapter';
+import type { ValidatedClaim } from './claims.ts';
 import type { Ticket } from './stale.ts';
 
 /** A loaded plugin as the session orders and gates it. */
@@ -36,6 +38,10 @@ export interface PluginEntry {
   readonly hooks: ReadonlySet<PluginHook>;
   /** Effect types its permissions open. */
   readonly effects: ReadonlySet<EffectType>;
+  /** Logical actions the plugin declared (`murmo.menu`). */
+  readonly actions: ReadonlySet<PluginAction>;
+  /** Claims that survived load validation. Filled by the session before activation. */
+  claims: readonly ValidatedClaim[];
   activated: boolean;
   disabled: boolean;
   reason?: string;
@@ -52,6 +58,8 @@ export function entryOf(plugin: LoadedPlugin): PluginEntry {
     builtin: plugin.builtin,
     hooks: new Set(descriptor.hooks.filter((hook) => routes.hooks.includes(hook))),
     effects: new Set(routes.effects),
+    actions: new Set(descriptor.actions),
+    claims: [],
     activated: false,
     disabled: plugin.loadError !== undefined,
     ...(plugin.loadError === undefined ? {} : { reason: `load failed: ${plugin.loadError}` }),
@@ -82,6 +90,8 @@ export type RunnerHealth = 'ok' | 'degraded' | 'down';
 
 export interface HookRunner {
   readonly runtime: RuntimeCapabilities;
+  /** Spec IDs in the host's explicit list, before `load` (duplicate check happens here). */
+  ids(): readonly string[];
   /** Loads every plugin, in the session's order. */
   load(): Promise<readonly LoadedPlugin[]>;
   /** Runs one hook; rejects with an `ExecutorFault`-shaped error. */

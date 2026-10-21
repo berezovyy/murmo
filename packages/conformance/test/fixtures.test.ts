@@ -116,7 +116,7 @@ test('a moved file whose line endings changed fails its SHA-256 check (E17, E18)
 
 const experiments = join(repoRoot, 'experiments');
 test('moved files still match their experiment sources byte for byte', {
-  skip: existsSync(experiments) ? false : 'experiments/ is not checked out here',
+  skip: existsSync(join(experiments, 'replacements')) ? false : 'experiments/ is not checked out here',
 }, () => {
   for (const manifest of ['shortcuts/moved.json', 'names/moved.json']) {
     const moved = JSON.parse(readFileSync(join(repoRoot, 'fixtures', manifest), 'utf8'));

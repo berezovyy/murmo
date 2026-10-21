@@ -6,7 +6,9 @@
 import type { ResultCode } from '@murmo/api';
 import type { RunnerHealth } from './hooks.ts';
 
-export type Surface = 'ghost' | 'highlight' | 'status';
+export type DecisionBy = 'native' | 'undo' | 'menu' | 'claim' | 'none';
+
+export type Surface = 'ghost' | 'highlight' | 'status' | 'menu';
 
 export const resultCodes: readonly ResultCode[] = [
   'applied',
@@ -41,7 +43,14 @@ export class Counters {
   /** Restores whose committed snapshot differed from the saved draft (an adapter that breaks `exactRestore`). */
   restoreMismatches = 0;
   /** Adapter presentation calls by surface and result. */
-  readonly ui: Record<Surface, Record<ResultCode, number>> = { ghost: tally(), highlight: tally(), status: tally() };
+  readonly ui: Record<Surface, Record<ResultCode, number>> = {
+    ghost: tally(),
+    highlight: tally(),
+    status: tally(),
+    menu: tally(),
+  };
+  /** Key-router decisions per `by` (native UI, undo, menu, claim, or nobody). */
+  readonly keyBy: Record<DecisionBy, number> = { native: 0, undo: 0, menu: 0, claim: 0, none: 0 };
   /** Errors thrown inside session callbacks or tasks (the fail-open guard's count). */
   failures = 0;
   /** Plugin hook faults. */
@@ -77,6 +86,7 @@ export interface SessionStats {
   /** Changes whose ledger was verified (`before` plus ordered deltas give the reported draft). */
   readonly ledgerChecks: number;
   readonly keys: number;
+  readonly keyBy: Readonly<Record<DecisionBy, number>>;
   readonly changes: number;
   readonly ownChanges: number;
   /** All stale drops: stale effects plus `stale` and `cancelled` commits. */

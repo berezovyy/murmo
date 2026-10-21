@@ -10,7 +10,7 @@
 // host's, no typed coverage without host-labeled evidence, no core failure,
 // and a dispose that unsubscribes everything.
 //
-// Features: `core.edits` now; `core.keys` (06), `core.inline` (07),
+// Features: `core.edits` and `core.keys`; `core.inline` (07),
 // `core.submit` (08), `core.permissions` and `executor.isolated` (09) are
 // added by those phases, so cases that need them skip with "needs <feature>".
 
@@ -32,7 +32,7 @@ export interface CoreSubjectOptions {
 export const PEER_TODO = ' TODO';
 
 export function coreFeatures(): Record<string, string | boolean> {
-  return { 'core.edits': true, ...pluginFeatures() };
+  return { 'core.edits': true, 'core.keys': true, ...pluginFeatures() };
 }
 
 /** The host quirks a case asks for, as reference-adapter capability overrides. */
@@ -91,6 +91,7 @@ function observe(h: Harness, trust: Run['trust']): Observation {
   if (stats) {
     for (const [name, value] of Object.entries(stats)) if (typeof value === 'number') numbers[name] = value;
     for (const [code, count] of Object.entries(stats.commits)) numbers[`commits.${code}`] = count;
+    for (const [by, count] of Object.entries(stats.keyBy)) numbers[`keys.${by}`] = count;
     // The fixtures' name for plugin corrections the host committed (r4, stress).
     numbers.corrections = stats.applied;
   }

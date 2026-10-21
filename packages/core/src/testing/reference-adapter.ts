@@ -20,9 +20,10 @@
 //   as the legacy adapters did, so the core's own stripping is what is tested.
 //
 // Not here: the inline transaction (`onInlineEdit`/`onInlineCommit`, phase
-// 07), semantic menu selection and actions (06), host profiles (11).
+// 07), host profiles (11).
 
 import {
+  type ActionId,
   type ActionResult,
   type Cancellation,
   type Change,
@@ -34,6 +35,7 @@ import {
   type Gesture,
   type HostState,
   type InputOriginEvidence,
+  isCanonicalKey,
   type KeyId,
   NAMED_KEYS,
   type Origin,
@@ -47,6 +49,7 @@ import type {
   EditAttribution,
   HostCapabilities,
   HostSubmitAccepted,
+  MenuSelection,
   PresentedMenuItem,
   SubmitOutcome,
   Unsubscribe,
@@ -58,8 +61,8 @@ import { codePointBefore, isGraphemeBoundary, isSingleCodePoint } from '@murmo/t
 export function referenceCaps(): HostCapabilities {
   return {
     inputOriginEvidence: 'host-labeled',
-    semanticMenuSelection: false,
-    actions: [],
+    semanticMenuSelection: true,
+    actions: ['murmo.undo', 'murmo.menu'],
     inlineRewrite: 'unsupported',
     inline: {
       attributed: false,
@@ -86,7 +89,7 @@ export function referenceCaps(): HostCapabilities {
     menu: true,
     highlight: 'any',
     status: true,
-    keys: [...NAMED_KEYS],
+    keys: [...NAMED_KEYS, ...Array.from({ length: 94 }, (_, i) => String.fromCharCode(33 + i)).filter(isCanonicalKey)],
     undoKeys: ['F6'],
     keyPriority: 'before-peers',
     submit: {
@@ -209,6 +212,8 @@ export class ReferenceAdapter implements Adapter {
   readonly #keys = new Set<(key: KeyId) => 'consume' | 'pass'>();
   readonly #submits = new Set<(tx: SubmitTransaction) => Promise<SubmitOutcome>>();
   readonly #committed = new Set<(event: HostSubmitAccepted) => void>();
+  readonly #actions = new Set<(action: ActionId) => void>();
+  readonly #menuSelects = new Set<(selection: MenuSelection) => void>();
 
   /** Fault injection: every commit (or restore) returns this instead of committing. */
   commitFault: CommitFault | null = null;
@@ -370,9 +375,24 @@ export class ReferenceAdapter implements Adapter {
     return this.#subscribe(this.#committed, callback);
   }
 
+  onAction(callback: (action: ActionId) => void): Unsubscribe {
+    return this.#subscribe(this.#actions, callback);
+  }
+
+  onMenuSelect(callback: (selection: MenuSelection) => void): Unsubscribe {
+    return this.#subscribe(this.#menuSelects, callback);
+  }
+
   /** Subscribers still registered, so a test can see that dispose unsubscribed everything. */
   subscribers(): number {
-    return this.#changes.size + this.#keys.size + this.#submits.size + this.#committed.size;
+    return (
+      this.#changes.size +
+      this.#keys.size +
+      this.#submits.size +
+      this.#committed.size +
+      this.#actions.size +
+      this.#menuSelects.size
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -468,6 +488,17 @@ export class ReferenceAdapter implements Adapter {
     const held = this.#held;
     this.#held = [];
     for (const release of held) release();
+  }
+
+  /** A logical action the host routed (never a fake raw key). */
+  action(id: ActionId): void {
+    for (const callback of [...this.#actions]) callback(id);
+  }
+
+  /** Native semantic menu selection, as Claude/Pi autocomplete reports it. */
+  selectMenu(pluginId: string, itemId: string): void {
+    const selection: MenuSelection = { pluginId, itemId, baseVersion: this.#value.version };
+    for (const callback of [...this.#menuSelects]) callback(selection);
   }
 
   /**

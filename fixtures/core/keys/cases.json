@@ -1,0 +1,140 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (phase 06): shared-key refusal (r14 S5), menu Enter on four host profiles (r14 H4), native popup Tab; conflicts plugins from fixtures/plugins/conflicts.js",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "requires": ["core.keys"],
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "keyhog-third-party-tab",
+      "note": "A zero-permission always-Tab claim is refused at load, so another plugin's ghost Tab still works (r14 S5).",
+      "trust": "third-party",
+      "plugins": ["keyhog", "autocorrect"],
+      "steps": [{ "type": "Out" }, { "check": { "ui": { "ghost": "boxWorker" } } }, { "key": "Tab" }],
+      "expect": {
+        "draft": { "text": "OutboxWorker", "cursor": 12 },
+        "requests": [],
+        "notices": ["keyhog: key claim 1 refused: always consumption of shared key Tab is refused"]
+      }
+    },
+    {
+      "id": "keyhog-builtin-tab",
+      "note": "Built-ins follow the same always-shared-key rule, so our own plugins cannot starve the host either.",
+      "plugins": ["keyhog", "autocorrect"],
+      "steps": [{ "type": "Out" }, { "check": { "ui": { "ghost": "boxWorker" } } }, { "key": "Tab" }],
+      "expect": {
+        "draft": { "text": "OutboxWorker", "cursor": 12 },
+        "requests": [],
+        "notices": ["keyhog: key claim 1 refused: always consumption of shared key Tab is refused (built-in)"]
+      }
+    },
+    {
+      "id": "native-popup-tab-with-claims",
+      "note": "A host popup owns Tab even when plugins claim it (Codex / and @ Tab break, r14 H4).",
+      "plugins": ["autocorrect"],
+      "host": { "tabQueues": true },
+      "steps": [{ "type": "/" }, { "state": { "popup": { "owner": "host" } } }, { "key": "Tab", "routing": "pass" }],
+      "expect": { "requests": [] }
+    },
+    {
+      "id": "menu-enter-pi-AB",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (pi, order AB).",
+      "plugins": [
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-pi-BA",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (pi, order BA).",
+      "plugins": [
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-opencode-AB",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (OpenCode profile, order AB).",
+      "host": { "dialogSafe": false },
+      "plugins": [
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-opencode-BA",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (OpenCode profile, order BA).",
+      "host": { "dialogSafe": false },
+      "plugins": [
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-codex-AB",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (Codex profile, order AB).",
+      "host": { "tabQueues": true },
+      "plugins": [
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-codex-BA",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (Codex profile, order BA).",
+      "host": { "tabQueues": true },
+      "plugins": [
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-claude-AB",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (Claude profile, order AB). Unadvertised Enter that never reaches the router is the submit-time menu block (phase 08).",
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "plugins": [
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-claude-BA",
+      "tags": ["menu-enter"],
+      "note": "Enter with a plugin menu open sends nothing (Claude profile, order BA).",
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "plugins": [
+        { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
+        { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
+      ],
+      "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
+      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    }
+  ]
+}

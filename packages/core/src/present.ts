@@ -203,12 +203,12 @@ export class Presentation {
       this.#call('ghost', () => adapter.showGhost(null, draft.version));
       return;
     }
-    const shown = text;
+    const shown = displayText(text);
     const status = owner.builtin
       ? this.#call('ghost', () => adapter.showGhost(shown, draft.version))
       : this.#call('ghost', () => adapter.showAttributedGhost(shown, draft.version, owner.id));
-    // A ghost whose render failed never owns keys (shared-v2 api.md, Codex overlay feedback).
-    this.#visibleGhost = status === 'applied' ? { owner: owner.id, text: shown, version: draft.version } : null;
+    // Accept-ghost inserts the raw proposal, not the escaped display form.
+    this.#visibleGhost = status === 'applied' ? { owner: owner.id, text, version: draft.version } : null;
   }
 
   #renderHighlights(): void {

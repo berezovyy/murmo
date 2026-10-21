@@ -3,11 +3,17 @@
 // typed-only `draft:read` sees it.
 import type { Effect, PluginFactory } from '@murmo/api';
 
+const lorem = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\n';
 const snippets: ReadonlyMap<string, string> = new Map([
   ['tst', 'Run the test suite, fix failures, and do not edit the tests.'],
-  ['rvw', 'Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.'],
+  [
+    'rvw',
+    'Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.',
+  ],
   ['shrug', '¯\\_(ツ)_/¯'],
   ['dc', 'Before deploying, check:\n- migrations are reversible\n- feature flags default to off'],
+  ['emo', 'Ship it 🚀 — 👨‍👩‍👧 🇺🇦 café 日本語'],
+  ['big', `${lorem.repeat(40)}Lorem ipsum dolor sit amet, consectetur adipiscing elit,`],
 ]);
 
 export default (() => {

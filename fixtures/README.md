@@ -26,6 +26,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `provenance/` | operation sequences → typed spans | 04 |
 | `core/conformance/` | C1–C14 and V1-* from shared-v2, plus the containment extension | 05–09 |
 | `core/edits/` | commit failures, owned undo, pending merge, degraded origin, presentation | 05 |
+| `core/keys/` | shared-key refusal, menu Enter on four host profiles, raw-sequence → canonical ID (adapters) | 06 |
 | `core/inline/` | boundaries, bursts, shortcut sizes | 07 |
 | `security/` | hostile plugins and third-party rules, with 2.0-pre verdicts | 09, 32 |
 | `autocorrect/` | round-4 50 prompts, r7 Unicode cases | 13 |

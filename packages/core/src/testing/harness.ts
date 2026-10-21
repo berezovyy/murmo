@@ -10,7 +10,7 @@
 // which is what waiting would do; tasks parked on something the clock can't
 // release (a held commit) end the settle after a run of idle turns.
 
-import type { Gesture, HostState, KeyId, Origin, Range } from '@murmo/api';
+import type { ActionId, Gesture, HostState, KeyId, Origin, Range } from '@murmo/api';
 import type { RunnerHealth } from '../hooks.ts';
 import { createSession, type Session, type SessionOptions } from '../session.ts';
 import { createManualClock, type ManualClock } from './clock.ts';
@@ -27,6 +27,8 @@ export interface HarnessOptions {
   readonly keyBursts?: boolean;
   readonly failureLimit?: number;
   readonly gates?: SessionOptions['gates'];
+  /** Explicit plugin order; missing/duplicate/unknown IDs refuse the session. */
+  readonly order?: readonly string[];
   readonly notify?: (message: string) => void;
   /**
    * Commits wait at the host until the next input step has landed, so every
@@ -144,6 +146,14 @@ export class Driver {
     await this.#input(() => this.#adapter.submit(gesture));
   }
 
+  action(id: ActionId): Promise<void> {
+    return this.#input(() => this.#adapter.action(id));
+  }
+
+  selectMenu(pluginId: string, itemId: string): Promise<void> {
+    return this.#input(() => this.#adapter.selectMenu(pluginId, itemId));
+  }
+
   /** Waits `ms` of manual time, settling after each timer that fires. */
   async wait(ms: number): Promise<void> {
     await this.#harness().clock.advance(ms, () => this.#turns(IDLE_TURNS));
@@ -205,6 +215,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
         ...(options.failureLimit === undefined ? {} : { failureLimit: options.failureLimit }),
         ...(options.gates ? { gates: options.gates } : {}),
         ...(options.notify ? { notify: options.notify } : {}),
+        ...(options.order ? { order: options.order } : {}),
       });
   let harness: Harness | undefined;
   const driver = new Driver(() => harness as Harness, options.holdCommits === true);

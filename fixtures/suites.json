@@ -46,6 +46,18 @@
       "variants": 25
     },
     {
+      "file": "core/keys/cases.json",
+      "owner": "06",
+      "cases": 11,
+      "variants": 11
+    },
+    {
+      "file": "core/keys/normalization.json",
+      "owner": "06, 21, 22, 23, 24",
+      "cases": 13,
+      "variants": 13
+    },
+    {
       "file": "core/conformance/containment.json",
       "owner": "09, 10",
       "cases": 1,

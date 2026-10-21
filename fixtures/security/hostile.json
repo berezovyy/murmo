@@ -671,7 +671,7 @@
     {
       "id": "S5-key-hijack-with-no-permissions",
       "requires": ["core.keys"],
-      "note": "r14: a plugin with no permissions claimed Tab always/consume and swallowed the victim's accept-ghost. 2.0-pre refuses the third-party shared-key claim, so Tab reaches the victim.",
+      "note": "r14: a plugin with no permissions claimed Tab always/consume and swallowed the victim's accept-ghost. 2.0-pre refuses the third-party shared-key claim, so Tab reaches the victim. The victim re-emits its ghost after the insert.",
       "plugins": [
         {
           "id": "hog",
@@ -724,7 +724,7 @@
           "text": "draftsuggestion"
         },
         "ui": {
-          "ghost": null
+          "ghost": "suggestion"
         }
       }
     },

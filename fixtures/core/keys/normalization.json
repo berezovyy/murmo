@@ -1,0 +1,34 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (phase 06): adapter contract for raw encodings (CSI, tmux extended keys, kitty) to canonical IDs. Adapters (21-24) register keys.normalize; until then the cases skip.",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "keys.normalize",
+  "cases": [
+    { "id": "printable-a", "input": { "raw": "a" }, "output": "a" },
+    { "id": "space", "input": { "raw": " " }, "output": "space" },
+    { "id": "tab", "input": { "raw": "\u0009" }, "output": "Tab" },
+    { "id": "enter-cr", "input": { "raw": "\u000d" }, "output": "Enter" },
+    { "id": "escape", "input": { "raw": "\u001b" }, "output": "Escape" },
+    { "id": "csi-up", "input": { "raw": "\u001b[A" }, "output": "Up" },
+    { "id": "csi-down", "input": { "raw": "\u001b[B" }, "output": "Down" },
+    { "id": "csi-right", "input": { "raw": "\u001b[C" }, "output": "Right" },
+    { "id": "csi-left", "input": { "raw": "\u001b[D" }, "output": "Left" },
+    { "id": "csi-shift-tab", "input": { "raw": "\u001b[Z" }, "output": "Shift+Tab" },
+    { "id": "csi-f6", "input": { "raw": "\u001b[17~" }, "output": "F6" },
+    {
+      "id": "tmux-extended-ctrl-m",
+      "note": "tmux extended keys turn Ctrl+M into Enter (lessons 61, 68). Adapters resolve the host newline before submit.",
+      "input": { "raw": "\u001b[27;5;13~" },
+      "output": "Enter"
+    },
+    {
+      "id": "kitty-csi-u-tab",
+      "input": { "raw": "\u001b[9u" },
+      "output": "Tab"
+    }
+  ]
+}
