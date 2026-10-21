@@ -1,0 +1,82 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Offsets): conversions in every direction refuse a position inside a character, out of range, negative, fractional or in an unknown unit, never round",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "text.convert",
+  "cases": [
+    {
+      "id": "utf8-inside-e-acute",
+      "input": {
+        "text": "é",
+        "from": "utf8",
+        "to": "utf16",
+        "offsets": [0, 1, 2, 3, -1, 0.5]
+      },
+      "output": [0, null, 1, null, null, null]
+    },
+    {
+      "id": "utf8-inside-emoji",
+      "input": {
+        "text": "a😀",
+        "from": "utf8",
+        "to": "codePoint",
+        "offsets": [1, 2, 3, 4, 5]
+      },
+      "output": [1, null, null, null, 2]
+    },
+    {
+      "id": "grapheme-to-utf8-zwj-family",
+      "input": {
+        "text": "👨\u200d👩\u200d👧\u200d👦x",
+        "from": "grapheme",
+        "to": "utf8",
+        "offsets": [0, 1, 2, 3]
+      },
+      "output": [0, 25, 26, null]
+    },
+    {
+      "id": "code-point-inside-grapheme",
+      "input": {
+        "text": "e\u0301x",
+        "from": "codePoint",
+        "to": "grapheme",
+        "offsets": [0, 1, 2, 3, 4]
+      },
+      "output": [0, null, 1, 2, null]
+    },
+    {
+      "id": "utf16-inside-pair",
+      "input": {
+        "text": "😀",
+        "from": "utf16",
+        "to": "utf16",
+        "offsets": [0, 1, 2]
+      },
+      "output": [0, null, 2]
+    },
+    {
+      "id": "crlf-is-one-grapheme",
+      "input": {
+        "text": "a\r\nb",
+        "from": "utf16",
+        "to": "grapheme",
+        "offsets": [1, 2, 3]
+      },
+      "output": [1, null, 2]
+    },
+    {
+      "id": "unknown-unit",
+      "input": {
+        "text": "abc",
+        "from": "bytes",
+        "to": "utf16",
+        "offsets": [1]
+      },
+      "output": [null]
+    }
+  ]
+}

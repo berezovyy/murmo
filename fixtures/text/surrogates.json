@@ -1,0 +1,56 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Fixtures): lone surrogates, which only JavaScript strings can hold (a Rust String cannot, so the Rust parity test skips this file); a lone surrogate is one code point of 3 UTF-8 bytes, the U+FFFD that replaces it on encoding",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "text.offsets",
+  "cases": [
+    {
+      "id": "lone-high-mid",
+      "input": {
+        "text": "a\ud800b"
+      },
+      "output": {
+        "codePoint": [0, 1, 2, 3],
+        "utf8": [0, 1, 4, 5],
+        "grapheme": [0, 1, 2, 3]
+      }
+    },
+    {
+      "id": "lone-low",
+      "input": {
+        "text": "\udc00x"
+      },
+      "output": {
+        "codePoint": [0, 1, 2],
+        "utf8": [0, 3, 4],
+        "grapheme": [0, 1, 2]
+      }
+    },
+    {
+      "id": "lone-high-end",
+      "input": {
+        "text": "x\ud83d"
+      },
+      "output": {
+        "codePoint": [0, 1, 2],
+        "utf8": [0, 1, 4],
+        "grapheme": [0, 1, 2]
+      }
+    },
+    {
+      "id": "lone-high-before-pair",
+      "input": {
+        "text": "\ud83d😀"
+      },
+      "output": {
+        "codePoint": [0, 1, null, 2],
+        "utf8": [0, 3, null, 7],
+        "grapheme": [0, 1, null, 2]
+      }
+    }
+  ]
+}

@@ -6,7 +6,27 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "unicode-segmenter": "0.17.3"
+  },
+  "devDependencies": {
+    "@murmo/fixtures": "workspace:*",
+    "esbuild": "0.28.2"
+  },
   "murmo": {
-    "runtime": "portable"
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "text",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoText"
+      }
+    ]
   }
 }

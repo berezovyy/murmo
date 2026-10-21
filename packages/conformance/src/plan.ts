@@ -102,34 +102,49 @@ function pureRun(suite: string, owner: string, c: PureCase, ctx: Context, seed?:
   return run;
 }
 
-/** Every run of a suite for this subject; empty if the subject cannot run the suite's kind. */
-export function planSuite(suite: LoadedSuite, caps: Capabilities, subject: string, options: RunOptions): Run[] {
+/**
+ * Every run of a suite for this subject, in order; nothing if the subject
+ * cannot run the suite's kind. Generated streams are produced one at a time, so
+ * a 10,000-stream generator never sits in a guest's memory all at once (the
+ * rquickjs launcher runs with a 32 MiB heap).
+ */
+export function* planRuns(
+  suite: LoadedSuite,
+  caps: Capabilities,
+  subject: string,
+  options: RunOptions,
+): Generator<Run> {
   const ctx: Context = { caps, subject, options };
   if (suite.kind === 'editor-ops') {
-    if (!caps.kinds.includes('editor-ops')) return [];
-    return suite.cases.flatMap((c) => editorRuns(suite.file, suite.owner, c, ctx));
+    if (!caps.kinds.includes('editor-ops')) return;
+    for (const c of suite.cases) yield* editorRuns(suite.file, suite.owner, c, ctx);
+    return;
   }
   if (suite.kind === 'pure-fn') {
-    if (!caps.kinds.includes('pure-fn')) return [];
-    return suite.cases.map((c) => pureRun(suite.file, suite.owner, c, ctx));
+    if (!caps.kinds.includes('pure-fn')) return;
+    for (const c of suite.cases) yield pureRun(suite.file, suite.owner, c, ctx);
+    return;
   }
   const g = suite.generator;
   const target = g.target;
-  if (!caps.kinds.includes(target.kind)) return [];
+  if (!caps.kinds.includes(target.kind)) return;
   const size = options.mode === 'nightly' ? g.sizes.nightly : g.sizes.pr;
   const session = g.session === 'shared' ? suite.file : undefined;
-  const runs: Run[] = [];
   for (const generated of generatorOf(g.generator).generate(g.seed, size)) {
     if (target.kind === 'pure-fn') {
-      runs.push(pureRun(suite.file, suite.owner, { ...(generated.case as PureCase), fn: target.fn }, ctx, g.seed));
+      yield pureRun(suite.file, suite.owner, { ...(generated.case as PureCase), fn: target.fn }, ctx, g.seed);
     } else {
       const c: EditorCase = {
         ...(generated.case as EditorCase),
         ...(target.plugins ? { plugins: target.plugins as PluginRef[] } : {}),
         ...(target.trust ? { trust: target.trust } : {}),
       };
-      runs.push(...editorRuns(suite.file, suite.owner, c, ctx, { seed: g.seed, ...(session ? { session } : {}) }));
+      yield* editorRuns(suite.file, suite.owner, c, ctx, { seed: g.seed, ...(session ? { session } : {}) });
     }
   }
-  return runs;
+}
+
+/** `planRuns` as an array. */
+export function planSuite(suite: LoadedSuite, caps: Capabilities, subject: string, options: RunOptions): Run[] {
+  return Array.from(planRuns(suite, caps, subject, options));
 }

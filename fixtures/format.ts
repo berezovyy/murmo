@@ -238,7 +238,7 @@ export interface PureFnFile {
   table?: PureTable;
 }
 
-export type GeneratorName = 'burst' | 'unicode' | 'provenance';
+export type GeneratorName = 'burst' | 'unicode' | 'provenance' | 'ledger';
 
 export interface GeneratorFile {
   kind: 'generator/v1';

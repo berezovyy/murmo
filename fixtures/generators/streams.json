@@ -104,6 +104,37 @@
         },
         "streamHash": "f234c51356c55ce262356509dca1c4efe0f3800c137aeff29dddf4da12f6e5ae"
       }
+    },
+    {
+      "id": "ledger-4040404-1000",
+      "input": {
+        "generator": "ledger",
+        "seed": 4040404,
+        "size": 1000
+      },
+      "output": {
+        "generator": "ledger",
+        "seed": 4040404,
+        "size": 1000,
+        "counts": {
+          "sequences": 1000,
+          "changes": 5719,
+          "ledgers": 4611,
+          "deltas": 13685,
+          "keys": 1543,
+          "undo": 401,
+          "move": 401,
+          "chunk": 421,
+          "select": 306,
+          "replace": 430,
+          "plugin": 437,
+          "backspace": 506,
+          "mixed": 392,
+          "ime": 426,
+          "paste": 456
+        },
+        "streamHash": "ccf43c3a58691fe13789375f6efe2dbe549a541e3ad1e0259cccc384fa31f00a"
+      }
     }
   ]
 }

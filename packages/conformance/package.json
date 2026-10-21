@@ -11,7 +11,10 @@
     "./node": "./src/node/index.ts"
   },
   "dependencies": {
-    "@murmo/fixtures": "workspace:*"
+    "@murmo/api": "workspace:*",
+    "@murmo/fixtures": "workspace:*",
+    "@murmo/provenance": "workspace:*",
+    "@murmo/text": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

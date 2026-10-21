@@ -23,3 +23,4 @@ export {
   runtimes,
 } from './launchers.ts';
 export { type SavedRegression, saveFailures, streamIndex } from './regressions.ts';
+export { type RustTextParity, runRustTextParity } from './rust-text.ts';

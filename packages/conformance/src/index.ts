@@ -15,8 +15,15 @@ export {
   pluginsFile,
   variantsOf,
 } from './load.ts';
-export { planSuite, unmet } from './plan.ts';
-export { createPureSubject, type PureFunction, type PureSubject, pureFunctions } from './pure.ts';
+export { planRuns, planSuite, unmet } from './plan.ts';
+export {
+  createPureSubject,
+  type PureEntry,
+  type PureFunction,
+  type PureSubject,
+  pureFunctions,
+  type RuledFunction,
+} from './pure.ts';
 export { runSuites, runSuitesSync, skippedVerdict, verdictOf } from './runner.ts';
 export { type Schema, type SchemaError, type SchemaSet, validate } from './schema.ts';
 export { flipCase, flipValue, type SelfTestResult, selfTest } from './self-test.ts';

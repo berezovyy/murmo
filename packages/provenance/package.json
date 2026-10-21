@@ -6,7 +6,27 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/fixtures": "workspace:*"
+  },
   "murmo": {
-    "runtime": "portable"
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "provenance",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoProvenance"
+      }
+    ]
   }
 }

@@ -1,0 +1,26 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Code-point walk): [offset, code point, UTF-16 units] per step; the emoji after the dot in teh.🙂 is one step, the input phase 07 needs to fix the r13 emoji-dot mismatch (r13-engine-inline § E2)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "text.codePoints",
+  "cases": [
+    {
+      "id": "teh-dot-emoji",
+      "input": {
+        "text": "teh.🙂"
+      },
+      "output": [[0, 116, 1], [1, 101, 1], [2, 104, 1], [3, 46, 1], [4, 128578, 2]]
+    },
+    {
+      "id": "lone-surrogate-is-one-step",
+      "input": {
+        "text": "a\ud800b"
+      },
+      "output": [[0, 97, 1], [1, 55296, 1], [2, 98, 1]]
+    }
+  ]
+}

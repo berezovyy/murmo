@@ -1,0 +1,138 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Unsafe and invisible text): invisible runs, Unicode 17 Default_Ignorable_Code_Point plus Cf minus Prepended_Concatenation_Mark; legitimate ZWJ joins, emoji VS15/VS16 and RGI tag flags are not flagged; smuggling with tags or VS supplement is",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "text.invisible",
+  "cases": [
+    {
+      "id": "zero-width-space",
+      "input": {
+        "text": "pass\u200bword"
+      },
+      "output": [[4, 5]]
+    },
+    {
+      "id": "emoji-zwj-sequence",
+      "input": {
+        "text": "👩\u200d💻"
+      },
+      "output": []
+    },
+    {
+      "id": "stray-zwj",
+      "input": {
+        "text": "a\u200db"
+      },
+      "output": [[1, 2]]
+    },
+    {
+      "id": "devanagari-zwj",
+      "input": {
+        "text": "क\u094d\u200dष"
+      },
+      "output": []
+    },
+    {
+      "id": "vs16-after-emoji",
+      "input": {
+        "text": "❤\ufe0f"
+      },
+      "output": []
+    },
+    {
+      "id": "keycap",
+      "input": {
+        "text": "1\ufe0f\u20e3"
+      },
+      "output": []
+    },
+    {
+      "id": "vs16-after-letter",
+      "input": {
+        "text": "a\ufe0f"
+      },
+      "output": [[1, 2]]
+    },
+    {
+      "id": "second-vs16",
+      "input": {
+        "text": "❤\ufe0f\ufe0f"
+      },
+      "output": [[2, 3]]
+    },
+    {
+      "id": "vs-supplement-smuggling",
+      "input": {
+        "text": "😀\udb40\udd00\udb40\udd01"
+      },
+      "output": [[2, 6]]
+    },
+    {
+      "id": "england-flag",
+      "input": {
+        "text": "🏴\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f"
+      },
+      "output": []
+    },
+    {
+      "id": "tag-smuggling-after-flag",
+      "input": {
+        "text": "🏴\udb40\udc68\udb40\udc69\udb40\udc7f"
+      },
+      "output": [[2, 8]]
+    },
+    {
+      "id": "tag-smuggling-after-letter",
+      "input": {
+        "text": "x\udb40\udc68\udb40\udc69"
+      },
+      "output": [[1, 5]]
+    },
+    {
+      "id": "bidi-marks",
+      "input": {
+        "text": "a\u200eb\u202ec"
+      },
+      "output": [[1, 2], [3, 4]]
+    },
+    {
+      "id": "soft-hyphen-word-joiner",
+      "input": {
+        "text": "co\u00adop\u2060x"
+      },
+      "output": [[2, 3], [5, 6]]
+    },
+    {
+      "id": "bom",
+      "input": {
+        "text": "\ufeffhi"
+      },
+      "output": [[0, 1]]
+    },
+    {
+      "id": "hangul-filler",
+      "input": {
+        "text": "ㅤ"
+      },
+      "output": [[0, 1]]
+    },
+    {
+      "id": "arabic-number-sign-renders",
+      "input": {
+        "text": "\u0600١٢"
+      },
+      "output": []
+    },
+    {
+      "id": "adjacent-run",
+      "input": {
+        "text": "\u200b\u200c\u200d"
+      },
+      "output": [[0, 3]]
+    }
+  ]
+}

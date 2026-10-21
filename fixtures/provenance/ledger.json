@@ -1,0 +1,1073 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Provenance rules): the V1 cases of experiments/platform/shared-v2/conformance (pasted word, filled word, pasted separator) and the rules for paste, IME, history, plugin edits, undo, selections, evidence, key bursts and ledgers; outputs written by hand from those rules",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "provenance.ledger",
+  "cases": [
+    {
+      "id": "v1-pasted-word",
+      "note": "V1: a pasted teh plus a typed space must not be correctable (lesson 52, E12)",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "paste",
+                "from": 0,
+                "to": 0,
+                "insert": "teh"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4], [3, 4]]
+      },
+      "output": {
+        "steps": [[3, []], [4, [[3, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "███ ",
+        "verified": 2,
+        "coalesced": 2,
+        "covers": [false, true]
+      }
+    },
+    {
+      "id": "v1-filled-word",
+      "note": "V1: a programmatic fill never adds coverage, whatever the text",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "unknown",
+                "from": 0,
+                "to": 0,
+                "insert": "teh"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[3, []], [4, [[3, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "███ ",
+        "verified": 2,
+        "coalesced": 2,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "v1-pasted-separator",
+      "note": "V1: a typed word followed by a pasted separator: the separator is not typed",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "paste",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4], [0, 3]]
+      },
+      "output": {
+        "steps": [[3, [[0, 3]]], [4, [[0, 3]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "teh█",
+        "verified": 2,
+        "coalesced": 2,
+        "covers": [false, true]
+      }
+    },
+    {
+      "id": "typed-word-and-space",
+      "note": "A typed teh plus a typed space is one covering span: eligible for correction",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              }
+            ],
+            "after": "t"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              }
+            ],
+            "after": "te"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[1, [[0, 1]]], [2, [[0, 2]]], [3, [[0, 3]]], [4, [[0, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "teh ",
+        "verified": 4,
+        "coalesced": 4,
+        "covers": [true]
+      }
+    },
+    {
+      "id": "paste-splits-word",
+      "note": "A paste inside a typed word splits its span; neither half covers the word",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "move": 1
+          },
+          {
+            "deltas": [
+              {
+                "origin": "paste",
+                "from": 1,
+                "to": 1,
+                "insert": "X"
+              }
+            ],
+            "after": "tXeh"
+          },
+          {
+            "move": 4
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 4,
+                "to": 4,
+                "insert": " "
+              }
+            ],
+            "after": "tXeh "
+          }
+        ],
+        "covers": [[0, 5], [2, 5]]
+      },
+      "output": {
+        "steps": [[3, [[0, 3]]], [1, [[0, 3]]], [2, [[0, 1], [2, 4]]], [4, [[0, 1], [2, 4]]], [5, [[0, 1], [2, 5]]]],
+        "text": "tXeh ",
+        "selection": null,
+        "projected": "t█eh ",
+        "verified": 3,
+        "coalesced": 3,
+        "covers": [false, true]
+      }
+    },
+    {
+      "id": "ime-commit",
+      "note": "No host reports IME composition: an ime commit is never typed (lesson 12)",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "a"
+              }
+            ],
+            "after": "a"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "ime",
+                "from": 1,
+                "to": 1,
+                "insert": "日本"
+              }
+            ],
+            "after": "a日本"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "a日本 "
+          }
+        ],
+        "covers": [[1, 4]]
+      },
+      "output": {
+        "steps": [[1, [[0, 1]]], [3, [[0, 1]]], [4, [[0, 1], [3, 4]]]],
+        "text": "a日本 ",
+        "selection": null,
+        "projected": "a██ ",
+        "verified": 3,
+        "coalesced": 3,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "history-recall",
+      "note": "A history recall replaces the draft and every span",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "i"
+              }
+            ],
+            "after": "hi"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "history",
+                "from": 0,
+                "to": 2,
+                "insert": "teh"
+              }
+            ],
+            "after": "teh"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[2, [[0, 2]]], [3, []], [4, [[3, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "███ ",
+        "verified": 3,
+        "coalesced": 3,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "plugin-edit-removes-coverage",
+      "note": "A plugin edit removes coverage over what it replaced and adds none",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          },
+          {
+            "deltas": [
+              {
+                "origin": "plugin",
+                "from": 0,
+                "to": 3,
+                "insert": "the",
+                "pluginId": "autocorrect"
+              }
+            ],
+            "after": "the "
+          }
+        ],
+        "covers": [[0, 4], [3, 4]]
+      },
+      "output": {
+        "steps": [[4, [[0, 4]]], [4, [[3, 4]]]],
+        "text": "the ",
+        "selection": null,
+        "projected": "███ ",
+        "verified": 2,
+        "coalesced": 2,
+        "covers": [false, true]
+      }
+    },
+    {
+      "id": "undo-after-later-typing",
+      "note": "An undo restore puts back the saved spans exactly, even after later typing",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          },
+          {
+            "deltas": [
+              {
+                "origin": "plugin",
+                "from": 0,
+                "to": 3,
+                "insert": "the",
+                "pluginId": "autocorrect"
+              }
+            ],
+            "after": "the "
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 4,
+                "to": 4,
+                "insert": "x"
+              }
+            ],
+            "after": "the x"
+          },
+          {
+            "undo": 0
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[4, [[0, 4]]], [4, [[3, 4]]], [5, [[3, 5]]], [4, [[0, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "teh ",
+        "verified": 3,
+        "coalesced": 3,
+        "covers": [true]
+      }
+    },
+    {
+      "id": "selection-replace",
+      "note": "A typed key over a selection replaces it: the replaced span goes, the key is typed, the selection is gone",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "l"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": "l"
+              },
+              {
+                "origin": "typed",
+                "from": 4,
+                "to": 4,
+                "insert": "o"
+              },
+              {
+                "origin": "typed",
+                "from": 5,
+                "to": 5,
+                "insert": " "
+              },
+              {
+                "origin": "typed",
+                "from": 6,
+                "to": 6,
+                "insert": "w"
+              },
+              {
+                "origin": "typed",
+                "from": 7,
+                "to": 7,
+                "insert": "o"
+              },
+              {
+                "origin": "typed",
+                "from": 8,
+                "to": 8,
+                "insert": "r"
+              },
+              {
+                "origin": "typed",
+                "from": 9,
+                "to": 9,
+                "insert": "l"
+              },
+              {
+                "origin": "typed",
+                "from": 10,
+                "to": 10,
+                "insert": "d"
+              }
+            ],
+            "after": "hello world"
+          },
+          {
+            "select": [6, 11]
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 6,
+                "to": 11,
+                "insert": "X"
+              }
+            ],
+            "after": "hello X"
+          }
+        ],
+        "covers": [[0, 7]]
+      },
+      "output": {
+        "steps": [[11, [[0, 11]]], [11, [[0, 11]]], [7, [[0, 7]]]],
+        "text": "hello X",
+        "selection": null,
+        "projected": "hello X",
+        "verified": 2,
+        "coalesced": 2,
+        "covers": [true]
+      }
+    },
+    {
+      "id": "multi-character-typed-commit",
+      "note": "Without declared key bursts a multi-character typed delta is no proof of typing (Claude, lesson 64)",
+      "input": {
+        "evidence": "host-labeled",
+        "keyBursts": false,
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "teh "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[4, []]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "████",
+        "verified": 1,
+        "coalesced": 1,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "declared-key-burst",
+      "note": "An adapter that declares key bursts (Pi, OpenCode, Codex) gets coverage for a multi-character typed delta",
+      "input": {
+        "evidence": "host-labeled",
+        "keyBursts": true,
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "teh "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[4, [[0, 4]]]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "teh ",
+        "verified": 1,
+        "coalesced": 1,
+        "covers": [true]
+      }
+    },
+    {
+      "id": "observed-unmarked-evidence",
+      "note": "Without host-labeled evidence nothing is typed and the typed-only view masks every unit (lesson 80)",
+      "input": {
+        "evidence": "observed-unmarked",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[4, []]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "████",
+        "verified": 1,
+        "coalesced": 1,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "unknown-evidence",
+      "note": "Unknown evidence: no spans, fully masked",
+      "input": {
+        "evidence": "unknown",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "t"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "h"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "teh "
+          }
+        ],
+        "covers": [[0, 4]]
+      },
+      "output": {
+        "steps": [[4, []]],
+        "text": "teh ",
+        "selection": null,
+        "projected": "████",
+        "verified": 1,
+        "coalesced": 1,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "pasted-secret-between-typed-words",
+      "note": "The typed-only view leaves no character of a pasted secret (lesson 77, r14-plugin-security § S6)",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "k"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "y"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": " "
+              }
+            ],
+            "after": "key "
+          },
+          {
+            "deltas": [
+              {
+                "origin": "paste",
+                "from": 4,
+                "to": 4,
+                "insert": "sk_FAKE_PASTED_SECRET"
+              }
+            ],
+            "after": "key sk_FAKE_PASTED_SECRET"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 25,
+                "to": 25,
+                "insert": " "
+              },
+              {
+                "origin": "typed",
+                "from": 26,
+                "to": 26,
+                "insert": "o"
+              },
+              {
+                "origin": "typed",
+                "from": 27,
+                "to": 27,
+                "insert": "k"
+              }
+            ],
+            "after": "key sk_FAKE_PASTED_SECRET ok"
+          }
+        ]
+      },
+      "output": {
+        "steps": [[4, [[0, 4]]], [25, [[0, 4]]], [28, [[0, 4], [25, 28]]]],
+        "text": "key sk_FAKE_PASTED_SECRET ok",
+        "selection": null,
+        "projected": "key █████████████████████ ok",
+        "verified": 3,
+        "coalesced": 3
+      }
+    },
+    {
+      "id": "paste-between-typed-keys-in-one-change",
+      "note": "One change with typed keys, a paste and a typed key: ordered deltas keep the paste visible (lesson 63)",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "a"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "b"
+              },
+              {
+                "origin": "paste",
+                "from": 2,
+                "to": 2,
+                "insert": "XY"
+              },
+              {
+                "origin": "typed",
+                "from": 4,
+                "to": 4,
+                "insert": "c"
+              }
+            ],
+            "after": "abXYc"
+          }
+        ],
+        "covers": [[0, 5]]
+      },
+      "output": {
+        "steps": [[5, [[0, 2], [4, 5]]]],
+        "text": "abXYc",
+        "selection": null,
+        "projected": "ab██c",
+        "verified": 1,
+        "coalesced": 1,
+        "covers": [false]
+      }
+    },
+    {
+      "id": "reordered-deltas-fail-the-ledger",
+      "note": "Deltas that do not add up to the reported text fail verifyLedger; no coverage survives the change",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "a"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "b"
+              }
+            ],
+            "after": "ab"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "c"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": "d"
+              }
+            ],
+            "after": "abdc"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 9,
+                "to": 9,
+                "insert": "x"
+              }
+            ],
+            "after": "abdcx"
+          }
+        ]
+      },
+      "output": {
+        "steps": [[2, [[0, 2]]], [4, []], [5, []]],
+        "text": "abdcx",
+        "selection": null,
+        "projected": "█████",
+        "verified": 1,
+        "coalesced": 1
+      }
+    },
+    {
+      "id": "cursor-maps-through-plugin-edits",
+      "note": "Cursor rule (fake adapter): before an edit it stays, after it shifts, inside it lands after the insert; a move keeps spans",
+      "input": {
+        "evidence": "host-labeled",
+        "changes": [
+          {
+            "deltas": [
+              {
+                "origin": "typed",
+                "from": 0,
+                "to": 0,
+                "insert": "a"
+              },
+              {
+                "origin": "typed",
+                "from": 1,
+                "to": 1,
+                "insert": "b"
+              },
+              {
+                "origin": "typed",
+                "from": 2,
+                "to": 2,
+                "insert": "c"
+              },
+              {
+                "origin": "typed",
+                "from": 3,
+                "to": 3,
+                "insert": "d"
+              },
+              {
+                "origin": "typed",
+                "from": 4,
+                "to": 4,
+                "insert": "e"
+              },
+              {
+                "origin": "typed",
+                "from": 5,
+                "to": 5,
+                "insert": "f"
+              }
+            ],
+            "after": "abcdef"
+          },
+          {
+            "move": 3
+          },
+          {
+            "deltas": [
+              {
+                "origin": "plugin",
+                "from": 0,
+                "to": 1,
+                "insert": "XX",
+                "pluginId": "p"
+              }
+            ],
+            "after": "XXbcdef"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "plugin",
+                "from": 5,
+                "to": 7,
+                "insert": "Z",
+                "pluginId": "p"
+              }
+            ],
+            "after": "XXbcdZ"
+          },
+          {
+            "deltas": [
+              {
+                "origin": "plugin",
+                "from": 3,
+                "to": 5,
+                "insert": "Q",
+                "pluginId": "p"
+              }
+            ],
+            "after": "XXbQZ"
+          }
+        ]
+      },
+      "output": {
+        "steps": [[6, [[0, 6]]], [3, [[0, 6]]], [4, [[2, 7]]], [4, [[2, 5]]], [4, [[2, 3]]]],
+        "text": "XXbQZ",
+        "selection": null,
+        "projected": "██b██",
+        "verified": 4,
+        "coalesced": 4
+      }
+    }
+  ]
+}

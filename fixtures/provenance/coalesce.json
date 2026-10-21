@@ -1,0 +1,151 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new (docs/plan/04 § Ledgers): coalesce merges adjacent same-origin inserts only, never across origins or plugins",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "provenance.coalesce",
+  "cases": [
+    {
+      "id": "paste-between-typed-keys-stays",
+      "input": {
+        "deltas": [
+          {
+            "origin": "typed",
+            "from": 0,
+            "to": 0,
+            "insert": "a"
+          },
+          {
+            "origin": "typed",
+            "from": 1,
+            "to": 1,
+            "insert": "b"
+          },
+          {
+            "origin": "paste",
+            "from": 2,
+            "to": 2,
+            "insert": "XY"
+          },
+          {
+            "origin": "typed",
+            "from": 4,
+            "to": 4,
+            "insert": "c"
+          }
+        ]
+      },
+      "output": [
+        {
+          "origin": "typed",
+          "from": 0,
+          "to": 0,
+          "insert": "ab"
+        },
+        {
+          "origin": "paste",
+          "from": 2,
+          "to": 2,
+          "insert": "XY"
+        },
+        {
+          "origin": "typed",
+          "from": 4,
+          "to": 4,
+          "insert": "c"
+        }
+      ]
+    },
+    {
+      "id": "different-plugins-stay-apart",
+      "input": {
+        "deltas": [
+          {
+            "origin": "plugin",
+            "from": 0,
+            "to": 0,
+            "insert": "x",
+            "pluginId": "a"
+          },
+          {
+            "origin": "plugin",
+            "from": 1,
+            "to": 1,
+            "insert": "y",
+            "pluginId": "b"
+          }
+        ]
+      },
+      "output": [
+        {
+          "origin": "plugin",
+          "from": 0,
+          "to": 0,
+          "insert": "x",
+          "pluginId": "a"
+        },
+        {
+          "origin": "plugin",
+          "from": 1,
+          "to": 1,
+          "insert": "y",
+          "pluginId": "b"
+        }
+      ]
+    },
+    {
+      "id": "replace-then-insert-merges-deletions-do-not",
+      "input": {
+        "deltas": [
+          {
+            "origin": "typed",
+            "from": 2,
+            "to": 5,
+            "insert": "X"
+          },
+          {
+            "origin": "typed",
+            "from": 3,
+            "to": 3,
+            "insert": "Y"
+          },
+          {
+            "origin": "typed",
+            "from": 3,
+            "to": 4,
+            "insert": ""
+          },
+          {
+            "origin": "typed",
+            "from": 2,
+            "to": 3,
+            "insert": ""
+          }
+        ]
+      },
+      "output": [
+        {
+          "origin": "typed",
+          "from": 2,
+          "to": 5,
+          "insert": "XY"
+        },
+        {
+          "origin": "typed",
+          "from": 3,
+          "to": 4,
+          "insert": ""
+        },
+        {
+          "origin": "typed",
+          "from": 2,
+          "to": 3,
+          "insert": ""
+        }
+      ]
+    }
+  ]
+}

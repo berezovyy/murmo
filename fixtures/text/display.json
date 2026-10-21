@@ -1,0 +1,124 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new case list for experiments/platform/shared-v2/brokers/text-policy.ts (displayText); outputs from that prototype",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "text.display",
+  "cases": [
+    {
+      "id": "plain",
+      "input": {
+        "text": "hello world"
+      },
+      "output": "hello world"
+    },
+    {
+      "id": "tab-lf-cr-allowed",
+      "input": {
+        "text": "a\tb\nc\r\nd"
+      },
+      "output": "a\\u0009b\\u000ac\\u000d\\u000ad"
+    },
+    {
+      "id": "emoji-and-zwj-allowed",
+      "input": {
+        "text": "👩\u200d💻 café"
+      },
+      "output": "👩\u200d💻 café"
+    },
+    {
+      "id": "lrm-allowed",
+      "input": {
+        "text": "a\u200eb"
+      },
+      "output": "a\u200eb"
+    },
+    {
+      "id": "ansi-escape",
+      "input": {
+        "text": "red \u001b[31mtext"
+      },
+      "output": "red \\u001b[31mtext"
+    },
+    {
+      "id": "osc-hyperlink",
+      "input": {
+        "text": "\u001b]8;;https://example.invalid\u0007x\u001b]8;;\u0007"
+      },
+      "output": "\\u001b]8;;https://example.invalid\\u0007x\\u001b]8;;\\u0007"
+    },
+    {
+      "id": "nul",
+      "input": {
+        "text": "a\u0000b"
+      },
+      "output": "a\\u0000b"
+    },
+    {
+      "id": "bell",
+      "input": {
+        "text": "ding\u0007"
+      },
+      "output": "ding\\u0007"
+    },
+    {
+      "id": "vertical-tab",
+      "input": {
+        "text": "a\u000bb"
+      },
+      "output": "a\\u000bb"
+    },
+    {
+      "id": "del",
+      "input": {
+        "text": "a\u007f"
+      },
+      "output": "a\\u007f"
+    },
+    {
+      "id": "c1-csi",
+      "input": {
+        "text": "\u009b31m"
+      },
+      "output": "\\u009b31m"
+    },
+    {
+      "id": "bidi-override",
+      "input": {
+        "text": "invoice\u202efdp.exe"
+      },
+      "output": "invoice\\u202efdp.exe"
+    },
+    {
+      "id": "bidi-isolate",
+      "input": {
+        "text": "a\u2067b\u2069"
+      },
+      "output": "a\\u2067b\\u2069"
+    },
+    {
+      "id": "lone-high",
+      "input": {
+        "text": "x\ud800"
+      },
+      "output": "x\\ud800"
+    },
+    {
+      "id": "lone-low",
+      "input": {
+        "text": "\udc00x"
+      },
+      "output": "\\udc00x"
+    },
+    {
+      "id": "bidi-and-control",
+      "input": {
+        "text": "\u202ex\u0007"
+      },
+      "output": "\\u202ex\\u0007"
+    }
+  ]
+}

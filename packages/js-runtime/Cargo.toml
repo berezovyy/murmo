@@ -8,3 +8,9 @@ publish.workspace = true
 
 [dependencies]
 rquickjs.workspace = true
+
+[dev-dependencies]
+# Offset parity with @murmo/text (tests/text_parity.rs): the Codex wrapper's
+# segmenter, and the fixture JSON reader.
+serde_json.workspace = true
+unicode-segmentation.workspace = true

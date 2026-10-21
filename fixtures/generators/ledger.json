@@ -1,0 +1,20 @@
+{
+  "kind": "generator/v1",
+  "provenance": {
+    "source": "new (docs/plan/04 § Fixtures, ledger generator): random typed, paste, IME, fill, plugin and undo sequences with ordered deltas; the r13 cohort checked 68,936 ledgers (r13-platform-core § K1)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "generator": "ledger",
+  "seed": 4040404,
+  "sizes": {
+    "pr": 10000,
+    "nightly": 10000
+  },
+  "session": "fresh",
+  "target": {
+    "kind": "pure-fn",
+    "fn": "provenance.ledger"
+  },
+  "failures": "provenance/ledger-regressions.json"
+}

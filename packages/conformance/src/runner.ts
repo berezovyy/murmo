@@ -3,7 +3,7 @@
 // fails here; a suite with fewer cases than it declares fails loading.
 
 import type { EditorCase } from '@murmo/fixtures';
-import { planSuite } from './plan.ts';
+import { planRuns } from './plan.ts';
 import type { Capabilities, LoadedSuite, Observed, Run, RunOptions, RunResult, Subject, Verdict } from './types.ts';
 
 function base(run: Run, subject: string, runtime: string): Omit<Verdict, 'status' | 'assertions' | 'ms'> {
@@ -94,9 +94,8 @@ export async function runSuites(suites: LoadedSuite[], subject: Subject, options
   const caps = subject.caps();
   const verdicts: Verdict[] = [];
   for (const suite of suites) {
-    const runs = planSuite(suite, caps, subject.name, options);
     const own: Verdict[] = [];
-    for (const run of runs) {
+    for (const run of planRuns(suite, caps, subject.name, options)) {
       if (run.skip) {
         own.push(skippedVerdict(run, subject.name, options.runtime));
         continue;
@@ -125,7 +124,7 @@ export function runSuitesSync(
   const caps = subject.caps();
   const verdicts: Verdict[] = [];
   for (const suite of suites) {
-    for (const run of planSuite(suite, caps, subject.name, options)) {
+    for (const run of planRuns(suite, caps, subject.name, options)) {
       if (run.skip) {
         verdicts.push(skippedVerdict(run, subject.name, options.runtime));
         continue;

@@ -8,7 +8,7 @@
   "properties": {
     "kind": { "const": "generator/v1" },
     "provenance": { "$ref": "common.json#/$defs/provenance" },
-    "generator": { "enum": ["burst", "unicode", "provenance"] },
+    "generator": { "enum": ["burst", "unicode", "provenance", "ledger"] },
     "seed": { "type": "integer", "minimum": 1 },
     "sizes": {
       "type": "object",

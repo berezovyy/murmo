@@ -8,7 +8,7 @@
   "generator": "unicode",
   "seed": 508126,
   "sizes": {
-    "pr": 1000,
+    "pr": 4000,
     "nightly": 4000
   },
   "session": "fresh",

@@ -30,9 +30,18 @@ importers:
 
   packages/conformance:
     dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
+      '@murmo/provenance':
+        specifier: workspace:*
+        version: link:../provenance
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       esbuild:
         specifier: 0.28.2
@@ -45,9 +54,31 @@ importers:
 
   packages/executor: {}
 
-  packages/provenance: {}
+  packages/provenance:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
+    devDependencies:
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
 
-  packages/text: {}
+  packages/text:
+    dependencies:
+      unicode-segmenter:
+        specifier: 0.17.3
+        version: 0.17.3
+    devDependencies:
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
 packages:
 
@@ -418,6 +449,9 @@ packages:
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
+  unicode-segmenter@0.17.3:
+    resolution: {integrity: sha512-hKZwqBjJDmqNrq1+LjDxck1qLzJFcLLJM2Xq92ORRHOuau6GSHeELmn+uyk6zNH1CK9mogrUJGP9WJCJUQXMAw==}
+
 snapshots:
 
   '@biomejs/biome@2.5.15':
@@ -680,3 +714,5 @@ snapshots:
       '@typescript/typescript-win32-x64': 7.0.2
 
   undici-types@8.9.0: {}
+
+  unicode-segmenter@0.17.3: {}

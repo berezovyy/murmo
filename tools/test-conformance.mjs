@@ -1,6 +1,7 @@
 // Conformance gate (docs/plan/02): every fixture loads and validates, the
 // pure subject gives identical verdicts on Node, Bun, QuickJS-wasm and
-// rquickjs, and the self-test sees a flipped expectation fail.
+// rquickjs, the self-test sees a flipped expectation fail, and Rust's
+// unicode-segmentation agrees with @murmo/text on the unicode corpus (phase 04).
 //
 //   node tools/test-conformance.mjs [--nightly]
 //
@@ -10,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { compare } from '../packages/conformance/src/compare.ts';
 import { bunAvailable, launch, loadFixtureDir, runtimes } from '../packages/conformance/src/node/index.ts';
+import { runRustTextParity } from '../packages/conformance/src/node/rust-text.ts';
 import { createPureSubject } from '../packages/conformance/src/pure.ts';
 import { selfTest } from '../packages/conformance/src/self-test.ts';
 
@@ -38,6 +40,12 @@ export async function runConformance({ mode = 'pr' } = {}) {
   const results = await selfTest(loaded.suites, createPureSubject(), /** @type {any} */ (options));
   const missed = results.filter((r) => r.outcome === 'missed').map((r) => r.suite);
   assert.deepEqual(missed, [], 'self-test: a flipped expectation still passed');
+
+  // Rust reads the same verdicts for the r7-sized corpus: 4,000 drafts, every offset.
+  const unicode = loaded.suites.find((s) => s.kind === 'generator' && s.generator.generator === 'unicode');
+  assert.ok(unicode?.kind === 'generator', 'generators/unicode.json is missing');
+  const rust = runRustTextParity(unicode.generator, unicode.generator.sizes.nightly);
+  console.log(`text parity: Rust unicode-segmentation agrees on ${rust.drafts} generated drafts`);
 
   const per = passed / runtimes.length;
   console.log(

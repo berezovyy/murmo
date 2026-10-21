@@ -30,13 +30,17 @@
       "owner": "02, 07"
     },
     {
+      "file": "generators/ledger.json",
+      "owner": "04"
+    },
+    {
       "file": "generators/provenance.json",
       "owner": "02, 04"
     },
     {
       "file": "generators/streams.json",
       "owner": "02",
-      "cases": 4
+      "cases": 5
     },
     {
       "file": "generators/unicode.json",
@@ -56,6 +60,21 @@
       "file": "names/splitter.json",
       "owner": "19, 36",
       "cases": 29
+    },
+    {
+      "file": "provenance/coalesce.json",
+      "owner": "04",
+      "cases": 3
+    },
+    {
+      "file": "provenance/ledger.json",
+      "owner": "04",
+      "cases": 18
+    },
+    {
+      "file": "provenance/project.json",
+      "owner": "04",
+      "cases": 5
     },
     {
       "file": "security/followup-rules.json",
@@ -92,9 +111,49 @@
       "variants": 5
     },
     {
+      "file": "text/boundaries.json",
+      "owner": "04",
+      "cases": 2
+    },
+    {
+      "file": "text/codepoints.json",
+      "owner": "04, 07",
+      "cases": 2
+    },
+    {
+      "file": "text/convert.json",
+      "owner": "04",
+      "cases": 7
+    },
+    {
+      "file": "text/display.json",
+      "owner": "04",
+      "cases": 16
+    },
+    {
+      "file": "text/invisible.json",
+      "owner": "04, 18, 32",
+      "cases": 18
+    },
+    {
       "file": "text/offsets-r7.json",
       "owner": "04",
       "cases": 10
+    },
+    {
+      "file": "text/offsets.json",
+      "owner": "04",
+      "cases": 17
+    },
+    {
+      "file": "text/surrogates.json",
+      "owner": "04",
+      "cases": 4
+    },
+    {
+      "file": "text/unsafe.json",
+      "owner": "04, 05",
+      "cases": 16
     }
   ]
 }
