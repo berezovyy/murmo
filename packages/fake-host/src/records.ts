@@ -1,8 +1,8 @@
-// Capability records the profiles are generated from. Until adapters 21–24
-// emit measured JSON from the harness (phase 20), these round-13/14 values
-// are the seed and are marked historical. A record never claims 2.0-pre
+// Capability records the profiles are generated from. Claude's row is the
+// phase-24 adapter (not historical). Other hosts stay on round-13/14 seeds
+// until their adapters emit a fresh record. A record never claims 2.0-pre
 // guarantees no real adapter has shown (`edit.attributed`, `dialogSafe`,
-// `submit.committed`).
+// `submit.committed` as accepted-text).
 
 import type { HostName } from '@murmo/api';
 import type { CapsPatch } from './adapter.ts';
@@ -58,9 +58,9 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
   {
     host: 'claude',
     version: '2.1.304',
-    measuredAt: '2026-10-13',
-    report: 'docs/experiments/r13-claude-inline.md',
-    historical: true,
+    measuredAt: '2026-10-21',
+    report: 'docs/plan/24-adapter-claude-code.md',
+    historical: false,
     quirks: [
       'keyless-bursts-have-unknown-origin',
       'paste-unknown-origin',
@@ -70,6 +70,7 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
     ],
     patch: {
       inputOriginEvidence: 'host-labeled',
+      inlineRewrite: 'same-transaction',
       edit: {
         atomic: false,
         end: true,
@@ -79,13 +80,20 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
         exactRestore: false,
         certainties: ['authoritative'],
       },
-      ghost: 'none',
+      ghost: 'end-only',
       highlight: 'none',
       undoKeys: [],
-      inline: { allKeysObserved: false, nativeCompletion: true, commitReceipt: 'none' },
+      inline: {
+        allKeysObserved: false,
+        nativeCompletion: true,
+        commitReceipt: 'read-back',
+        maxBytes: 1024,
+        middle: true,
+        multiline: true,
+      },
       keys: [],
       submit: { gestures: ['send', 'queue'], guardPosition: 'managed', committed: 'none' },
-      ui: { anchor: 'host-owned', normalization: 'NFC', dialogSafe: false, opaqueParts: true, statusMaxLength: 512 },
+      ui: { anchor: 'host-owned', normalization: 'NFC', dialogSafe: false, opaqueParts: false, statusMaxLength: 80 },
     },
   },
   {

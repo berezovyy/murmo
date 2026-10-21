@@ -1,9 +1,9 @@
 {
   "host": "claude",
   "version": "2.1.304",
-  "measuredAt": "2026-10-13",
-  "report": "docs/experiments/r13-claude-inline.md",
-  "historical": true,
+  "measuredAt": "2026-10-21",
+  "report": "docs/plan/24-adapter-claude-code.md",
+  "historical": false,
   "quirks": [
     "keyless-bursts-have-unknown-origin",
     "paste-unknown-origin",

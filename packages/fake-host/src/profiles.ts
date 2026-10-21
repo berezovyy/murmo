@@ -49,7 +49,7 @@ export class FakeEditorSlot {
 export const profileEvidence = {
   claude: {
     version: '2.1.304',
-    report: 'docs/experiments/r13-claude-inline.md',
+    report: 'docs/plan/24-adapter-claude-code.md',
     limits: [
       'keyless-bursts-have-unknown-origin',
       'no-async-CAS',

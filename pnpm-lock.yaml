@@ -26,6 +26,42 @@ importers:
 
   fixtures: {}
 
+  packages/adapters/claude:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@murmo/executor':
+        specifier: workspace:*
+        version: link:../../executor
+      '@murmo/lang':
+        specifier: workspace:*
+        version: link:../../lang
+      '@murmo/plugin-autocorrect':
+        specifier: workspace:*
+        version: link:../../plugin-autocorrect
+      '@murmo/plugin-rescue':
+        specifier: workspace:*
+        version: link:../../plugins/rescue
+      '@murmo/plugin-shortcuts':
+        specifier: workspace:*
+        version: link:../../plugins/shortcuts
+      '@murmo/provenance':
+        specifier: workspace:*
+        version: link:../../provenance
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../../store
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../../text
+
   packages/adapters/codex:
     dependencies:
       '@murmo/api':

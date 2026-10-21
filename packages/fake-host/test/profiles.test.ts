@@ -99,7 +99,7 @@ test('seed JSON records match the embedded seeds and are not stale (profile gene
     const seed = newestRecord(host);
     assert.equal(file.host, host);
     assert.equal(file.version, seed.version);
-    assert.equal(file.historical, true);
+    assert.equal(file.historical, seed.historical);
     assert.equal(profileEvidence[host].version, seed.version);
     assert.equal(profileIsStale(host, profileEvidence[host].version), false);
     assert.equal(SEED_RECORDS.filter((r) => r.host === host).length, 1);
