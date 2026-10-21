@@ -173,6 +173,12 @@
       "cases": 5
     },
     {
+      "file": "rescue/harness.json",
+      "owner": "17, 20, 21, 22, 23, 24",
+      "cases": 11,
+      "variants": 11
+    },
+    {
       "file": "security/followup-rules.json",
       "owner": "09",
       "cases": 10,

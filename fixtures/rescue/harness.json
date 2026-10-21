@@ -1,0 +1,95 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/17 Tests and acceptance (lesson 33, r9 E6); adapters 21–24 drive these on real hosts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["rescue"],
+    "requires": ["plugin.rescue=release", "adapter.rescue"]
+  },
+  "cases": [
+    {
+      "id": "sigkill-restore",
+      "tags": ["rescue", "crash"],
+      "note": "Lesson 33: kill -9 after an idle save; next start offers the unicode draft (ZWJ family, flag, decomposed accent, CJK, two newlines) and Tab restores it byte-exact.",
+      "steps": [{ "fill": "👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n你好\n\n" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": "👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n你好\n\n" } }
+    },
+    {
+      "id": "sigterm-restore",
+      "tags": ["rescue", "crash"],
+      "note": "SIGTERM (or Claude forced cleanup) after idle save; next start offers and Tab restores.",
+      "steps": [{ "fill": "term-draft" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": "term-draft" } }
+    },
+    {
+      "id": "pty-close-restore",
+      "tags": ["rescue", "crash"],
+      "note": "PTY master close after idle save; next start offers and Tab restores.",
+      "steps": [{ "fill": "pty-draft" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": "pty-draft" } }
+    },
+    {
+      "id": "ctrl-c-twice-restore",
+      "tags": ["rescue", "exit"],
+      "note": "r9 Codex: first Ctrl+C clears the composer; empty must not delete. Next start offers.",
+      "steps": [{ "fill": "ctrl-c-draft" }, { "waitMs": 500 }, { "fill": "" }],
+      "expect": { "draft": { "text": "" } }
+    },
+    {
+      "id": "submit-no-offer",
+      "tags": ["rescue", "submit"],
+      "note": "A crash buffer, not history: after observed/inferred submit the next start offers nothing.",
+      "steps": [{ "fill": "sent prompt" }, { "waitMs": 500 }, { "submit": "send" }],
+      "expect": { "requests": ["sent prompt"], "draft": { "text": "" } }
+    },
+    {
+      "id": "expiry-no-offer",
+      "tags": ["rescue", "privacy"],
+      "note": "A 25-hour-old snapshot is not offered and is unlinked at start.",
+      "steps": [{ "fill": "expired" }],
+      "expect": { "draft": { "text": "expired" }, "ui": { "status": null } }
+    },
+    {
+      "id": "foreign-project-no-offer",
+      "tags": ["rescue", "privacy"],
+      "note": "A snapshot from another projectId is never offered.",
+      "steps": [{ "fill": "" }],
+      "expect": { "draft": { "text": "" }, "ui": { "status": null } }
+    },
+    {
+      "id": "oversize-no-offer",
+      "tags": ["rescue", "privacy"],
+      "note": "Over 64 KiB is not saved; next start offers nothing.",
+      "steps": [{ "fill": { "repeat": "x", "times": 65537 } }, { "waitMs": 500 }],
+      "expect": { "ui": { "status": "Draft is over 64 KiB; not saved." } }
+    },
+    {
+      "id": "private-no-offer",
+      "tags": ["rescue", "privacy"],
+      "note": "Private mode saves nothing and removes this session snapshot.",
+      "steps": [{ "fill": "private draft" }, { "waitMs": 500 }],
+      "expect": { "ui": { "status": null } }
+    },
+    {
+      "id": "two-live-sessions",
+      "tags": ["rescue", "liveness"],
+      "note": "Two live sessions in one project never see each other's drafts.",
+      "steps": [{ "fill": "session-a" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": "session-a" }, "ui": { "status": null } }
+    },
+    {
+      "id": "paired-on-off-latency",
+      "tags": ["rescue", "timing"],
+      "note": "Principle 1: plain-key p95 with saving on ≤ p95 off + 1 ms, including keys during a save.",
+      "control": true,
+      "steps": [{ "type": "abc" }],
+      "expect": { "draft": { "text": "abc" } },
+      "timing": { "keyMs": 1 }
+    }
+  ]
+}

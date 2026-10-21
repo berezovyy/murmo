@@ -102,6 +102,15 @@ if (mode === 'write-loop') {
     );
     if (outcome.status === 'ok') announce();
   }
+} else if (mode === 'draft-loop') {
+  const [project = '', host = 'fake', session = 'crash'] = rest;
+  const id = { project, host: host as 'fake', session };
+  for (let n = 0; ; n++) {
+    const text = `draft-${n}-${'x'.repeat(n % 400)}`;
+    const result = await store.drafts.save(id, { text, cursorUTF16: text.length, revision: n });
+    if (result.status === 'error') throw new Error(result.reason);
+    if (result.status === 'ok') announce();
+  }
 } else {
   throw new Error(`unknown mode ${mode}`);
 }

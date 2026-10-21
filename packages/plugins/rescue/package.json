@@ -1,0 +1,32 @@
+{
+  "name": "@murmo/plugin-rescue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/store": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/core": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "plugin-rescue",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoPluginRescue"
+      }
+    ]
+  }
+}

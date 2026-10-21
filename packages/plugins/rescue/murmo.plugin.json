@@ -1,0 +1,20 @@
+{
+  "name": "rescue",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/plugin.ts",
+  "permissions": [
+    { "name": "draft:read:full", "reason": "Save pasted text in the crash buffer; never learned from." },
+    { "name": "draft:write", "reason": "Restore a snapshot as one plugin-origin edit." },
+    { "name": "submit:observe", "reason": "Delete the snapshot on a committed send; mark attempted when unknown." }
+  ],
+  "capabilities": {
+    "required": {},
+    "optional": {
+      "edit.atomic": true,
+      "status": true,
+      "ghost": "any"
+    }
+  },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

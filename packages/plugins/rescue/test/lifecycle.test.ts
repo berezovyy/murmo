@@ -1,0 +1,231 @@
+// Lifecycle matrix on the fake host (docs/plan/17): abrupt end, submit levels,
+// empty Ctrl+C, offer/restore, sessions don't cross.
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { type CapsPatch, createHarness } from '@murmo/core/testing';
+import { draftIsOfferable } from '@murmo/store';
+import type { Store } from '@murmo/store/node';
+import { offerLine, rescuePlugin } from '../src/index.ts';
+import {
+  assertNoOffer,
+  EMPTY_DELETE_MS,
+  HOST_CAPS,
+  identity,
+  idleSave,
+  MANUAL_EPOCH_MS,
+  presentOffer,
+  tempStore,
+  UNICODE,
+  waitGone,
+  withRescue,
+} from './helpers.ts';
+
+const cleanup: { remove: () => void }[] = [];
+after(() => {
+  for (const t of cleanup) t.remove();
+});
+const fresh = () => {
+  const t = tempStore();
+  cleanup.push(t);
+  return t;
+};
+
+test('a unicode draft is saved after 500 ms idle and not before (typing never waits)', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const id = identity('s1');
+  const h = await withRescue(store, 's1');
+  await h.driver.fill(UNICODE, 'typed');
+  await h.driver.settle();
+  assert.equal(await store.drafts.read(id), undefined, 'no write on the key path');
+  const doc = await idleSave(h, store, id);
+  assert.equal(doc.text, UNICODE);
+  assert.equal(doc.header.cursorUTF16, UNICODE.length);
+  await h.session?.dispose();
+});
+
+test('restore is byte-exact after a dead session; Tab inserts plugin-origin text; Backspace undoes (lesson 33, principle 7)', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const old = identity('dead');
+  await store.drafts.save(old, { text: UNICODE, cursorUTF16: UNICODE.length, revision: 3, now: MANUAL_EPOCH_MS });
+  for (const [host, caps] of Object.entries(HOST_CAPS)) {
+    const h = await withRescue(store, `live-${host}`, { caps });
+    await presentOffer(h);
+    assert.match(h.adapter.status ?? '', /Restore your last draft from \d{2}:\d{2}\? \(Tab\)/, host);
+    assert.ok(h.adapter.ghost, host);
+    const routing = await h.driver.key('Tab');
+    await h.driver.settle();
+    assert.equal(routing, 'consume', host);
+    assert.equal(h.adapter.getDraft().text, UNICODE, host);
+    assert.equal(h.adapter.getDraft().typedSpans.length, 0, `${host}: restored text is not typed`);
+    assert.equal(h.adapter.edits[0]?.edit.label, 'restore', host);
+    await h.driver.key('Backspace');
+    await h.driver.settle();
+    assert.equal(h.adapter.getDraft().text, '', `${host}: Backspace undoes restore`);
+    await h.session?.dispose();
+  }
+});
+
+test('typing dismisses the offer and leaves the file; a non-empty composer is never replaced', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const old = identity('kept');
+  await store.drafts.save(old, { text: UNICODE, cursorUTF16: UNICODE.length, revision: 1, now: MANUAL_EPOCH_MS });
+  const h = await withRescue(store, 's2');
+  await presentOffer(h);
+  assert.match(h.adapter.status ?? '', /Restore/);
+  await h.driver.type('x');
+  await h.driver.settle();
+  assert.equal(h.adapter.getDraft().text, 'x');
+  assert.equal(h.adapter.ghost, null);
+  assert.equal(await store.drafts.read(old).then((d) => d?.text), UNICODE);
+  await h.session?.dispose();
+});
+
+test('submit observed and inferred remove the snapshot; unknown marks attempted and is not offered; a block keeps it', async () => {
+  const t = fresh();
+  const store = await t.store;
+
+  const observedId = identity('obs');
+  const observed = await withRescue(store, 'obs');
+  await observed.driver.fill('keep me', 'typed');
+  await idleSave(observed, store, observedId);
+  await observed.driver.submit('send');
+  await observed.driver.settle();
+  await waitGone(store, observedId);
+  await observed.session?.dispose();
+
+  const inferredId = identity('inf');
+  const inferred = await harness(store, 'inf', { caps: { submit: { committed: 'none' } } });
+  await inferred.driver.fill('inferred text', 'typed');
+  await idleSave(inferred, store, inferredId);
+  await inferred.driver.submit('send');
+  await inferred.driver.settle();
+  await waitGone(store, inferredId);
+  await inferred.session?.dispose();
+
+  const unknownId = identity('unk');
+  const unknown = await harness(store, 'unk');
+  await unknown.driver.fill('maybe sent', 'typed');
+  await idleSave(unknown, store, unknownId);
+  await store.drafts.markAttempted(unknownId, MANUAL_EPOCH_MS);
+  const marked = await store.drafts.read(unknownId);
+  assert.equal(marked?.header.attempted, true);
+  assert.equal(draftIsOfferable(marked as NonNullable<typeof marked>, MANUAL_EPOCH_MS), false);
+  await unknown.session?.dispose();
+  const next = await withRescue(store, 'unk-next');
+  await assertNoOffer(next);
+  await next.session?.dispose();
+
+  const blockedId = identity('blk');
+  const blocked = await createHarness({
+    runner: 'direct',
+    plugins: [
+      rescuePlugin({
+        drafts: store.drafts,
+        identity: blockedId,
+        isPrivate: () => store.privacy.isPrivate(),
+      }),
+      {
+        id: 'block',
+        builtin: true,
+        factory: () => ({
+          name: 'block',
+          version: '1',
+          permissions: ['submit', 'draft:read'],
+          onBeforeSubmit: () => ({ action: 'block' as const, reason: 'nope' }),
+        }),
+      },
+    ],
+  });
+  await blocked.driver.fill('blocked text', 'typed');
+  await idleSave(blocked, store, blockedId);
+  await blocked.driver.submit('send');
+  await blocked.driver.settle();
+  assert.equal((await store.drafts.read(blockedId))?.text, 'blocked text');
+  await blocked.session?.dispose();
+  const afterBlock = await withRescue(store, 'blk-next');
+  await presentOffer(afterBlock);
+  await afterBlock.session?.dispose();
+});
+
+test('an empty draft does not delete (Ctrl+C); 10 s of empty while alive does (r9 Codex)', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const id = identity('empty');
+  const h = await withRescue(store, 'empty');
+  await h.driver.fill('doomed', 'typed');
+  await idleSave(h, store, id);
+  h.adapter.fill('', 'unknown');
+  await h.driver.settle();
+  assert.equal((await store.drafts.read(id))?.text, 'doomed', 'empty does not delete at once');
+  await h.session?.dispose();
+  const offered = await withRescue(store, 'empty-next');
+  await presentOffer(offered);
+  await offered.session?.dispose();
+
+  const live = await withRescue(store, 'empty');
+  await live.driver.fill('cleared on purpose', 'typed');
+  await idleSave(live, store, id);
+  live.adapter.fill('', 'unknown');
+  await live.driver.settle();
+  await live.driver.wait(EMPTY_DELETE_MS);
+  await live.driver.settle();
+  await waitGone(store, id);
+  await live.session?.dispose();
+});
+
+test('two live sessions in one project are never offered each other (liveness lock)', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const a = await withRescue(store, 'live-a');
+  await a.driver.fill('session A draft', 'typed');
+  await idleSave(a, store, identity('live-a'));
+  const b = await withRescue(store, 'live-b');
+  await assertNoOffer(b);
+  assert.equal(b.adapter.getDraft().text, '');
+  await a.session?.dispose();
+  await b.session?.dispose();
+  const c = await withRescue(store, 'live-c');
+  await presentOffer(c);
+  await c.session?.dispose();
+});
+
+test('cross-host snapshots are not offered', async () => {
+  const t = fresh();
+  const store = await t.store;
+  await store.drafts.save(identity('pi-dead', 'pi'), {
+    text: UNICODE,
+    cursorUTF16: 0,
+    revision: 1,
+    now: MANUAL_EPOCH_MS,
+  });
+  const h = await withRescue(store, 'fake-live', { host: 'fake' });
+  await assertNoOffer(h);
+  await h.session?.dispose();
+});
+
+test('offerLine is the architecture one-liner with a clock time', () => {
+  assert.match(offerLine(0), /^Restore your last draft from \d{2}:\d{2}\? \(Tab\)$/);
+});
+
+function harness(
+  store: Store,
+  session: string,
+  extra: { caps?: CapsPatch; holdSubmit?: boolean; commitWindowMs?: number } = {},
+) {
+  return createHarness({
+    runner: 'direct',
+    plugins: [
+      rescuePlugin({
+        drafts: store.drafts,
+        identity: identity(session),
+        isPrivate: () => store.privacy.isPrivate(),
+      }),
+    ],
+    ...(extra.caps ? { caps: extra.caps } : {}),
+    ...(extra.holdSubmit ? { holdSubmit: true } : {}),
+    ...(extra.commitWindowMs === undefined ? {} : { commitWindowMs: extra.commitWindowMs }),
+  });
+}

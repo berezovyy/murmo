@@ -67,6 +67,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../plugin-autocorrect
+      '@murmo/plugin-rescue':
+        specifier: workspace:*
+        version: link:../plugins/rescue
       '@murmo/plugin-shortcuts':
         specifier: workspace:*
         version: link:../plugins/shortcuts
@@ -133,6 +136,19 @@ importers:
       '@murmo/text':
         specifier: workspace:*
         version: link:../text
+
+  packages/plugins/rescue:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../../store
+    devDependencies:
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
 
   packages/plugins/shortcuts:
     dependencies:

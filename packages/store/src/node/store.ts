@@ -2,6 +2,7 @@
 // All calls are async and belong off the key path (idle ticks); a `busy`
 // result is retried on the next idle tick.
 import { randomBytes } from 'node:crypto';
+import type { Drafts } from '../draft.ts';
 import {
   checkProjectId,
   type LogKind,
@@ -13,6 +14,7 @@ import {
 } from '../layout.ts';
 import { EMPTY_TRUST, EMPTY_WORDS, type MetaRecord, type TrustApproval, type TrustRecord } from '../records.ts';
 import { type DeleteReport, type DeleteSelector, deleteData, type InventoryRow, inventory } from './data.ts';
+import { createFileDrafts } from './drafts.ts';
 import { exists, newRepairs, removeStaleTemps } from './files.ts';
 import { createLogWriter, type LogEntry, type LogRead, readLog } from './logs.ts';
 import { createPluginStorageBroker, type PluginStorageBroker } from './plugin-storage.ts';
@@ -79,6 +81,8 @@ export interface Store {
   readonly words: WordStore;
   readonly plugins: PluginStorageBroker;
   readonly logs: LogStore;
+  /** Built-in rescue only (phase 17). */
+  readonly drafts: Drafts;
   generation(): Promise<Generation>;
   watchGeneration(): GenerationWatch;
   inventory(projectId?: string): Promise<InventoryRow[]>;
@@ -267,6 +271,7 @@ export async function openStore(options: StoreOptions): Promise<Store> {
     words,
     plugins: createPluginStorageBroker(layout, privacy, repairs),
     logs,
+    drafts: createFileDrafts({ layout, privacy, repairs }),
     generation,
     watchGeneration() {
       let seen: string | undefined;

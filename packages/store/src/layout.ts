@@ -73,6 +73,28 @@ export function projectDrafts(layout: StoreLayout, projectId: string): string {
   return `${layout.drafts}/${checkProjectId(projectId)}`;
 }
 
+/**
+ * Hosts a draft file may name. The four agents plus `fake` (the reference
+ * adapter in tests). Offers are same-host only (phase 17).
+ */
+export const DRAFT_HOSTS = ['claude', 'codex', 'opencode', 'pi', 'fake'] as const;
+export type DraftHost = (typeof DRAFT_HOSTS)[number];
+
+export function checkDraftHost(host: string): DraftHost {
+  if (!(DRAFT_HOSTS as readonly string[]).includes(host)) throw new Error(`unknown draft host ${host}`);
+  return host as DraftHost;
+}
+
+/** `$XDG_STATE_HOME/murmo/drafts/v1/<projectId>/<host>/<sessionId>.draft` */
+export function draftFile(layout: StoreLayout, projectId: string, host: string, sessionId: string): string {
+  return `${projectDrafts(layout, projectId)}/${checkDraftHost(host)}/${checkSessionId(sessionId)}.draft`;
+}
+
+/** Liveness lock next to the snapshot (`<sessionId>.lock`). */
+export function draftLockFile(layout: StoreLayout, projectId: string, host: string, sessionId: string): string {
+  return `${projectDrafts(layout, projectId)}/${checkDraftHost(host)}/${checkSessionId(sessionId)}.lock`;
+}
+
 /** Learned-event logs (phases 34, 35): one folder per kind. */
 export const LOG_KINDS = ['phrases', 'history'] as const;
 export type LogKind = (typeof LOG_KINDS)[number];

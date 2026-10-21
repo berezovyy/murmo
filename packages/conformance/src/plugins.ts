@@ -22,6 +22,7 @@ import slow50 from '@murmo/fixtures/plugins/slow50';
 import stale from '@murmo/fixtures/plugins/stale';
 import thrower from '@murmo/fixtures/plugins/thrower';
 import { autocorrectFactory } from '@murmo/plugin-autocorrect';
+import rescueFactory from '@murmo/plugin-rescue';
 import { menuFactory, shortcutsFactory } from '@murmo/plugin-shortcuts';
 
 export type PluginBuild = 'fixture' | 'sample' | 'release';
@@ -51,6 +52,7 @@ export const plugins: Readonly<Record<string, RegisteredPlugin>> = {
   shortcuts: release(shortcutsFactory),
   snippets: release(menuFactory),
   menu: release(menuFactory),
+  rescue: release(rescueFactory),
   counter: sample(statusCounterSample),
   'todo-guard': sample(todoGuardSample),
 };

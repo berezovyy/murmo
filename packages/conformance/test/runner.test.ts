@@ -33,6 +33,7 @@ const editorCaps: Capabilities = {
     'core.inline': true,
     'plugin.snippets': 'release',
     'plugin.todo-guard': 'sample',
+    'plugin.rescue': 'release',
     'plugin.autocorrect': 'release',
     'executor.isolated': true,
   },

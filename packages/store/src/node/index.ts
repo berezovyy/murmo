@@ -3,6 +3,8 @@ export type { CommandContext } from './commands.ts';
 export { DATA_USAGE, dataCommand, PRIVATE_USAGE, privateCommand } from './commands.ts';
 export type { DataKind, DeleteReport, DeleteSelector, InventoryKind, InventoryRow } from './data.ts';
 export { DATA_KINDS } from './data.ts';
+export type { FileDraftsOptions } from './drafts.ts';
+export { createFileDrafts } from './drafts.ts';
 export type { ModeRepairs, WriteOptions } from './files.ts';
 export {
   DIR_MODE,

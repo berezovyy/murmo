@@ -2,9 +2,11 @@
 // processes killed by SIGKILL. tools/store-parity.mjs repeats the crash and
 // concurrency runs with the Rust writer mixed in.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { after, test } from 'node:test';
+import { decodeDraft, draftFile } from '../src/index.ts';
 import { pluginRecordPath, storeLayout } from '../src/layout.ts';
 import { isTempName } from '../src/node/files.ts';
 import { openStore, readRecord, readSnapshotSet } from '../src/node/index.ts';
@@ -90,6 +92,32 @@ test('SIGKILL during a three-file snapshot swap never leaves current on an incom
       assert.deepEqual([Object.keys(after.files).length, tags.size], [3, 1], `run ${run} after kill`);
     }
   }
+});
+
+test('SIGKILL during draft saves leaves a whole snapshot and no temp after cleanup (20 runs, r9-history § 3)', async () => {
+  const t = fresh('murmo-crash-draft-');
+  const project = createHash('sha256').update('crash-draft').digest('hex');
+  const id = { project, host: 'fake' as const, session: 'crash' };
+  const store0 = await openStore({ roots: t.roots });
+  assert.equal((await store0.drafts.save(id, { text: 'seed', cursorUTF16: 4, revision: 0 })).status, 'ok');
+  const path = draftFile(store0.layout, project, 'fake', 'crash');
+  const dir = dirname(path);
+  let tempsSeen = 0;
+  for (let run = 0; run < RUNS; run++) {
+    const child = startChild(t.roots, 'draft-loop', project, 'fake', 'crash');
+    await whenReady(child);
+    await pause(Math.floor(Math.random() * 25));
+    await kill(child);
+    const bytes = readFileSync(path);
+    const decoded = decodeDraft(bytes);
+    assert.equal(decoded.ok, true, `run ${run}: ${decoded.ok ? '' : decoded.reason}`);
+    for (const file of readdirSync(dir)) {
+      if (isTempName(file)) tempsSeen++;
+    }
+    await store0.drafts.cleanup();
+    assert.deepEqual(readdirSync(dir).filter(isTempName), [], `run ${run}: a temp survived cleanup`);
+  }
+  if (tempsSeen === 0) process.stdout.write('# draft: no kill landed between temp and rename\n');
 });
 
 test('12 processes x 200 sets on their own keys of one namespace lose no key', async () => {

@@ -1,11 +1,37 @@
 // @murmo/store: every byte Murmo keeps on disk. This portable part holds the
 // formats, the layout, the plugin storage rules and the Claude client; the
 // Node and Bun backend is `@murmo/store/node`, the Rust one is rust/.
-export { sha256Hex, utf8Decode, utf8Encode, utf8Length } from './encoding.ts';
-export type { LogKind, StoreLayout, StoreRoots } from './layout.ts';
+
+export type {
+  DraftDecode,
+  DraftDocument,
+  DraftHeader,
+  DraftIdentity,
+  DraftSaveResult,
+  Drafts,
+  DraftWrite,
+  HeldDraftLock,
+} from './draft.ts';
 export {
+  checkDraftIdentity,
+  DRAFT_MAX_HEADER_BYTES,
+  DRAFT_MAX_TEXT_BYTES,
+  DRAFT_TTL_MS,
+  decodeDraft,
+  draftExpired,
+  draftHeader,
+  draftIsOfferable,
+  encodeDraft,
+} from './draft.ts';
+export { sha256Hex, utf8Decode, utf8Encode, utf8Length } from './encoding.ts';
+export type { DraftHost, LogKind, StoreLayout, StoreRoots } from './layout.ts';
+export {
+  checkDraftHost,
   checkProjectId,
   checkSessionId,
+  DRAFT_HOSTS,
+  draftFile,
+  draftLockFile,
   LOG_KINDS,
   logDirectory,
   pluginRecordPath,
@@ -16,6 +42,8 @@ export {
   STORE_VERSION,
   storeLayout,
 } from './layout.ts';
+export type { MemoryDraftsOptions } from './memory-drafts.ts';
+export { createMemoryDrafts } from './memory-drafts.ts';
 export type { NamespaceChange, NamespaceData } from './plugin-namespace.ts';
 export {
   jsonCopy,
