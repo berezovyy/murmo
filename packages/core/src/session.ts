@@ -105,6 +105,8 @@ export interface SessionOptions {
   readonly commitWindowMs?: number;
   /** Test override; the session's merged menu is the default. */
   readonly menu?: MenuSurface;
+  /** Immediate Backspace/undo of a typo (phase 19 learning). */
+  readonly onRejectedWord?: (word: string) => void;
 }
 
 export interface Session {
@@ -477,8 +479,9 @@ class CoreSession implements Session {
   #commitInline(commit: InlineCommit): void {
     const stage = this.#inline;
     if (!stage) return;
-    const { corrections, deferred, shortcutExpanded, shortcutUndone } = stage.commit(commit);
+    const { corrections, deferred, shortcutExpanded, shortcutUndone, rejected } = stage.commit(commit);
     this.#counters.inlineCorrections += corrections;
+    for (const word of rejected) this.#options.onRejectedWord?.(word);
     this.#counters.shortcutExpanded += shortcutExpanded;
     this.#counters.shortcutUndone += shortcutUndone;
     if (corrections > 0 && !this.#firstInlineFix) {
@@ -517,6 +520,7 @@ class CoreSession implements Session {
   #rejectInline(rejection: InlineRejection): void {
     // A host-side Backspace (Claude) still joins the per-draft rejected set.
     this.#inline?.rejectWord(rejection.original);
+    this.#options.onRejectedWord?.(rejection.original);
   }
 
   /** `accept-ghost`: insert exactly the displayed ghost as a versioned edit. */

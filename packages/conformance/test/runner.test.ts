@@ -78,11 +78,12 @@ test('a case under trust "both" runs once per trust level, with third-party fiel
   assert.deepEqual(expect, { requests: [], draft: { text: 'x' } });
 });
 
-test('a pure case whose function is not registered yet is skipped with the owning phase, never passed', async () => {
+test('names.splitWords runs the 29 splitter cases instead of skipping (phase 19)', async () => {
   const { verdicts } = await runSuites([suite('names/splitter.json')], createPureSubject(), options);
   assert.equal(verdicts.length, 29);
   assert.ok(
-    verdicts.every((v) => v.status === 'skip' && v.reason === 'needs fn.names.splitWords (owner: phase 19, 36)'),
+    verdicts.every((v) => v.status === 'pass'),
+    verdicts.find((v) => v.status !== 'pass')?.reason ?? 'a splitter case failed',
   );
 });
 

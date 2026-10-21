@@ -63,6 +63,8 @@ export interface HarnessOptions {
   readonly health?: RunnerHealth;
   /** Use a published fake-host adapter (profiles). Default is a fully capable FakeAdapter. */
   readonly adapter?: ReferenceAdapter;
+  /** Immediate Backspace/undo of a typo (phase 19 learning). */
+  readonly onRejectedWord?: (word: string) => void;
 }
 
 export interface HarnessRunner extends HookRunner {
@@ -290,6 +292,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
         ...(options.pressure === undefined ? {} : { pressure: options.pressure }),
         ...(options.commitWindowMs === undefined ? {} : { commitWindowMs: options.commitWindowMs }),
         ...(options.menu ? { menu: options.menu } : {}),
+        ...(options.onRejectedWord ? { onRejectedWord: options.onRejectedWord } : {}),
       });
   let harness: Harness | undefined;
   const driver = new Driver(

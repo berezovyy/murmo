@@ -10,6 +10,7 @@ import {
   REQUIRED_SKIP,
   registerPolicy,
 } from '@murmo/core';
+import { normalizeKey } from '@murmo/lang';
 import { createEnglishPolicy } from './policy.ts';
 import type { AutocorrectSettings } from './settings.ts';
 import { correctionEnabled } from './settings.ts';
@@ -83,10 +84,10 @@ function uniqueLower(words: readonly string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const word of words) {
-    const lower = word.toLowerCase();
+    const lower = normalizeKey(word) ?? word.toLowerCase();
     if (!lower || seen.has(lower)) continue;
     seen.add(lower);
-    out.push(word);
+    out.push(lower);
   }
   return out;
 }

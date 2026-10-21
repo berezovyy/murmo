@@ -1,0 +1,25 @@
+{
+  "provenance": {
+    "source": "experiments/vocab/data/{codex,opencode,pi,typos}.collisions.json (names only; r6 used the 95,948-key list)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "repos": {
+    "codex": [
+      "ba",
+      "cachable",
+      "caf",
+      "gracefull",
+      "nnot",
+      "numer",
+      "psuedo",
+      "ratatui",
+      "ser",
+      "unparseable",
+      "wronly"
+    ],
+    "opencode": ["fo", "nd", "oint", "ontext", "referers", "strat", "styl"],
+    "pi": ["froms", "oint", "thm"],
+    "typos": ["asend", "countr", "makro", "nd", "olt", "ser", "wronly"]
+  }
+}

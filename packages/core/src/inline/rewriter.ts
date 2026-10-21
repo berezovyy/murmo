@@ -28,6 +28,8 @@ export interface InlineRewriter {
   undoDepth(): number;
   /** Counts since the previous `commit` (shortcut names only, never expansion text). */
   takeShortcutDelta(): { expanded: number; undone: number };
+  /** Word restored by immediate Backspace on this commit, if any (phase 19). */
+  takeRejected(): string | undefined;
   shortcutCounts(): ShortcutCounts;
 }
 
@@ -46,6 +48,7 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
   let lastCommitCount = 0;
   let deltaExpanded = 0;
   let deltaUndone = 0;
+  let lastRejected: string | undefined;
   const expanded: Record<string, number> = Object.create(null);
   const undone: Record<string, number> = Object.create(null);
 
@@ -90,6 +93,7 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
       lastCommitCount = 0;
       deltaExpanded = 0;
       deltaUndone = 0;
+      lastRejected = undefined;
       const a = awaiting;
       if (!a || a.id !== c.transactionId) return false;
       awaiting = null;
@@ -111,7 +115,10 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
       current = cloneState(a.state);
       version = c.version;
       readyDeferred = a.deferred;
-      if (a.rejected) rejected.add(a.rejected);
+      if (a.rejected) {
+        rejected.add(a.rejected);
+        lastRejected = a.rejected;
+      }
       return a.replay.corrections.length > 0;
     },
 
@@ -154,6 +161,7 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
       deltaUndone = 0;
       return delta;
     },
+    takeRejected: () => lastRejected,
     shortcutCounts: () => ({ expanded: { ...expanded }, undone: { ...undone } }),
   };
 }

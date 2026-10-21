@@ -2,7 +2,7 @@
 // Same gates as lookup.mjs: language, origin, prose, vocabulary, rejected,
 // plus the English skip/case policy. Generic fallback stays off.
 
-import { mapTable, type PackedTable, lookup as tableLookup } from '@murmo/lang';
+import { mapTable, normalizeKey, type PackedTable, lookup as tableLookup } from '@murmo/lang';
 import { createEnglishPolicy, DEFAULT_LOWERCASE_ONLY } from './policy.ts';
 import { englishPackAsset } from './table-source.ts';
 
@@ -48,8 +48,8 @@ export function lookupWord(input: unknown): LookupOutput {
   const lookup = table ? (word: string) => tableLookup(table, word) ?? null : () => null;
   const lowercaseOnly = pack ? new Set(pack.lowercaseOnly) : DEFAULT_LOWERCASE_ONLY;
   const policy = createEnglishPolicy({ lowercaseOnly });
-  const rejected = new Set((context?.rejected ?? []).map((w) => w.toLowerCase()));
-  const vocabulary = new Set((context?.vocabulary ?? []).map((w) => w.toLowerCase()));
+  const rejected = new Set((context?.rejected ?? []).map((w) => normalizeKey(w) ?? w.toLowerCase()));
+  const vocabulary = new Set((context?.vocabulary ?? []).map((w) => normalizeKey(w) ?? w.toLowerCase()));
   const proposed = policy.propose({
     text: token,
     cursor: token.length,

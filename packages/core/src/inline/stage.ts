@@ -21,6 +21,7 @@ export interface InlineStage {
     deferred: DeferredRequest[];
     shortcutExpanded: number;
     shortcutUndone: number;
+    rejected: string[];
   };
   observe(change: Change): void;
   noteKey(key: KeyId): void;
@@ -105,6 +106,7 @@ export function createInlineStage(rules: readonly RegisteredInline[], caps: Host
       let corrections = 0;
       let shortcutExpanded = 0;
       let shortcutUndone = 0;
+      const rejected: string[] = [];
       const deferred: DeferredRequest[] = [];
       const live = [...ordered, ...retiring];
       for (const interpreter of live) {
@@ -113,6 +115,8 @@ export function createInlineStage(rules: readonly RegisteredInline[], caps: Host
         const delta = interpreter.takeShortcutDelta();
         shortcutExpanded += delta.expanded;
         shortcutUndone += delta.undone;
+        const word = interpreter.takeRejected();
+        if (word) rejected.push(word);
         for (const request of interpreter.takeDeferred()) {
           deferred.push({
             owner: interpreter.owner,
@@ -130,7 +134,7 @@ export function createInlineStage(rules: readonly RegisteredInline[], caps: Host
       }
       retiring = [];
       deferred.sort((a, b) => b.edit.from - a.edit.from);
-      return { corrections, deferred, shortcutExpanded, shortcutUndone };
+      return { corrections, deferred, shortcutExpanded, shortcutUndone, rejected };
     },
 
     observe(change) {

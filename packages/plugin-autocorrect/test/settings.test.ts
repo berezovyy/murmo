@@ -37,11 +37,16 @@ test('disabled reasons name the gate (table, origin, language, off)', () => {
   assert.equal(disabledReason(resolveAutocorrectSettings({}), {}, true)?.kind, 'off');
 });
 
-test('learned allowlist is a no-op until phases 14 and 19 (flag off)', () => {
-  assert.equal(LEARN_ALLOWLIST, false);
-  const result = noteLearnedRejection('teh', 'd1', Date.now(), [], false);
-  assert.equal(result.allow, null);
-  assert.deepEqual(result.records, []);
+test('two drafts within 30 days learn the word; private mode does not', () => {
+  assert.equal(LEARN_ALLOWLIST, true);
+  const t = Date.now();
+  const first = noteLearnedRejection('teh', 'd1', t, [], false);
+  assert.equal(first.allow, null);
+  const second = noteLearnedRejection('teh', 'd2', t + 1, first.records, false);
+  assert.equal(second.allow, 'teh');
+  const priv = noteLearnedRejection('teh', 'd1', t, [], true);
+  assert.equal(priv.allow, null);
+  assert.deepEqual(priv.records, []);
 });
 
 test('doctor line is numbers plus a disabled reason, never draft text', () => {

@@ -1,0 +1,39 @@
+{
+  "name": "@murmo/vocab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./normalize": "./src/normalize.ts",
+    "./split": "./src/split.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "dependencies": {
+    "@murmo/core": "workspace:*",
+    "@murmo/lang": "workspace:*",
+    "@murmo/lang-en": "workspace:*",
+    "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
+    "bundles": [
+      {
+        "name": "vocab",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoVocab"
+      }
+    ]
+  }
+}

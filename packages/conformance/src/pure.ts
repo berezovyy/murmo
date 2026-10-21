@@ -11,6 +11,7 @@
 import type { PureCase } from '@murmo/fixtures';
 import { sha256, summarize } from '@murmo/fixtures/generators';
 import { lookupWord } from '@murmo/plugin-autocorrect';
+import { splitWords } from '@murmo/vocab/split';
 import { configFunctions } from './fns/config.ts';
 import { menuFunctions } from './fns/menu.ts';
 import { provenanceFunctions } from './fns/provenance.ts';
@@ -43,6 +44,7 @@ function summary(input: unknown): unknown {
 export const pureFunctions: Readonly<Record<string, PureEntry>> = {
   'generators.summary': summary,
   'autocorrect.lookupWord': lookupWord,
+  'names.splitWords': (input) => splitWords(input as string),
   ...textFunctions,
   ...provenanceFunctions,
   ...configFunctions,

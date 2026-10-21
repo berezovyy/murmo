@@ -5,6 +5,7 @@
 // for Node and Bun).
 
 export { type CasePolicy, CasePolicyError, parseCasePolicy } from './case-policy.ts';
+export { MAX_KEY_LENGTH, MIN_KEY_LENGTH, NORMALIZE_VERSION, normalizeKey } from './key.ts';
 export {
   CASE_POLICY_FORMAT,
   type LanguagePackManifest,

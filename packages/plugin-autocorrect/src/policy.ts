@@ -3,6 +3,7 @@
 // Case: preserve-title, plus round 8's lowercase-only keys (docs/plan/13).
 
 import { ENGLISH_POLICY, type WordPolicy, type WordPolicyQuery, type WordProposal } from '@murmo/core';
+import { normalizeKey } from '@murmo/lang';
 import { isGraphemeBoundary } from '@murmo/text';
 import { editRangeIsSafe, hasForeignLetters, leadingDecorations, trailingDecorations } from './unicode.ts';
 
@@ -84,7 +85,9 @@ function proposeEnglish(query: WordPolicyQuery, lowercaseOnly: ReadonlySet<strin
   const token = stripped.slice(0, stripped.length - right);
   if (!token || token.length > MAX_TOKEN || SKIP_PREFIX.test(token) || SKIP_BODY.test(token)) return null;
   if (!CORRECTABLE.test(token)) return null;
-  const lower = token.toLowerCase();
+  // `I` is a one-letter correctable; protection keys are [a-z]{2,64}.
+  const lower = normalizeKey(token) ?? (token === 'I' || token === 'i' ? 'i' : null);
+  if (!lower) return null;
   if (query.rejected.has(lower) || query.vocabulary.has(lower)) return null;
   if (lowercaseOnly.has(lower) && token !== lower) return null;
   const found = query.lookup(lower);

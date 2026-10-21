@@ -1,9 +1,11 @@
 // The one learning rule (docs/plan/13): a word rejected by immediate Backspace
 // or Murmo's undo in two different drafts within 30 days joins the user
-// allowlist that phase 19 stores. Off until 14's store and 19's list land;
-// per-draft rejection in the core rewriter still works.
+// allowlist that phase 19 stores. Per-draft rejection in the core rewriter
+// still works even when this flag is off.
 
-export const LEARN_ALLOWLIST = false;
+import { normalizeKey } from '@murmo/lang';
+
+export const LEARN_ALLOWLIST = true;
 export const LEARN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export const LEARN_DRAFTS = 2;
 
@@ -15,7 +17,7 @@ export interface RejectionRecord {
 
 /**
  * Records one per-draft rejection. Returns the word to add to the user
- * allowlist, or null. No-ops while `LEARN_ALLOWLIST` is false (phase 19).
+ * allowlist, or null. No-ops in private mode.
  */
 export function noteLearnedRejection(
   word: string,
@@ -25,7 +27,7 @@ export function noteLearnedRejection(
   privateMode: boolean,
 ): { readonly allow: string | null; readonly records: readonly RejectionRecord[] } {
   if (!LEARN_ALLOWLIST || privateMode) return { allow: null, records: prior };
-  const lower = word.toLowerCase();
+  const lower = normalizeKey(word) ?? word.toLowerCase();
   const cutoff = wallTimeMs - LEARN_WINDOW_MS;
   const kept = prior.filter((r) => r.lastMs >= cutoff && r.word !== lower);
   const current = prior.find((r) => r.word === lower && r.lastMs >= cutoff);
