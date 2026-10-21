@@ -1,0 +1,28 @@
+{
+  "kind": "moved/v1",
+  "provenance": {
+    "source": "experiments/typo-list: round 6 corpus test split as word counts (test-counts.json), round 7 seed-7004 clean draws from it (clean-400k-counts.json), round 8 seed-8004 fast-typing slips (fast-typing-events-8004.jsonl). Word counts of third-party docs, used only to evaluate, never shipped",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "files": [
+    {
+      "path": "clean-400k-counts.json",
+      "source": "experiments/typo-list/own/clean-400k-counts.json",
+      "sha256": "64e2ace5edca5db581e067c61b637202e19f431c67fc01174bd6029bb2b2a8cf",
+      "bytes": 161504
+    },
+    {
+      "path": "fast-typing-events-8004.jsonl",
+      "source": "experiments/typo-list/common/fast-typing-events-8004.jsonl",
+      "sha256": "16ffe44fca9ac7599541c1e06be3906d5f620ddefb9a2deb0677e326530445b6",
+      "bytes": 2090460
+    },
+    {
+      "path": "test-counts.json",
+      "source": "experiments/typo-list/test-counts.json",
+      "sha256": "20ee08c644a37553a916591f432f43c67d4b34519760366ba443025bd360bc52",
+      "bytes": 119056
+    }
+  ]
+}

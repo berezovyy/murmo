@@ -1,0 +1,37 @@
+{
+  "about": "Evaluation gate limits (docs/plan/12). A data change that breaks one fails the gate; changing a limit needs a recorded reason in the PR and docs/knowledge.md.",
+  "clean": {
+    "set": "clean-400k-counts.json",
+    "maxWrong": 0
+  },
+  "heldOut": {
+    "set": "fast-typing-events-8004.jsonl",
+    "maxWrong": 29,
+    "minApplied": 6552
+  },
+  "round6": {
+    "set": "test-counts.json",
+    "seed": 6002,
+    "draws": 100000,
+    "maxWrong": 3
+  },
+  "required": {
+    "teh": "the",
+    "adn": "and",
+    "hte": "the",
+    "taht": "that",
+    "wiht": "with",
+    "jsut": "just",
+    "retrun": "return",
+    "improt": "import",
+    "recieve": "receive",
+    "becuase": "because",
+    "thier": "their"
+  },
+  "round8": {
+    "about": "Round 8's numbers for the combined table (88,523 entries), for the report",
+    "clean": { "wrong": 0 },
+    "heldOut": { "events": 51076, "correct": 6523, "wrong": 29, "applied": 6552 },
+    "round6": { "events": 400000, "correct": 90416, "wrong": 3, "applied": 90419 }
+  }
+}

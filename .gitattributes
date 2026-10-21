@@ -2,3 +2,6 @@
 # Fixtures must keep their exact bytes (CRLF and BOM cases live here).
 fixtures/** -text
 *.bin binary
+# Language-pack build inputs are pinned by SHA-256 (packages/lang-en/inputs/sources.json).
+packages/lang-en/inputs/** -text
+*.gz binary

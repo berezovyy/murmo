@@ -1,0 +1,320 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/typo-list/common/verify.mjs: the 11 required examples and 16 policy cases, with lookup.mjs semantics (context defaults: language en, origin typed, prose true, empty vocabulary and rejected sets), against the shipped table and case-policy.json",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "autocorrect.lookupWord",
+  "cases": [
+    {
+      "id": "required-teh",
+      "input": {
+        "token": "teh",
+        "context": {}
+      },
+      "output": {
+        "fix": "the"
+      }
+    },
+    {
+      "id": "required-adn",
+      "input": {
+        "token": "adn",
+        "context": {}
+      },
+      "output": {
+        "fix": "and"
+      }
+    },
+    {
+      "id": "required-hte",
+      "input": {
+        "token": "hte",
+        "context": {}
+      },
+      "output": {
+        "fix": "the"
+      }
+    },
+    {
+      "id": "required-taht",
+      "input": {
+        "token": "taht",
+        "context": {}
+      },
+      "output": {
+        "fix": "that"
+      }
+    },
+    {
+      "id": "required-wiht",
+      "input": {
+        "token": "wiht",
+        "context": {}
+      },
+      "output": {
+        "fix": "with"
+      }
+    },
+    {
+      "id": "required-jsut",
+      "input": {
+        "token": "jsut",
+        "context": {}
+      },
+      "output": {
+        "fix": "just"
+      }
+    },
+    {
+      "id": "required-retrun",
+      "input": {
+        "token": "retrun",
+        "context": {}
+      },
+      "output": {
+        "fix": "return"
+      }
+    },
+    {
+      "id": "required-improt",
+      "input": {
+        "token": "improt",
+        "context": {}
+      },
+      "output": {
+        "fix": "import"
+      }
+    },
+    {
+      "id": "required-recieve",
+      "input": {
+        "token": "recieve",
+        "context": {}
+      },
+      "output": {
+        "fix": "receive"
+      }
+    },
+    {
+      "id": "required-becuase",
+      "input": {
+        "token": "becuase",
+        "context": {}
+      },
+      "output": {
+        "fix": "because"
+      }
+    },
+    {
+      "id": "required-thier",
+      "input": {
+        "token": "thier",
+        "context": {}
+      },
+      "output": {
+        "fix": "their"
+      }
+    },
+    {
+      "id": "lowercase-only-Teh",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "Teh",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "SCOWL lists Teh as a name"
+    },
+    {
+      "id": "lowercase-only-Thier",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "Thier",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "SCOWL lists Thier as a name"
+    },
+    {
+      "id": "lowercase-only-ADN",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "ADN",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "ADN is an abbreviation"
+    },
+    {
+      "id": "lowercase-only-Adn",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "Adn",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "title case of a lowercase-only key"
+    },
+    {
+      "id": "title-case-kept",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "Recieve",
+        "context": {}
+      },
+      "output": {
+        "fix": "Receive"
+      },
+      "note": "ordinary title case is corrected and kept"
+    },
+    {
+      "id": "origin-paste",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "origin": "paste"
+        }
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "origin-history",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "origin": "history"
+        }
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "not-prose",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "prose": false
+        }
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "other-language",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "language": "uk"
+        }
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "vocabulary-teh",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "vocabulary": ["teh"]
+        }
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "project vocabulary wins"
+    },
+    {
+      "id": "vocabulary-adn",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "adn",
+        "context": {
+          "vocabulary": ["adn"]
+        }
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "project vocabulary wins"
+    },
+    {
+      "id": "rejected-teh",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh",
+        "context": {
+          "rejected": ["teh"]
+        }
+      },
+      "output": {
+        "fix": null
+      },
+      "note": "a rejected correction stays rejected"
+    },
+    {
+      "id": "path",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "/teh",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "identifier",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "teh_ts",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "mixed-case",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "tEh",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      }
+    },
+    {
+      "id": "all-caps",
+      "tags": ["case-policy"],
+      "input": {
+        "token": "RECEIVE",
+        "context": {}
+      },
+      "output": {
+        "fix": null
+      }
+    }
+  ]
+}

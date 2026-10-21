@@ -1,0 +1,23 @@
+{
+  "name": "@murmo/lang-en",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "murmo-lang-en": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build:data": "node src/cli.ts build",
+    "verify": "node src/cli.ts verify",
+    "gate": "node src/cli.ts gate"
+  },
+  "dependencies": {
+    "@murmo/lang": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "node"
+  }
+}

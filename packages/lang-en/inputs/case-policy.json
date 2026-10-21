@@ -1,0 +1,5 @@
+{
+  "format": "murmo-case-policy/v1",
+  "lowercaseOnly": ["adn", "teh", "thier"],
+  "reason": "SCOWL lists Teh and Thier as names and ADN as an abbreviation, so these keys correct only when typed in lowercase; project vocabulary still wins even then (round 8)."
+}

@@ -53,6 +53,15 @@
       "variants": 14
     },
     {
+      "file": "lang-en/case-policy-r8.json",
+      "owner": "12, 13",
+      "cases": 27
+    },
+    {
+      "file": "lang-en/moved.json",
+      "owner": "12"
+    },
+    {
       "file": "names/moved.json",
       "owner": "19"
     },

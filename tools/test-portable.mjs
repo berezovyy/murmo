@@ -1,5 +1,6 @@
 // Portable-runtime checks that need built bundles or the Rust toolchain:
-// QuickJS parity of a smoke bundle, then the conformance gate (phase 02).
+// QuickJS parity of a smoke bundle, the language pack's session cost (phase
+// 12), then the conformance gate (phase 02).
 //
 // QuickJS parity: the same guest bundle must give the same result in Node, in
 // QuickJS-wasm (used by executor tests) and in the rquickjs build the Codex
@@ -14,6 +15,7 @@ import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
 import { manifestParity } from './api-parity.mjs';
 import { targets } from './build.mjs';
+import { LIMITS, langLoadCost } from './lang-load.mjs';
 import { runConformance } from './test-conformance.mjs';
 import { root } from './workspace.mjs';
 
@@ -83,4 +85,9 @@ console.log('quickjs parity: Node, QuickJS-wasm and rquickjs agree');
 const manifest = await manifestParity();
 console.log(`manifest parity: ${manifest.cases} cases agree on ${manifest.runtimes.join(', ')}`);
 for (const skip of manifest.skipped) console.log(`manifest parity: SKIP ${skip}`);
+for (const r of await langLoadCost()) {
+  console.log(
+    `language pack on ${r.runtime}: open ${r.openColdMs.toFixed(2)} ms (≤ ${LIMITS.openMs}), lookup p50/p99 ${r.lookupP50Us.toFixed(1)}/${r.lookupP99Us.toFixed(1)} µs (≤ ${LIMITS.lookupP99Ms} ms)`,
+  );
+}
 await runConformance();

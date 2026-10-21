@@ -10,6 +10,8 @@
       "!docs",
       "!fixtures/shortcuts/replacements",
       "!fixtures/names/splitter-fixture.json",
+      "!fixtures/lang-en/clean-400k-counts.json",
+      "!fixtures/lang-en/test-counts.json",
       "!packages/api/report"
     ]
   },
