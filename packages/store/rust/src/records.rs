@@ -72,6 +72,16 @@ fn string<'a>(v: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
     v.get(key).and_then(Value::as_str)
 }
 
+fn hashes_ok(v: &Map<String, Value>) -> bool {
+    match v.get("hashes") {
+        None => true,
+        Some(Value::Object(h)) => h
+            .iter()
+            .all(|(k, val)| !k.is_empty() && val.as_str().is_some_and(|s| hex_of(s, 64))),
+        Some(_) => false,
+    }
+}
+
 fn approval(id: &str, value: &Value) -> bool {
     let Some(v) = value.as_object() else {
         return false;
@@ -84,6 +94,7 @@ fn approval(id: &str, value: &Value) -> bool {
         && string(v, "fingerprint").is_some_and(|f| hex_of(f, 64))
         && count(v.get("approvedAt"))
         && count(v.get("shortcutCount"))
+        && hashes_ok(v)
 }
 
 fn snapshot_dir(value: &str) -> bool {

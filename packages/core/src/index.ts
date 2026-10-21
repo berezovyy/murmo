@@ -60,6 +60,7 @@ export {
   receiptForTable,
   registerPolicy,
   registerRuleSet,
+  type ShortcutCounts,
   type TableReceipt,
   type WordPolicy,
 } from './inline/index.ts';

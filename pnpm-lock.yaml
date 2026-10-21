@@ -61,6 +61,9 @@ importers:
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
+      '@murmo/plugin-shortcuts':
+        specifier: workspace:*
+        version: link:../plugins/shortcuts
       '@murmo/provenance':
         specifier: workspace:*
         version: link:../provenance
@@ -106,6 +109,28 @@ importers:
       '@murmo/lang':
         specifier: workspace:*
         version: link:../lang
+
+  packages/plugins/shortcuts:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../../store
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../../text
+    devDependencies:
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../../fixtures
 
   packages/provenance:
     dependencies:

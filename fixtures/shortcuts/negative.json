@@ -1,0 +1,194 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/pi/r8_negative.py, r8-exclusions; lesson 26 must-not-expand",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["shortcuts"],
+    "trust": "builtin",
+    "requires": ["core.inline", "plugin.shortcuts=release"],
+    "settings": {
+      "shortcuts": {
+        "replacements": {
+          "rvw": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.",
+          "tst": "Run the test suite, fix failures, and do not edit the tests."
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "paste",
+      "note": "Pasted rvw then a typed space stays literal.",
+      "steps": [
+        {
+          "paste": "rvw"
+        },
+        {
+          "type": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        },
+        "stats": {
+          "shortcutExpanded": 0
+        }
+      }
+    },
+    {
+      "id": "history",
+      "note": "Recalled rvw then a typed space stays literal.",
+      "steps": [
+        {
+          "history": "rvw"
+        },
+        {
+          "type": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        },
+        "stats": {
+          "shortcutExpanded": 0
+        }
+      }
+    },
+    {
+      "id": "fill",
+      "note": "Plugin-filled rvw then a typed space stays literal.",
+      "steps": [
+        {
+          "fill": "rvw",
+          "origin": "fill"
+        },
+        {
+          "type": " "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        },
+        "stats": {
+          "shortcutExpanded": 0
+        }
+      }
+    },
+    {
+      "id": "quoted",
+      "note": "A quoted token is not an exact match.",
+      "steps": [
+        {
+          "type": "\"rvw\" "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "\"rvw\" "
+        }
+      }
+    },
+    {
+      "id": "path",
+      "note": "src/rvw/ is not the shortcut rvw.",
+      "steps": [
+        {
+          "type": "src/rvw/ "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "src/rvw/ "
+        }
+      }
+    },
+    {
+      "id": "tst-ts",
+      "note": "Shortcuts never fire at `.`, so tst.ts stays.",
+      "steps": [
+        {
+          "type": "tst.ts"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "tst.ts"
+        }
+      }
+    },
+    {
+      "id": "shell",
+      "note": "Shell mode does not expand.",
+      "steps": [
+        {
+          "state": {
+            "mode": "shell"
+          }
+        },
+        {
+          "type": "rvw "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        }
+      }
+    },
+    {
+      "id": "vim-normal",
+      "note": "Vim Normal does not expand.",
+      "steps": [
+        {
+          "state": "vim-normal"
+        },
+        {
+          "type": "rvw "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        }
+      }
+    },
+    {
+      "id": "popup",
+      "note": "An open native menu does not expand.",
+      "steps": [
+        {
+          "state": "popup"
+        },
+        {
+          "type": "rvw "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "rvw "
+        }
+      }
+    },
+    {
+      "id": "case",
+      "note": "Matching is case-sensitive: Rvw stays.",
+      "steps": [
+        {
+          "type": "Rvw "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Rvw "
+        }
+      }
+    }
+  ]
+}

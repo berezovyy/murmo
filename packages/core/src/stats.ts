@@ -70,6 +70,10 @@ export class Counters {
   lastDeniedReason: string | undefined;
   /** Typo and shortcut corrections the inline interpreter committed (phase 07). */
   inlineCorrections = 0;
+  /** Shortcut expansions that landed (phase 15). Counts only; names live in `shortcutByName`. */
+  shortcutExpanded = 0;
+  /** Immediate Backspace or Murmo undo of a shortcut expansion (roadmap metric). */
+  shortcutUndone = 0;
 }
 
 export interface PluginHealth {
@@ -130,4 +134,10 @@ export interface SessionStats {
   readonly lastDeniedReason?: string;
   /** Inline typo/shortcut corrections that landed (phase 07). */
   readonly inlineCorrections: number;
+  /** Shortcut expansions that landed (phase 15). */
+  readonly shortcutExpanded: number;
+  /** Shortcut expansions reverted by immediate Backspace or Murmo undo. */
+  readonly shortcutUndone: number;
+  /** Per shortcut name (a config key), counts only: never expansion or draft text. */
+  readonly shortcutByName: Readonly<Record<string, { readonly expanded: number; readonly undone: number }>>;
 }

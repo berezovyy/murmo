@@ -51,7 +51,13 @@ import {
   type PluginEntry,
   type RunnerHealth,
 } from './hooks.ts';
-import { createInlineStage, type InlineStage, type RegisteredInline, registerRuleSet } from './inline/index.ts';
+import {
+  createInlineStage,
+  type InlineStage,
+  type RegisteredInline,
+  registerRuleSet,
+  type ShortcutCounts,
+} from './inline/index.ts';
 import { KeyRouter } from './keys.ts';
 import { Menu } from './menu.ts';
 import { resolveOrder } from './order.ts';
@@ -119,11 +125,33 @@ export interface Session {
   beforeSubmit(tx: SubmitTransaction): Promise<SubmitOutcome>;
   /** Guards-only pass at the host's final boundary (Claude `UserPromptSubmit`). */
   finalGuard(input: { text: string; gesture: SubmitGesture }): Promise<SubmitOutcome>;
+  /**
+   * Replace one built-in inline rule set between keys (phase 15 config reload).
+   * An expansion already planned finishes against the table it started with.
+   */
+  replaceInline(rule: RegisteredInline): void;
 }
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
 const noop = (): void => {};
+
+function byName(
+  counts: ShortcutCounts | undefined,
+): Record<string, { readonly expanded: number; readonly undone: number }> {
+  const out: Record<string, { readonly expanded: number; readonly undone: number }> = Object.create(null);
+  if (!counts) return out;
+  const names = new Set([...Object.keys(counts.expanded), ...Object.keys(counts.undone)]);
+  for (const name of names) {
+    Object.defineProperty(out, name, {
+      value: { expanded: counts.expanded[name] ?? 0, undone: counts.undone[name] ?? 0 },
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out;
+}
 
 export function createSession(options: SessionOptions): Session {
   return new CoreSession(options);
@@ -447,8 +475,10 @@ class CoreSession implements Session {
   #commitInline(commit: InlineCommit): void {
     const stage = this.#inline;
     if (!stage) return;
-    const { corrections, deferred } = stage.commit(commit);
+    const { corrections, deferred, shortcutExpanded, shortcutUndone } = stage.commit(commit);
     this.#counters.inlineCorrections += corrections;
+    this.#counters.shortcutExpanded += shortcutExpanded;
+    this.#counters.shortcutUndone += shortcutUndone;
     if (!deferred.length || commit.status !== 'applied') return;
     this.#enqueue(async () => {
       const edits = this.#edits;
@@ -696,6 +726,10 @@ class CoreSession implements Session {
     }
   }
 
+  replaceInline(rule: RegisteredInline): void {
+    this.#inline?.swap(rule);
+  }
+
   /** Per-draft state that a committed send drops (pending `.` and rejected words are 07/13). */
   #resetOnCommit(): void {
     this.#undo.clear();
@@ -769,6 +803,9 @@ class CoreSession implements Session {
       version: this.#intake?.draft.version ?? -1,
       undoDepth: this.#undo.depth + (this.#inline?.undoDepth() ?? 0),
       inlineCorrections: c.inlineCorrections,
+      shortcutExpanded: c.shortcutExpanded,
+      shortcutUndone: c.shortcutUndone,
+      shortcutByName: byName(this.#inline?.shortcutCounts()),
       resyncs: this.#intake?.resyncs ?? 0,
       ledgerChecks: this.#intake?.ledgerChecks ?? 0,
       keys: c.keys,

@@ -25,6 +25,7 @@ import {
   testInlineRules,
 } from '@murmo/core/testing';
 import type { EditorCase, HostSetup, PluginRef } from '@murmo/fixtures';
+import { compileShortcuts, shortcutsInlineRules } from '@murmo/plugin-shortcuts';
 import type { Observation } from './expect.ts';
 import { type DriverDelta, interpretEditorCase, type KeyTiming, type StepDriver } from './interpreter.ts';
 import { pluginFeatures, plugins } from './plugins.ts';
@@ -81,6 +82,14 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
     if (builtin && plugin === 'autocorrect' && (c.requires ?? []).includes('core.inline')) {
       const bundle = testInlineRules(id);
       return { ...spec, inline: [bundle.rules], assets: bundle.assets };
+    }
+    if (builtin && plugin === 'shortcuts' && (c.requires ?? []).includes('core.inline')) {
+      const replacements = (spec.settings?.replacements as Readonly<Record<string, string>> | undefined) ?? {};
+      const compiled = compileShortcuts({
+        replacements: Object.entries(replacements).map(([shortcut, text]) => ({ shortcut, text, origin: 'user' })),
+        asyncEdits: c.host?.edit?.atomic !== false,
+      });
+      return { ...spec, inline: [shortcutsInlineRules(id, compiled, { asyncEdits: c.host?.edit?.atomic !== false })] };
     }
     if (plugin === 'todo-guard') return { ...spec, requiredGuard: true };
     return spec;

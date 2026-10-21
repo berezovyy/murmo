@@ -1,0 +1,14 @@
+// Starter file `murmo init` writes. Single-quoted strings only, `;`-prefixed
+// names, version = 1 (02-architecture § File format).
+
+export const INIT_TEMPLATE = `\
+version = 1
+# Shortcuts expand when you type them and then a space. Backspace right after undoes.
+# Use single quotes: '…' and '''…''' keep backslashes and quotes exactly.
+[replace]
+";tst" = 'Run the test suite, fix failures, and do not edit the tests.'
+";rvw" = '''
+Review this change for bugs, edge cases and missing tests.
+List issues by severity. Be concise.
+'''
+`;

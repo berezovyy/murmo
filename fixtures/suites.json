@@ -152,8 +152,31 @@
       "variants": 28
     },
     {
+      "file": "shortcuts/collisions.json",
+      "owner": "15",
+      "cases": 1
+    },
+    {
+      "file": "shortcuts/expansion.json",
+      "owner": "15",
+      "cases": 8,
+      "variants": 8
+    },
+    {
       "file": "shortcuts/moved.json",
       "owner": "15"
+    },
+    {
+      "file": "shortcuts/negative.json",
+      "owner": "15",
+      "cases": 10,
+      "variants": 10
+    },
+    {
+      "file": "shortcuts/sizes.json",
+      "owner": "15",
+      "cases": 2,
+      "variants": 2
     },
     {
       "file": "stress/huge-paste.json",

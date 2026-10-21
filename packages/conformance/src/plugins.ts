@@ -23,6 +23,7 @@ import rules from '@murmo/fixtures/plugins/rules';
 import slow50 from '@murmo/fixtures/plugins/slow50';
 import stale from '@murmo/fixtures/plugins/stale';
 import thrower from '@murmo/fixtures/plugins/thrower';
+import { shortcutsFactory } from '@murmo/plugin-shortcuts';
 
 export type PluginBuild = 'fixture' | 'sample' | 'release';
 
@@ -33,6 +34,7 @@ export interface RegisteredPlugin {
 
 const fixture = (factory: unknown): RegisteredPlugin => ({ factory: factory as PluginFactory, build: 'fixture' });
 const sample = (factory: PluginFactory): RegisteredPlugin => ({ factory, build: 'sample' });
+const release = (factory: PluginFactory): RegisteredPlugin => ({ factory, build: 'release' });
 
 export const plugins: Readonly<Record<string, RegisteredPlugin>> = {
   fast: fixture(fast),
@@ -47,6 +49,7 @@ export const plugins: Readonly<Record<string, RegisteredPlugin>> = {
   conflicts: fixture(conflicts),
   edits: fixture(edits),
   autocorrect: sample(autocorrectSample),
+  shortcuts: release(shortcutsFactory),
   snippets: sample(semicolonMenuSample),
   counter: sample(statusCounterSample),
   'todo-guard': sample(todoGuardSample),

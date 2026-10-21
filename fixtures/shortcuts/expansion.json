@@ -1,0 +1,148 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/15-shortcuts-plugin.md Tests and acceptance; r8 replacements fixture",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["shortcuts"],
+    "trust": "builtin",
+    "requires": ["core.inline", "plugin.shortcuts=release"],
+    "settings": {
+      "shortcuts": {
+        "replacements": {
+          "tst": "Run the test suite, fix failures, and do not edit the tests.",
+          "rvw": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.",
+          "shrug": "\u00af\\_(\u30c4)_/\u00af",
+          "emo": "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e",
+          ";dc": "Before deploying, check:\n- migrations are reversible\n- feature flags default to off\n- the rollback command is written down",
+          "x": "y",
+          "y": "Z"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "r8-tst",
+      "note": "tst expands byte-exact (lesson 26).",
+      "steps": [
+        {
+          "type": "tst "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Run the test suite, fix failures, and do not edit the tests. "
+        }
+      }
+    },
+    {
+      "id": "r8-rvw",
+      "note": "rvw inserts the multiline prompt as text, not as Enter.",
+      "steps": [
+        {
+          "type": "rvw "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly. "
+        }
+      }
+    },
+    {
+      "id": "r8-shrug",
+      "note": "Literal backslashes from a single-quoted TOML string.",
+      "steps": [
+        {
+          "type": "shrug "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "\u00af\\_(\u30c4)_/\u00af "
+        }
+      }
+    },
+    {
+      "id": "r8-emo",
+      "note": "Emoji, ZWJ family, flag, CJK survive the insert.",
+      "steps": [
+        {
+          "type": "emo "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e "
+        }
+      }
+    },
+    {
+      "id": "r8-dc",
+      "note": ";dc file-reference expansion.",
+      "steps": [
+        {
+          "type": ";dc "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Before deploying, check:\n- migrations are reversible\n- feature flags default to off\n- the rollback command is written down "
+        }
+      }
+    },
+    {
+      "id": "backspace-restores",
+      "note": "Immediate Backspace restores shortcut and space.",
+      "steps": [
+        {
+          "type": "tst "
+        },
+        {
+          "key": "Backspace"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "tst "
+        }
+      }
+    },
+    {
+      "id": "no-recursion",
+      "note": "x\u2192y, y\u2192Z yields y (r12 K3).",
+      "steps": [
+        {
+          "type": "x "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "y "
+        }
+      }
+    },
+    {
+      "id": "enter-literal",
+      "note": "Enter never expands; the send is the typed shortcut.",
+      "steps": [
+        {
+          "type": "tst"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": ""
+        },
+        "requests": ["tst"]
+      }
+    }
+  ]
+}

@@ -309,3 +309,15 @@ test('shortcuts are checked before typos and never fire at `.`', async () => {
   await h.driver.type('teh.ts');
   assert.equal(h.adapter.getDraft().text, 'teh.ts');
 });
+
+test('shortcut matching is exact: a declared rvw does not expand ;rvw (phase 15)', async () => {
+  // Catches the prototype's extra "; plus a bare declared trigger" match.
+  const h = await createHarness({
+    plugins: [testInlinePlugin('ac', { replacements: { rvw: 'REVIEW' } })],
+  });
+  await h.driver.type(';rvw ');
+  assert.equal(h.adapter.getDraft().text, ';rvw ');
+  h.adapter.fill('', 'unknown');
+  await h.driver.type('rvw ');
+  assert.equal(h.adapter.getDraft().text, 'REVIEW ');
+});

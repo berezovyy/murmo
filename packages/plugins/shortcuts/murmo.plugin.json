@@ -1,0 +1,18 @@
+{
+  "name": "shortcuts",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/plugin.ts",
+  "permissions": [
+    { "name": "draft:read", "reason": "Register typed shortcut expansions with the core." },
+    { "name": "draft:write", "reason": "Expand a typed shortcut through the core's inline and deferred path." }
+  ],
+  "capabilities": {
+    "required": {},
+    "optional": {
+      "inlineRewrite": "same-transaction",
+      "edit.atomic": true
+    }
+  },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

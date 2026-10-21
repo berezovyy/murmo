@@ -64,7 +64,8 @@
   },
   "provided": {
     "autocorrect": "Our autocorrect plugin (phase 13); the prototype is shared-v2/plugins/autocorrect.ts.",
-    "snippets": "Our shortcuts plugin (phase 15) reading the project folder; prototype shared-v2/plugins/snippets.ts.",
+    "shortcuts": "Our shortcuts plugin (phase 15); compile + inline registration.",
+    "snippets": "The `;` menu (phase 16); prototype shared-v2/plugins/snippets.ts.",
     "counter": "The status counter sample (\"N chars\"); prototype shared-v2/plugins/counter.ts, an API sample in phase 03.",
     "todo-guard": "The TODO guard API sample: blocks a send that says TODO; the required guard in the submit cases."
   }

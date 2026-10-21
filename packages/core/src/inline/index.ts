@@ -40,6 +40,6 @@ export {
   type Sha256,
   type TableReceipt,
 } from './registry.ts';
-export { createInlineRewriter, type InlineRewriter } from './rewriter.ts';
+export { createInlineRewriter, type InlineRewriter, type ShortcutCounts } from './rewriter.ts';
 export { createInlineStage, type DeferredRequest, type InlineStage } from './stage.ts';
 export { cursorAfterUndo, rebaseDeferred, rebasePatches, type UndoPatch } from './undo.ts';

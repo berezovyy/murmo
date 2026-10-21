@@ -1,0 +1,515 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/replacements/collisions/ (r8 matched-pair check, lesson 27)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "shortcuts.collisions",
+  "cases": [
+    {
+      "id": "r8-matched-pairs",
+      "note": "46/50 bare collide with the reconstructed word/name sets; 0/50 prefixed. Zero was observed, not proved.",
+      "input": {
+        "shortcuts": [
+          {
+            "shortcut": "tst",
+            "group": "bare"
+          },
+          {
+            "shortcut": "rvw",
+            "group": "bare"
+          },
+          {
+            "shortcut": "fix",
+            "group": "bare"
+          },
+          {
+            "shortcut": "pr",
+            "group": "bare"
+          },
+          {
+            "shortcut": "wip",
+            "group": "bare"
+          },
+          {
+            "shortcut": "lgtm",
+            "group": "bare"
+          },
+          {
+            "shortcut": "docs",
+            "group": "bare"
+          },
+          {
+            "shortcut": "dbg",
+            "group": "bare"
+          },
+          {
+            "shortcut": "fmt",
+            "group": "bare"
+          },
+          {
+            "shortcut": "lnt",
+            "group": "bare"
+          },
+          {
+            "shortcut": "bld",
+            "group": "bare"
+          },
+          {
+            "shortcut": "dep",
+            "group": "bare"
+          },
+          {
+            "shortcut": "rel",
+            "group": "bare"
+          },
+          {
+            "shortcut": "ci",
+            "group": "bare"
+          },
+          {
+            "shortcut": "cd",
+            "group": "bare"
+          },
+          {
+            "shortcut": "api",
+            "group": "bare"
+          },
+          {
+            "shortcut": "cli",
+            "group": "bare"
+          },
+          {
+            "shortcut": "cfg",
+            "group": "bare"
+          },
+          {
+            "shortcut": "env",
+            "group": "bare"
+          },
+          {
+            "shortcut": "log",
+            "group": "bare"
+          },
+          {
+            "shortcut": "err",
+            "group": "bare"
+          },
+          {
+            "shortcut": "db",
+            "group": "bare"
+          },
+          {
+            "shortcut": "sql",
+            "group": "bare"
+          },
+          {
+            "shortcut": "ref",
+            "group": "bare"
+          },
+          {
+            "shortcut": "perf",
+            "group": "bare"
+          },
+          {
+            "shortcut": "sec",
+            "group": "bare"
+          },
+          {
+            "shortcut": "auth",
+            "group": "bare"
+          },
+          {
+            "shortcut": "lint",
+            "group": "bare"
+          },
+          {
+            "shortcut": "test",
+            "group": "bare"
+          },
+          {
+            "shortcut": "ship",
+            "group": "bare"
+          },
+          {
+            "shortcut": "plan",
+            "group": "bare"
+          },
+          {
+            "shortcut": "note",
+            "group": "bare"
+          },
+          {
+            "shortcut": "read",
+            "group": "bare"
+          },
+          {
+            "shortcut": "done",
+            "group": "bare"
+          },
+          {
+            "shortcut": "next",
+            "group": "bare"
+          },
+          {
+            "shortcut": "help",
+            "group": "bare"
+          },
+          {
+            "shortcut": "undo",
+            "group": "bare"
+          },
+          {
+            "shortcut": "diff",
+            "group": "bare"
+          },
+          {
+            "shortcut": "stat",
+            "group": "bare"
+          },
+          {
+            "shortcut": "chk",
+            "group": "bare"
+          },
+          {
+            "shortcut": "grep",
+            "group": "bare"
+          },
+          {
+            "shortcut": "find",
+            "group": "bare"
+          },
+          {
+            "shortcut": "add",
+            "group": "bare"
+          },
+          {
+            "shortcut": "del",
+            "group": "bare"
+          },
+          {
+            "shortcut": "new",
+            "group": "bare"
+          },
+          {
+            "shortcut": "get",
+            "group": "bare"
+          },
+          {
+            "shortcut": "set",
+            "group": "bare"
+          },
+          {
+            "shortcut": "run",
+            "group": "bare"
+          },
+          {
+            "shortcut": "src",
+            "group": "bare"
+          },
+          {
+            "shortcut": "tmp",
+            "group": "bare"
+          },
+          {
+            "shortcut": ";tst",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";rvw",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";fix",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";pr",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";wip",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";lgtm",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";docs",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";dbg",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";fmt",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";lnt",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";bld",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";dep",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";rel",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";ci",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";cd",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";api",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";cli",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";cfg",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";env",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";log",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";err",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";db",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";sql",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";ref",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";perf",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";sec",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";auth",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";lint",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";test",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";ship",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";plan",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";note",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";read",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";done",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";next",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";help",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";undo",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";diff",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";stat",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";chk",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";grep",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";find",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";add",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";del",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";new",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";get",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";set",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";run",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";src",
+            "group": "prefixed"
+          },
+          {
+            "shortcut": ";tmp",
+            "group": "prefixed"
+          }
+        ],
+        "words": [
+          "add",
+          "api",
+          "auth",
+          "bld",
+          "cd",
+          "ci",
+          "cli",
+          "db",
+          "del",
+          "dep",
+          "diff",
+          "docs",
+          "done",
+          "env",
+          "err",
+          "find",
+          "fix",
+          "fmt",
+          "get",
+          "grep",
+          "help",
+          "lint",
+          "log",
+          "new",
+          "next",
+          "note",
+          "perf",
+          "plan",
+          "pr",
+          "read",
+          "ref",
+          "rel",
+          "run",
+          "sec",
+          "set",
+          "ship",
+          "sql",
+          "src",
+          "stat",
+          "test",
+          "tmp",
+          "tst",
+          "undo",
+          "wip"
+        ],
+        "names": [
+          "add",
+          "api",
+          "auth",
+          "cd",
+          "cfg",
+          "ci",
+          "cli",
+          "db",
+          "dbg",
+          "del",
+          "dep",
+          "diff",
+          "docs",
+          "done",
+          "env",
+          "err",
+          "find",
+          "fix",
+          "fmt",
+          "get",
+          "grep",
+          "help",
+          "lint",
+          "log",
+          "new",
+          "next",
+          "note",
+          "perf",
+          "plan",
+          "pr",
+          "read",
+          "ref",
+          "rel",
+          "run",
+          "sec",
+          "set",
+          "ship",
+          "sql",
+          "src",
+          "stat",
+          "test",
+          "tmp",
+          "undo"
+        ]
+      },
+      "output": {
+        "bareWarned": 46,
+        "prefixedWarned": 0
+      }
+    }
+  ]
+}

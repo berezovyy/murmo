@@ -322,8 +322,8 @@ function lookupAtBoundary(
   const raw = /\S+$/.exec(prefix)?.[0];
   if (!raw) return null;
   if (rule.vocabulary.has(raw.toLowerCase())) return null;
-  const shortcut =
-    rule.replacements.get(raw) ?? (raw.startsWith(';') ? rule.replacements.get(raw.slice(1)) : undefined);
+  // Exact match only (phase 15): a declared `rvw` does not expand `;rvw`.
+  const shortcut = rule.replacements.get(raw);
   const from = at - raw.length;
   if (char !== '.' && shortcut !== undefined && typedCovers(w.spans, from, at) && !rule.policy.inCode(prefix)) {
     return { from, to: at, insert: shortcut, original: raw, word: false };

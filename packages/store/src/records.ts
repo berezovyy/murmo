@@ -20,6 +20,12 @@ export interface TrustApproval {
   /** Wall-clock milliseconds. */
   readonly approvedAt: number;
   readonly shortcutCount: number;
+  /**
+   * SHA-256 of each shortcut's expansion text (phase 15). A later `murmo trust`
+   * can name added/removed/changed shortcuts without storing the text. Absent
+   * on approvals written before phase 15.
+   */
+  readonly hashes?: Readonly<Record<string, string>>;
 }
 
 export interface TrustRecord {
@@ -90,6 +96,12 @@ function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isHashes(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!isObject(value)) return false;
+  return Object.entries(value).every(([key, hash]) => key.length > 0 && typeof hash === 'string' && HEX64.test(hash));
+}
+
 function isApproval(id: string, value: unknown): value is TrustApproval {
   return (
     isObject(value) &&
@@ -103,7 +115,8 @@ function isApproval(id: string, value: unknown): value is TrustApproval {
     typeof value.fingerprint === 'string' &&
     HEX64.test(value.fingerprint) &&
     isCount(value.approvedAt) &&
-    isCount(value.shortcutCount)
+    isCount(value.shortcutCount) &&
+    isHashes(value.hashes)
   );
 }
 

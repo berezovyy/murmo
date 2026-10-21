@@ -1,0 +1,39 @@
+{
+  "name": "@murmo/plugin-shortcuts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/config": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/core": "workspace:*",
+    "@murmo/fixtures": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
+    "bundles": [
+      {
+        "name": "shortcuts",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoShortcuts"
+      }
+    ]
+  }
+}

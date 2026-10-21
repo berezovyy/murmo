@@ -8,6 +8,11 @@ import { commitArms } from './commit.ts';
 import { cloneState, type DeferredEdit, planWalk, replaceAnswer, type WalkState } from './interpreter.ts';
 import type { RegisteredInline } from './registry.ts';
 
+export interface ShortcutCounts {
+  readonly expanded: Readonly<Record<string, number>>;
+  readonly undone: Readonly<Record<string, number>>;
+}
+
 export interface InlineRewriter {
   readonly id: string;
   readonly owner: string;
@@ -21,6 +26,9 @@ export interface InlineRewriter {
   takeDeferred(): DeferredEdit[];
   lastCommitCount(): number;
   undoDepth(): number;
+  /** Counts since the previous `commit` (shortcut names only, never expansion text). */
+  takeShortcutDelta(): { expanded: number; undone: number };
+  shortcutCounts(): ShortcutCounts;
 }
 
 export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boolean): InlineRewriter {
@@ -36,6 +44,15 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
   } | null = null;
   let readyDeferred: DeferredEdit[] = [];
   let lastCommitCount = 0;
+  let deltaExpanded = 0;
+  let deltaUndone = 0;
+  const expanded: Record<string, number> = Object.create(null);
+  const undone: Record<string, number> = Object.create(null);
+
+  const bump = (into: Record<string, number>, key: string): void => {
+    const next = (into[key] ?? 0) + 1;
+    Object.defineProperty(into, key, { value: next, enumerable: true, writable: true, configurable: true });
+  };
 
   const clear = () => {
     current = null;
@@ -71,6 +88,8 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
 
     commit(c) {
       lastCommitCount = 0;
+      deltaExpanded = 0;
+      deltaUndone = 0;
       const a = awaiting;
       if (!a || a.id !== c.transactionId) return false;
       awaiting = null;
@@ -80,6 +99,15 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
         return false;
       }
       lastCommitCount = a.replay.corrections.filter((x) => x.kind !== 'undo').length;
+      for (const correction of a.replay.corrections) {
+        if (correction.kind === 'shortcut') {
+          bump(expanded, correction.original);
+          deltaExpanded++;
+        } else if (correction.kind === 'undo' && rule.replacements.has(correction.insert)) {
+          bump(undone, correction.insert);
+          deltaUndone++;
+        }
+      }
       current = cloneState(a.state);
       version = c.version;
       readyDeferred = a.deferred;
@@ -120,5 +148,12 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
     },
     lastCommitCount: () => lastCommitCount,
     undoDepth: () => current?.undo.length ?? 0,
+    takeShortcutDelta() {
+      const delta = { expanded: deltaExpanded, undone: deltaUndone };
+      deltaExpanded = 0;
+      deltaUndone = 0;
+      return delta;
+    },
+    shortcutCounts: () => ({ expanded: { ...expanded }, undone: { ...undone } }),
   };
 }

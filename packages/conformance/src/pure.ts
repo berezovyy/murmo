@@ -12,6 +12,7 @@ import type { PureCase } from '@murmo/fixtures';
 import { sha256, summarize } from '@murmo/fixtures/generators';
 import { configFunctions } from './fns/config.ts';
 import { provenanceFunctions } from './fns/provenance.ts';
+import { shortcutsFunctions } from './fns/shortcuts.ts';
 import { textFunctions } from './fns/text.ts';
 import type { Assertion, Capabilities, Observed, Run, Subject } from './types.ts';
 import { deepEqual, preview } from './values.ts';
@@ -42,6 +43,7 @@ export const pureFunctions: Readonly<Record<string, PureEntry>> = {
   ...textFunctions,
   ...provenanceFunctions,
   ...configFunctions,
+  ...shortcutsFunctions,
 };
 
 export interface PureSubject extends Subject {

@@ -207,6 +207,15 @@ export async function approveProject(
 ): Promise<WriteResult | { readonly status: 'changed' }> {
   const snapshot = await scanProject(root);
   if (!snapshot?.fingerprint || snapshot.fingerprint !== reviewedFingerprint) return { status: 'changed' };
+  const hashes: Record<string, string> = Object.create(null);
+  for (const entry of snapshot.config.replacements) {
+    Object.defineProperty(hashes, entry.shortcut, {
+      value: createHash('sha256').update(entry.text, 'utf8').digest('hex'),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
   return store.trust.approve({
     projectId: snapshot.identity.projectId,
     root: snapshot.identity.root,
@@ -215,6 +224,7 @@ export async function approveProject(
     fingerprint: snapshot.fingerprint,
     approvedAt: now,
     shortcutCount: snapshot.config.replacements.length,
+    hashes,
   });
 }
 
