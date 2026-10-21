@@ -118,8 +118,9 @@ export class Driver {
     key?: string,
   ): Promise<void> {
     await this.#input(() => {
-      if (key !== undefined && this.#adapter.deliverKey(canonicalKey(key)) === 'consume') return;
-      this.#adapter.burst(deltas);
+      const id = key === undefined ? undefined : canonicalKey(key);
+      if (id !== undefined && this.#adapter.deliverKey(id) === 'consume') return;
+      this.#adapter.burst(deltas, id ?? 'Text');
     });
   }
 

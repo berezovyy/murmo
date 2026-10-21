@@ -58,6 +58,12 @@
       "variants": 13
     },
     {
+      "file": "core/inline/cases.json",
+      "owner": "07",
+      "cases": 13,
+      "variants": 13
+    },
+    {
       "file": "core/conformance/containment.json",
       "owner": "09, 10",
       "cases": 1,

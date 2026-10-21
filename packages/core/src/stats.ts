@@ -68,6 +68,8 @@ export class Counters {
   observerOverflow = 0;
   /** Last commit-gate denial reason (`submit-in-progress`, …). */
   lastDeniedReason: string | undefined;
+  /** Typo and shortcut corrections the inline interpreter committed (phase 07). */
+  inlineCorrections = 0;
 }
 
 export interface PluginHealth {
@@ -123,4 +125,6 @@ export interface SessionStats {
   readonly unresolved: number;
   readonly observerOverflow: number;
   readonly lastDeniedReason?: string;
+  /** Inline typo/shortcut corrections that landed (phase 07). */
+  readonly inlineCorrections: number;
 }

@@ -25,7 +25,8 @@ export default (() => ({
     const before = d.text.slice(0, d.cursor);
     const word = /\b([A-Za-z]+) $/.exec(before)?.[1];
     const fix = word === undefined ? undefined : typos.get(word);
-    if (word !== undefined && fix !== undefined) {
+    // Inline registration injects `autocorrect: false` so this async path stays off (docs/plan/07).
+    if (ctx.settings.autocorrect !== false && word !== undefined && fix !== undefined) {
       const from = d.cursor - word.length - 1;
       if (d.typedSpans.some(([a, b]) => a <= from && b >= d.cursor)) {
         const edit = { from, to: d.cursor, insert: `${fix} `, baseVersion: d.version, undoable: true };

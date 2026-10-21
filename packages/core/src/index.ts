@@ -2,6 +2,7 @@
 // Phase 05: draft state, ordered deltas, versioned edits, owned undo, the
 // stale-result check, presentation and the fail-open guard. Phase 06: key
 // router, claim validation, explicit plugin order and the merged menu.
+// Phase 07: inline rules on the key path (typos, short shortcuts, `.` waits).
 // Phase 08: the before-submit pipeline, guard position, and submit-committed
 // delivery. The reference adapter, a direct hook runner and a driver live in
 // `@murmo/core/testing`.
@@ -32,6 +33,26 @@ export {
   type PluginEntry,
   type RunnerHealth,
 } from './hooks.ts';
+export {
+  createInlineRewriter,
+  createInlineStage,
+  DEFAULT_INLINE_MAX_BYTES,
+  ENGLISH_POLICY,
+  exactLookupPolicy,
+  InlineRegistrationError,
+  type InlineRewriter,
+  type InlineStage,
+  MAX_INSERT_BYTES,
+  openTable,
+  policyByName,
+  REQUIRED_SKIP,
+  type RegisteredInline,
+  receiptForTable,
+  registerPolicy,
+  registerRuleSet,
+  type TableReceipt,
+  type WordPolicy,
+} from './inline/index.ts';
 export { type Decision, KeyRouter, type KeyRouterDeps } from './keys.ts';
 export { MENU_MAX_PER_PLUGIN, MENU_WINDOW, Menu, type MenuChoice, type MenuDeps, visibleWindow } from './menu.ts';
 export { type PluginOrderCode, PluginOrderError, resolveOrder, uniquePluginIds } from './order.ts';

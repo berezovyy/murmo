@@ -16,7 +16,7 @@
     "kind": "editor-ops",
     "plugins": ["autocorrect"],
     "trust": "builtin",
-    "requires": ["core.inline", "plugin.autocorrect=release"]
+    "requires": ["core.inline"]
   },
   "failures": "core/inline/burst-regressions.json",
   "reference": {

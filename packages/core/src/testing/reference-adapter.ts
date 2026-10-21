@@ -19,8 +19,8 @@
 //   switch changes only what the adapter advertises: it still labels input,
 //   as the legacy adapters did, so the core's own stripping is what is tested.
 //
-// Not here: the inline transaction (`onInlineEdit`/`onInlineCommit`, phase
-// 07), host profiles (11).
+// Inline transactions (`onInlineEdit`/`onInlineCommit`, phase 07) run inside
+// the same native splice as the key. Host profiles are phase 11.
 
 import {
   type ActionId,
@@ -49,6 +49,10 @@ import type {
   EditAttribution,
   HostCapabilities,
   HostSubmitAccepted,
+  InlineAnswer,
+  InlineCommit,
+  InlineRejection,
+  InlineSnapshot,
   MenuSelection,
   PresentedMenuItem,
   SubmitOutcome,
@@ -63,16 +67,23 @@ export function referenceCaps(): HostCapabilities {
     inputOriginEvidence: 'host-labeled',
     semanticMenuSelection: true,
     actions: ['murmo.undo', 'murmo.menu'],
-    inlineRewrite: 'unsupported',
+    inlineRewrite: 'same-transaction',
     inline: {
-      attributed: false,
-      middle: false,
-      multiline: false,
-      observedKeys: [],
-      allKeysObserved: false,
+      attributed: true,
+      middle: true,
+      multiline: true,
+      observedKeys: [
+        'space',
+        'Backspace',
+        'F6',
+        'Undo',
+        'Enter',
+        ...Array.from({ length: 94 }, (_, i) => String.fromCharCode(33 + i)).filter(isCanonicalKey),
+      ],
+      allKeysObserved: true,
       nativeCompletion: false,
-      commitReceipt: 'none',
-      maxBytes: 0,
+      commitReceipt: 'native-commit',
+      maxBytes: 16384,
     },
     readDraft: true,
     edit: {
@@ -214,9 +225,15 @@ export class ReferenceAdapter implements Adapter {
   readonly #committed = new Set<(event: HostSubmitAccepted) => void>();
   readonly #actions = new Set<(action: ActionId) => void>();
   readonly #menuSelects = new Set<(selection: MenuSelection) => void>();
+  readonly #inline = new Set<(snapshot: InlineSnapshot) => InlineAnswer>();
+  readonly #inlineCommits = new Set<(commit: InlineCommit) => void>();
+  readonly #inlineRejects = new Set<(rejection: InlineRejection) => void>();
+  #inlineSeq = 0;
 
   /** Fault injection: every commit (or restore) returns this instead of committing. */
   commitFault: CommitFault | null = null;
+  /** Inline acknowledgement status for the next native transaction (E21). */
+  inlineCommitStatus: InlineCommit['status'] = 'applied';
   restoreFault: CommitFault | null = null;
   /** See `CommitTiming`; `hold` is set with `holdCommits`. */
   timing: Exclude<CommitTiming, 'hold'> = 'immediate';
@@ -387,6 +404,18 @@ export class ReferenceAdapter implements Adapter {
     return this.#subscribe(this.#menuSelects, callback);
   }
 
+  onInlineEdit(evaluate: (snapshot: InlineSnapshot) => InlineAnswer): Unsubscribe {
+    return this.#subscribe(this.#inline, evaluate);
+  }
+
+  onInlineCommit(callback: (commit: InlineCommit) => void): Unsubscribe {
+    return this.#subscribe(this.#inlineCommits, callback);
+  }
+
+  onInlineReject(callback: (rejection: InlineRejection) => void): Unsubscribe {
+    return this.#subscribe(this.#inlineRejects, callback);
+  }
+
   /** Re-emit an acceptance, for duplicate-id tests. */
   emitCommitted(event: HostSubmitAccepted): void {
     for (const callback of [...this.#committed]) callback(event);
@@ -400,7 +429,10 @@ export class ReferenceAdapter implements Adapter {
       this.#submits.size +
       this.#committed.size +
       this.#actions.size +
-      this.#menuSelects.size
+      this.#menuSelects.size +
+      this.#inline.size +
+      this.#inlineCommits.size +
+      this.#inlineRejects.size
     );
   }
 
@@ -432,7 +464,11 @@ export class ReferenceAdapter implements Adapter {
   }
 
   /** One native transaction: the deltas in order, one change. A delta without a range inserts at the cursor. */
-  burst(deltas: readonly { origin: Origin; text: string; from?: number; to?: number }[]): void {
+  burst(
+    deltas: readonly { origin: Origin; text: string; from?: number; to?: number }[],
+    key: KeyId = 'Text',
+    deferred?: InlineSnapshot['deferred'],
+  ): void {
     let cursor = this.#value.cursor;
     let length = this.#value.text.length;
     const splices: DraftDelta[] = deltas.map((d) => {
@@ -445,15 +481,20 @@ export class ReferenceAdapter implements Adapter {
       length += d.text.length - (to - from);
       return { origin: d.origin, from, to, insert: d.text };
     });
-    this.#splice(splices);
+    const origin = splices[0]?.origin ?? 'unknown';
+    this.#inlineTransaction(key, splices, origin === 'typed' || origin === 'paste' ? origin : 'unknown', deferred);
   }
 
   paste(text: string): void {
-    this.#insert(text, 'paste');
+    const d = this.#value;
+    const [from, to] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];
+    this.#inlineTransaction('Text', [{ origin: 'paste', from, to, insert: text }], 'paste');
   }
 
   ime(text: string): void {
-    this.#insert(text, 'ime');
+    const d = this.#value;
+    const [from, to] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];
+    this.#inlineTransaction('Text', [{ origin: 'ime', from, to, insert: text }], 'unknown');
   }
 
   /** The whole draft replaced programmatically. */
@@ -686,14 +727,88 @@ export class ReferenceAdapter implements Adapter {
     const d = this.#value;
     if (id === 'Enter') await this.submit('send');
     else if (id === 'Tab' && this.#tabQueues) await this.submit('queue');
-    else if (id === 'Backspace') {
-      if (d.selection && d.selection[0] !== d.selection[1]) this.#insert('', 'typed');
-      else if (d.cursor > 0)
-        this.#splice([{ origin: 'typed', from: graphemeStep(d.text, d.cursor, -1), to: d.cursor, insert: '' }]);
-    } else if (id === 'Left' && d.cursor > 0) this.move(graphemeStep(d.text, d.cursor, -1));
+    else if (id === 'Left' && d.cursor > 0) this.move(graphemeStep(d.text, d.cursor, -1));
     else if (id === 'Right' && d.cursor < d.text.length) this.move(graphemeStep(d.text, d.cursor, 1));
-    else if (id === 'space') this.#insert(' ', 'typed');
-    else if (isSingleCodePoint(id)) this.#insert(id, 'typed');
+    else {
+      const deltas = this.#keyDeltas(id);
+      if (deltas) this.#inlineTransaction(id, deltas, 'typed');
+    }
+  }
+
+  #keyDeltas(id: KeyId): DraftDelta[] | null {
+    const d = this.#value;
+    const [selFrom, selTo] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];
+    if (id === 'Backspace') {
+      if (selFrom !== selTo) return [{ origin: 'typed', from: selFrom, to: selTo, insert: '' }];
+      if (d.cursor > 0)
+        return [{ origin: 'typed', from: graphemeStep(d.text, d.cursor, -1), to: d.cursor, insert: '' }];
+      return [{ origin: 'typed', from: d.cursor, to: d.cursor, insert: '' }];
+    }
+    if (id === 'F6' || id === 'Undo') return [{ origin: 'typed', from: d.cursor, to: d.cursor, insert: '' }];
+    if (id === 'space') return [{ origin: 'typed', from: selFrom, to: selTo, insert: ' ' }];
+    if (isSingleCodePoint(id)) return [{ origin: 'typed', from: selFrom, to: selTo, insert: id }];
+    return null;
+  }
+
+  #inlineTransaction(
+    key: KeyId,
+    deltas: readonly DraftDelta[],
+    origin: InlineSnapshot['origin'],
+    deferred?: InlineSnapshot['deferred'],
+  ): void {
+    const before = this.#value;
+    const first = deltas[0] ?? { origin: 'unknown' as const, from: before.cursor, to: before.cursor, insert: '' };
+    const transactionId = String(++this.#inlineSeq);
+    const snapshot: InlineSnapshot = {
+      transactionId,
+      version: before.version,
+      text: before.text,
+      cursor: before.cursor,
+      typedSpans: copy(before.typedSpans),
+      certainty: before.certainty,
+      ...(before.selection ? { selection: copy(before.selection) } : {}),
+      origin,
+      deltas: copy(deltas),
+      key: { id: key, inputText: first.insert, from: first.from, to: first.to },
+      state: this.getState(),
+      ...(deferred ? { deferred } : {}),
+    };
+    const answer = this.#evaluate(snapshot);
+    if (this.#value.version !== before.version) {
+      this.#ack(transactionId, 'stale');
+      return;
+    }
+    if (answer.action === 'replace' && this.inlineCommitStatus === 'applied') {
+      const undo = answer.replay?.corrections.length
+        ? answer.replay.corrections.every((e) => e.kind === 'undo')
+        : false;
+      const start = answer.replay?.before ?? before;
+      const replayDeltas = answer.replay?.deltas ?? copy(deltas);
+      const applied = applyChange(copy(start), replayDeltas, labeled);
+      this.#value = { ...applied, cursor: answer.cursor, version: before.version + 1 };
+      this.#ack(transactionId, 'applied');
+      this.#notify(undo ? 'undo' : 'plugin', start, replayDeltas);
+      return;
+    }
+    const noop = deltas.length === 0 || deltas.every((d) => d.from === d.to && d.insert === '');
+    if (!noop) this.#splice(deltas);
+    this.#ack(transactionId, this.inlineCommitStatus);
+  }
+
+  #evaluate(snapshot: InlineSnapshot): InlineAnswer {
+    let answer: InlineAnswer = { action: 'native' };
+    for (const evaluate of [...this.#inline]) {
+      const candidate = evaluate(snapshot);
+      if (candidate.replay) answer = candidate;
+      if (candidate.action === 'replace') return candidate;
+    }
+    return answer;
+  }
+
+  #ack(transactionId: string, status: InlineCommit['status']): void {
+    const d = this.getDraft();
+    const commit: InlineCommit = { transactionId, status, text: d.text, cursor: d.cursor, version: d.version };
+    for (const callback of [...this.#inlineCommits]) callback(commit);
   }
 
   /** Applies splices as one change, with typed spans by the shared rules. */

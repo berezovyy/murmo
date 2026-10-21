@@ -6,10 +6,10 @@
 // undo of its own edits (undo.ts), shows ghost, highlight and status
 // (present.ts), and never throws into the host (guard.ts).
 //
-// Where later phases extend it: the key path is the router in keys.ts
-// (native → undo → menu → claims); the inline evaluator is 07; commit gates
-// add permissions, edit rate and attribution (09); the runner becomes the
-// real executors (09).
+// The key path is the router in keys.ts (native → undo → menu → claims) plus
+// the inline evaluator (phase 07) on `onInlineEdit`. Commit gates add
+// permissions, edit rate and attribution (09); the runner becomes the real
+// executors (09).
 //
 // Phase 08: `onBeforeSubmit` / `onSubmitCommitted` subscriptions, the submit
 // window gate, and `finalGuard`.
@@ -26,7 +26,17 @@ import type {
   SubmitGesture,
   SubmitTransaction,
 } from '@murmo/api';
-import type { Adapter, HostCapabilities, MenuSelection, SubmitOutcome, Unsubscribe } from '@murmo/api/adapter';
+import type {
+  Adapter,
+  HostCapabilities,
+  InlineAnswer,
+  InlineCommit,
+  InlineRejection,
+  InlineSnapshot,
+  MenuSelection,
+  SubmitOutcome,
+  Unsubscribe,
+} from '@murmo/api/adapter';
 import { validateClaims } from './claims.ts';
 import { type Accepted, DraftState } from './draft-state.ts';
 import { type CommitGate, Edits, editable } from './edits.ts';
@@ -39,8 +49,10 @@ import {
   type HookCall,
   type HookRunner,
   type HookSnapshot,
+  type LoadedPlugin,
   type PluginEntry,
 } from './hooks.ts';
+import { createInlineStage, type InlineStage, type RegisteredInline, registerRuleSet } from './inline/index.ts';
 import { KeyRouter } from './keys.ts';
 import { Menu } from './menu.ts';
 import { resolveOrder } from './order.ts';
@@ -139,6 +151,8 @@ class CoreSession implements Session {
   #view: SessionView | undefined;
   /** Phase 08. */
   #submit: SubmitController | undefined;
+  /** Phase 07. */
+  #inline: InlineStage | undefined;
   #queue: Promise<void> = Promise.resolve();
   #seq = 0;
   #settled = 0;
@@ -264,6 +278,9 @@ class CoreSession implements Session {
     this.#edits = edits;
     this.#effects = { view, edits, presentation, menu, counters, editable: isEditable, notice };
 
+    // Phase 07: register built-in inline data after permissions, before keys.
+    this.#inline = this.#registerInline(loaded, hostCaps, notice);
+
     for (const plugin of this.#plugins) {
       const source = loadedById.get(plugin.id);
       if (!source) continue;
@@ -316,6 +333,24 @@ class CoreSession implements Session {
         adapter.onSubmitCommitted(guard.wrap((event) => this.#submit?.noteAccepted(event), undefined)),
       );
     }
+    // Phase 07: evaluate data only; native-completion Tab already `pass`es (phase 06).
+    if (adapter.onInlineEdit) {
+      this.#unsubscribe.push(
+        adapter.onInlineEdit(
+          guard.wrap((snapshot: InlineSnapshot) => this.#planInline(snapshot), { action: 'native' }),
+        ),
+      );
+    }
+    if (adapter.onInlineCommit) {
+      this.#unsubscribe.push(
+        adapter.onInlineCommit(guard.wrap((commit: InlineCommit) => this.#commitInline(commit), undefined)),
+      );
+    }
+    if (adapter.onInlineReject) {
+      this.#unsubscribe.push(
+        adapter.onInlineReject(guard.wrap((rejection: InlineRejection) => this.#rejectInline(rejection), undefined)),
+      );
+    }
     this.#subscribed = true;
     for (const plugin of this.#plugins) {
       if (plugin.hooks.has('activate')) this.#schedule(plugin, 'activate', null);
@@ -355,11 +390,87 @@ class CoreSession implements Session {
 
   /**
    * The key path: one synchronous router (native UI, undo, menu, claims).
-   * Phase 07 inserts inline evaluation beside this; phase 08 does not touch it.
+   * Phase 07 evaluates inline data on `onInlineEdit` after a `pass`; a consumed
+   * key still clears the Backspace-rejection window so a menu key is not "next".
    */
   #key(key: KeyId): 'consume' | 'pass' {
     this.#submit?.noteKey();
-    return this.#router?.route(key).result ?? 'pass';
+    const result = this.#router?.route(key).result ?? 'pass';
+    this.#inline?.noteKey(key);
+    return result;
+  }
+
+  // Phase 07 ----------------------------------------------------------------
+
+  #registerInline(
+    loaded: readonly LoadedPlugin[],
+    hostCaps: HostCapabilities,
+    notice: (text: string) => void,
+  ): InlineStage | undefined {
+    const registered: RegisteredInline[] = [];
+    for (const plugin of loaded) {
+      if (!plugin.inline?.length) continue;
+      const entry = this.#byId.get(plugin.descriptor.id);
+      for (const rule of plugin.inline) {
+        try {
+          registered.push(
+            registerRuleSet(rule, {
+              owner: plugin.descriptor.id,
+              builtin: plugin.builtin,
+              permissions: entry?.permissions ?? plugin.descriptor.permissions,
+              assets: plugin.assets,
+              transportMaxBytes: hostCaps.inline.maxBytes,
+            }),
+          );
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          notice(`${plugin.descriptor.name}: inline registration rejected: ${reason}`);
+        }
+      }
+    }
+    if (!registered.length) return undefined;
+    return createInlineStage(registered, hostCaps);
+  }
+
+  #planInline(snapshot: InlineSnapshot): InlineAnswer {
+    return this.#inline?.plan(snapshot) ?? { action: 'native' };
+  }
+
+  #commitInline(commit: InlineCommit): void {
+    const stage = this.#inline;
+    if (!stage) return;
+    const { corrections, deferred } = stage.commit(commit);
+    this.#counters.inlineCorrections += corrections;
+    if (!deferred.length || commit.status !== 'applied') return;
+    this.#enqueue(async () => {
+      const edits = this.#edits;
+      const view = this.#view;
+      if (!edits || !view) return;
+      let expectedVersion = commit.version;
+      for (const request of deferred) {
+        const plugin = this.#byId.get(request.owner);
+        if (!plugin || plugin.disabled) return;
+        const draft = view.draft;
+        if (
+          draft.version !== expectedVersion ||
+          draft.text.slice(request.edit.from, request.edit.to) !== request.expected
+        ) {
+          this.#counters.commits.stale++;
+          return;
+        }
+        const seq = ++this.#seq;
+        this.#latest.set(`${plugin.id}\u0000onChange`, seq);
+        const ticket = issueTicket(plugin.id, 'onChange', seq, view);
+        const status = await edits.commit(plugin, { ...request.edit, baseVersion: draft.version }, ticket);
+        if (status !== 'applied') return;
+        expectedVersion = view.draft.version;
+      }
+    });
+  }
+
+  #rejectInline(rejection: InlineRejection): void {
+    // A host-side Backspace (Claude) still joins the per-draft rejected set.
+    this.#inline?.rejectWord(rejection.original);
   }
 
   /** `accept-ghost`: insert exactly the displayed ghost as a versioned edit. */
@@ -436,6 +547,7 @@ class CoreSession implements Session {
       if (own) this.#counters.ownChanges++;
       else intake.bumpEpoch();
       this.#undo.observe(change.draft);
+      this.#inline?.observe(change);
       this.#submit?.noteChange(change.draft);
       presentation.dropStale(change.draft.version);
       this.#menu?.dropStale(change.draft.version);
@@ -554,6 +666,7 @@ class CoreSession implements Session {
   /** Per-draft state that a committed send drops (pending `.` and rejected words are 07/13). */
   #resetOnCommit(): void {
     this.#undo.clear();
+    this.#inline?.clear();
     this.#intake?.bumpEpoch();
     this.#options.menu?.dismiss();
     this.#menu?.dismiss();
@@ -587,6 +700,7 @@ class CoreSession implements Session {
     }
     while (this.#tasks.size) await Promise.allSettled([...this.#tasks]);
     this.#menu?.close();
+    this.#inline?.clear();
     this.#presentation?.clearAll();
     try {
       await this.#runner.dispose();
@@ -617,7 +731,8 @@ class CoreSession implements Session {
       notices,
       epoch: this.#intake?.epoch ?? 0,
       version: this.#intake?.draft.version ?? -1,
-      undoDepth: this.#undo.depth,
+      undoDepth: this.#undo.depth + (this.#inline?.undoDepth() ?? 0),
+      inlineCorrections: c.inlineCorrections,
       resyncs: this.#intake?.resyncs ?? 0,
       ledgerChecks: this.#intake?.ledgerChecks ?? 0,
       keys: c.keys,

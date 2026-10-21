@@ -16,7 +16,13 @@ import type {
   PluginHook,
   RuntimeCapabilities,
 } from '@murmo/api';
-import { type ExecutorFault, type ExecutorFaultCode, type PluginDescriptor, routesFor } from '@murmo/api/adapter';
+import {
+  type ExecutorFault,
+  type ExecutorFaultCode,
+  type InlineRules,
+  type PluginDescriptor,
+  routesFor,
+} from '@murmo/api/adapter';
 import type { ValidatedClaim } from './claims.ts';
 import type { Ticket } from './stale.ts';
 
@@ -27,6 +33,9 @@ export interface LoadedPlugin {
   readonly builtin: boolean;
   /** The plugin failed to load; the session keeps it, disabled, so health shows it. */
   readonly loadError?: string;
+  /** Built-in inline rule sets; registered in phase 07. Absent on third-party specs. */
+  readonly inline?: readonly InlineRules[];
+  readonly assets?: Readonly<Record<string, ArrayBuffer>>;
 }
 
 /** A plugin as the session tracks it, in plugin order. */

@@ -1,0 +1,101 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/07-core-inline-rules.md Tests and acceptance; r13-engine-inline E2; r13-platform-core K1",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "trust": "builtin",
+    "requires": ["core.inline"]
+  },
+  "cases": [
+    {
+      "id": "three-fixes-one-chunk",
+      "note": "One coalesced typed burst of three reviewed typos; three independent corrections (E4).",
+      "steps": [{ "burst": [{ "origin": "typed", "text": "teh adn adress " }] }],
+      "expect": {
+        "draft": { "text": "the and address ", "cursor": 16 },
+        "stats": { "corrections": 3 }
+      }
+    },
+    {
+      "id": "dot-filename",
+      "note": "A letter after `.` cancels the pending fix so teh.ts stays (E8, lesson 42).",
+      "steps": [{ "type": "teh.ts" }],
+      "expect": { "draft": { "text": "teh.ts" } }
+    },
+    {
+      "id": "dot-abbrev",
+      "note": "i.e. is an abbreviation: the letter after `.` leaves i as typed (E8).",
+      "steps": [{ "type": "i.e." }],
+      "expect": { "draft": { "text": "i.e." } }
+    },
+    {
+      "id": "dot-version",
+      "note": "A digit after `.` cancels the pending fix so v1.2 stays (E8).",
+      "steps": [{ "type": "v1.2" }],
+      "expect": { "draft": { "text": "v1.2" } }
+    },
+    {
+      "id": "dot-space",
+      "note": "Space after `.` confirms the pending fix in one edit (E8).",
+      "steps": [{ "type": "teh. " }],
+      "expect": { "draft": { "text": "the. " }, "stats": { "corrections": 1 } }
+    },
+    {
+      "id": "dot-punct",
+      "note": "Punctuation after `.` confirms the pending fix (E8).",
+      "steps": [{ "type": "teh.!" }],
+      "expect": { "draft": { "text": "the.!" } }
+    },
+    {
+      "id": "dot-japanese",
+      "note": "A letter after `.` (including non-ASCII) leaves the word as typed (E8).",
+      "steps": [{ "type": "teh.日本語" }],
+      "expect": { "draft": { "text": "teh.日本語" } }
+    },
+    {
+      "id": "dot-emoji",
+      "note": "Non-BMP after `.` must confirm, not skip: teh.🙂 → the.🙂 (E17, r13 emoji-dot).",
+      "steps": [{ "type": "teh.🙂" }],
+      "expect": { "draft": { "text": "the.🙂" }, "stats": { "corrections": 1 } }
+    },
+    {
+      "id": "dot-enter",
+      "note": "Enter never flushes a pending `.`; the send is what the user saw (E8, lesson 21, 42).",
+      "steps": [{ "type": "teh." }, { "submit": "send" }],
+      "expect": {
+        "draft": { "text": "" },
+        "requests": ["teh."]
+      }
+    },
+    {
+      "id": "paste-splits-word",
+      "note": "A pasted letter is not typed coverage, so the following space must not correct (lesson 52).",
+      "steps": [{ "type": "te" }, { "paste": "h" }, { "type": " " }],
+      "expect": { "draft": { "text": "teh " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "degraded-origin",
+      "note": "observed-unmarked must abstain, as 2.0-pre did on every real host in round 14 (E6, E7).",
+      "host": { "inputOriginEvidence": "observed-unmarked" },
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "teh " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "c1-inline-backspace",
+      "note": "Immediate Backspace rejects the last inline fix and its separator (C1, E16).",
+      "steps": [{ "type": "teh " }, { "key": "Backspace" }],
+      "expect": { "draft": { "text": "teh", "cursor": 3 } }
+    },
+    {
+      "id": "c1-inline-undo",
+      "note": "F6 restores the last inline fix and keeps the separator (C1, E16).",
+      "steps": [{ "type": "teh " }, { "key": "F6" }],
+      "expect": { "draft": { "text": "teh ", "cursor": 4 } }
+    }
+  ]
+}

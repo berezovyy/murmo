@@ -60,6 +60,19 @@ test('commit-failure, undo, degraded-origin and presentation edit fixtures pass 
   assert.ok(passed.some((v) => v.case === 'status-hidden-in-dialog'));
 });
 
+test('inline boundary, dot, emoji, Enter and degraded-origin cases pass (E4, E6, E8, E17)', async () => {
+  const { verdicts } = await runSuites(
+    [suite('core/inline/cases.json')],
+    createCoreSubject({ now: options.now }),
+    options,
+  );
+  const failed = verdicts.filter((v) => v.status !== 'pass');
+  assert.deepEqual(
+    failed.map((v) => `${v.case}: ${v.status} ${v.reason ?? ''}`),
+    [],
+  );
+});
+
 test('C4, C5, C5-enter-no-expansion, C6, C7 and C14 pass once core.keys is on (E4, E22)', async () => {
   const { verdicts } = await runSuites(
     [suite('core/conformance/cases.json')],

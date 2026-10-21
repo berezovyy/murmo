@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@murmo/api": "workspace:*",
+    "@murmo/lang": "workspace:*",
     "@murmo/provenance": "workspace:*",
     "@murmo/text": "workspace:*"
   },

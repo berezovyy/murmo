@@ -80,6 +80,9 @@ importers:
       '@murmo/api':
         specifier: workspace:*
         version: link:../api
+      '@murmo/lang':
+        specifier: workspace:*
+        version: link:../lang
       '@murmo/provenance':
         specifier: workspace:*
         version: link:../provenance

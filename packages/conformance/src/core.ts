@@ -10,13 +10,20 @@
 // host's, no typed coverage without host-labeled evidence, no core failure,
 // and a dispose that unsubscribes everything.
 //
-// Features: `core.edits`, `core.keys` and `core.submit`; `core.inline` (07),
-// `core.permissions` and `executor.isolated` (09) are
-// added by those phases, so cases that need them skip with "needs <feature>".
+// Features: `core.edits`, `core.keys`, `core.submit` and `core.inline` (07);
+// `core.permissions` and `executor.isolated` (09) are added by those phases,
+// so cases that need them skip with "needs <feature>".
 
 import type { Draft } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
-import { type CapsPatch, canonicalKey, createHarness, type DirectPluginSpec, type Harness } from '@murmo/core/testing';
+import {
+  type CapsPatch,
+  canonicalKey,
+  createHarness,
+  type DirectPluginSpec,
+  type Harness,
+  testInlineRules,
+} from '@murmo/core/testing';
 import type { EditorCase, HostSetup, PluginRef } from '@murmo/fixtures';
 import type { Observation } from './expect.ts';
 import { type DriverDelta, interpretEditorCase, type KeyTiming, type StepDriver } from './interpreter.ts';
@@ -32,7 +39,7 @@ export interface CoreSubjectOptions {
 export const PEER_TODO = ' TODO';
 
 export function coreFeatures(): Record<string, string | boolean> {
-  return { 'core.edits': true, 'core.keys': true, 'core.submit': true, ...pluginFeatures() };
+  return { 'core.edits': true, 'core.keys': true, 'core.submit': true, 'core.inline': true, ...pluginFeatures() };
 }
 
 /** The host quirks a case asks for, as reference-adapter capability overrides. */
@@ -56,7 +63,19 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
     const registered = plugins[plugin];
     if (!registered) throw new Error(`no plugin "${plugin}" in the core subject's registry`);
     const fromCase = c.settings?.[id] as Record<string, unknown> | undefined;
-    return { id, builtin, factory: registered.factory, settings: { ...fromCase, ...settings } };
+    const spec: DirectPluginSpec = {
+      id,
+      builtin,
+      factory: registered.factory,
+      settings: { ...fromCase, ...settings },
+    };
+    // Phase 07 test policy only when the case asks for it, so async-edit fixtures
+    // keep the sample plugin's versioned commits (commit-stale, C1 via undo log).
+    if (builtin && plugin === 'autocorrect' && (c.requires ?? []).includes('core.inline')) {
+      const bundle = testInlineRules(id);
+      return { ...spec, inline: [bundle.rules], assets: bundle.assets };
+    }
+    return spec;
   });
 }
 
@@ -93,8 +112,8 @@ function observe(h: Harness, trust: Run['trust']): Observation {
     for (const [name, value] of Object.entries(stats)) if (typeof value === 'number') numbers[name] = value;
     for (const [code, count] of Object.entries(stats.commits)) numbers[`commits.${code}`] = count;
     for (const [by, count] of Object.entries(stats.keyBy)) numbers[`keys.${by}`] = count;
-    // The fixtures' name for plugin corrections the host committed (r4, stress).
-    numbers.corrections = stats.applied;
+    // The fixtures' name for plugin corrections the host committed (r4, stress, burst).
+    numbers.corrections = stats.applied + stats.inlineCorrections;
   }
   const attributed = adapter.edits.filter((e) => e.route === 'attributed');
   return {

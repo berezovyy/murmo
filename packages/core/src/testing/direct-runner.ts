@@ -22,6 +22,7 @@ import type {
   PluginStorage,
   StorageResult,
 } from '@murmo/api';
+import type { InlineRules } from '@murmo/api/adapter';
 import { HOOKS, type PluginDescriptor } from '@murmo/api/adapter';
 import { projectTyped } from '@murmo/provenance';
 import type { HookCall, HookRunner, LoadedPlugin, RunnerHealth } from '../hooks.ts';
@@ -33,6 +34,9 @@ export interface DirectPluginSpec {
   readonly builtin: boolean;
   readonly factory: PluginFactory;
   readonly settings?: Readonly<Record<string, unknown>>;
+  /** Built-in inline rule sets (phase 07). Ignored, then refused, on third-party specs. */
+  readonly inline?: readonly InlineRules[];
+  readonly assets?: Readonly<Record<string, ArrayBuffer>>;
 }
 
 export interface DirectRunnerOptions {
@@ -119,6 +123,7 @@ interface Loaded {
   readonly plugin: Plugin;
   readonly permissions: readonly Permission[];
   readonly storage: MemoryStorage;
+  readonly settings: Readonly<Record<string, unknown>>;
 }
 
 export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
@@ -136,7 +141,7 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
       draft: clone(draft),
       state: clone(snapshot.state),
       ...(snapshot.change ? { change: clone(changeView(snapshot.change, entry.permissions, evidence)) } : {}),
-      settings: clone(entry.spec.settings ?? {}),
+      settings: clone(entry.settings),
       signal: call.signal,
       clock: options.clock,
       storage: entry.storage,
@@ -166,12 +171,21 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
       const out: LoadedPlugin[] = [];
       for (const spec of options.plugins) {
         try {
-          const plugin = spec.factory(clone(spec.settings ?? {}));
+          // An enabled inline rule set turns the async typo path off (docs/plan/07).
+          const settings = spec.inline?.some((rule) => rule.enabled)
+            ? { ...spec.settings, autocorrect: false }
+            : (spec.settings ?? {});
+          const plugin = spec.factory(clone(settings));
           const descriptor = descriptorOf(spec.id, plugin);
           const storage = new MemoryStorage();
           storages.set(spec.id, storage);
-          loaded.set(spec.id, { spec, plugin, permissions: descriptor.permissions, storage });
-          out.push({ descriptor, builtin: spec.builtin });
+          loaded.set(spec.id, { spec, plugin, permissions: descriptor.permissions, storage, settings });
+          out.push({
+            descriptor,
+            builtin: spec.builtin,
+            ...(spec.inline ? { inline: spec.inline } : {}),
+            ...(spec.assets ? { assets: spec.assets } : {}),
+          });
         } catch (error) {
           const descriptor: PluginDescriptor = {
             id: spec.id,
