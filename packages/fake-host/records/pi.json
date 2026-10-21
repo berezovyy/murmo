@@ -1,0 +1,8 @@
+{
+  "host": "pi",
+  "version": "1.3.0",
+  "measuredAt": "2026-10-13",
+  "report": "docs/experiments/r13-pi-inline.md",
+  "historical": true,
+  "quirks": ["one-editor-slot", "opaque-paste-uneditable", "managed-submit-boundary"]
+}

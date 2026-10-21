@@ -10,6 +10,7 @@ export {
   saveRegression,
   stringifyFixture,
 } from './fixtures.ts';
+export { createIsolatedCoreSubject } from './isolated-subject.ts';
 export {
   buildGuest,
   bunAvailable,

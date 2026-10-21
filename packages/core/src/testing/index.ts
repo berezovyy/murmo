@@ -1,5 +1,6 @@
-// @murmo/core/testing: what phases 05–10 test the core with before any real
-// host or executor exists. Test code only; never part of a host bundle.
+// @murmo/core/testing: what phases 05–11 test the core with before any real
+// host exists. The adapter is `@murmo/fake-host` (re-exported as
+// ReferenceAdapter). Test code only; never part of a host bundle.
 
 export { CancelledError, createManualClock, MANUAL_EPOCH_MS, type ManualClock } from './clock.ts';
 export {

@@ -5,8 +5,8 @@
 // Phase 07: inline rules on the key path (typos, short shortcuts, `.` waits).
 // Phase 08: the before-submit pipeline, guard position, and submit-committed
 // delivery. Phase 09: in-process executor, permissions, budgets and
-// attribution. The reference adapter, a direct hook runner and a driver live in
-// `@murmo/core/testing`.
+// attribution. The reference adapter lives in `@murmo/fake-host` and is
+// re-exported from `@murmo/core/testing` with a direct hook runner and driver.
 
 export {
   createMemoryProjectFiles,

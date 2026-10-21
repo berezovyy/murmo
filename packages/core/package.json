@@ -11,6 +11,7 @@
   "dependencies": {
     "@murmo/api": "workspace:*",
     "@murmo/executor": "workspace:*",
+    "@murmo/fake-host": "workspace:*",
     "@murmo/lang": "workspace:*",
     "@murmo/provenance": "workspace:*",
     "@murmo/text": "workspace:*"

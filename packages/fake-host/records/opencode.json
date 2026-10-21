@@ -1,0 +1,8 @@
+{
+  "host": "opencode",
+  "version": "2.1.0",
+  "measuredAt": "2026-10-13",
+  "report": "docs/experiments/r13-opencode-inline.md",
+  "historical": true,
+  "quirks": ["packet-paste-after-following-typing", "managed-submit-boundary", "dialog-unobservable", "footer-status"]
+}

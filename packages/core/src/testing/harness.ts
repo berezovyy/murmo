@@ -61,6 +61,8 @@ export interface HarnessOptions {
   readonly control?: boolean;
   /** Override the runner's reported health (lesson 76: a dead executor must not look healthy). */
   readonly health?: RunnerHealth;
+  /** Use a published fake-host adapter (profiles). Default is a fully capable FakeAdapter. */
+  readonly adapter?: ReferenceAdapter;
 }
 
 export interface HarnessRunner extends HookRunner {
@@ -230,13 +232,15 @@ export class Driver {
 
 export async function createHarness(options: HarnessOptions = {}): Promise<Harness> {
   const clock = createManualClock();
-  const adapter = new ReferenceAdapter({
-    clock,
-    ...(options.caps ? { caps: options.caps } : {}),
-    ...(options.draft ? { draft: options.draft } : {}),
-    ...(options.tabQueues === undefined ? {} : { tabQueues: options.tabQueues }),
-    ...(options.nativePeer ? { nativePeer: options.nativePeer } : {}),
-  });
+  const adapter =
+    options.adapter ??
+    new ReferenceAdapter({
+      clock,
+      ...(options.caps ? { caps: options.caps } : {}),
+      ...(options.draft ? { draft: options.draft } : {}),
+      ...(options.tabQueues === undefined ? {} : { tabQueues: options.tabQueues }),
+      ...(options.nativePeer ? { nativePeer: options.nativePeer } : {}),
+    });
   if (options.holdCommits) adapter.holdCommits(true);
   if (options.holdSubmit) adapter.holdSubmit(true);
   const plugins = options.plugins ?? [];

@@ -95,6 +95,9 @@ importers:
       '@murmo/executor':
         specifier: workspace:*
         version: link:../executor
+      '@murmo/fake-host':
+        specifier: workspace:*
+        version: link:../fake-host
       '@murmo/lang':
         specifier: workspace:*
         version: link:../lang
@@ -105,11 +108,47 @@ importers:
         specifier: workspace:*
         version: link:../text
 
+  packages/devkit:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/conformance':
+        specifier: workspace:*
+        version: link:../conformance
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../core
+      '@murmo/executor':
+        specifier: workspace:*
+        version: link:../executor
+      '@murmo/fake-host':
+        specifier: workspace:*
+        version: link:../fake-host
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
+      quickjs-emscripten:
+        specifier: 0.32.0
+        version: 0.32.0
+
   packages/executor:
     dependencies:
       '@murmo/api':
         specifier: workspace:*
         version: link:../api
+
+  packages/fake-host:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/provenance':
+        specifier: workspace:*
+        version: link:../provenance
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
 
   packages/lang: {}
 

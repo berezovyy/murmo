@@ -1,0 +1,25 @@
+{
+  "name": "@murmo/devkit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "murmo-plugin": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/conformance": "workspace:*",
+    "@murmo/core": "workspace:*",
+    "@murmo/executor": "workspace:*",
+    "@murmo/fake-host": "workspace:*",
+    "@murmo/fixtures": "workspace:*",
+    "quickjs-emscripten": "0.32.0"
+  },
+  "murmo": {
+    "runtime": "node"
+  }
+}

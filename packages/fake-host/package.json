@@ -1,0 +1,30 @@
+{
+  "name": "@murmo/fake-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/provenance": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "fake-host",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoFakeHost"
+      }
+    ]
+  }
+}

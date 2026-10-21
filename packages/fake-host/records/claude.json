@@ -1,0 +1,14 @@
+{
+  "host": "claude",
+  "version": "2.1.304",
+  "measuredAt": "2026-10-13",
+  "report": "docs/experiments/r13-claude-inline.md",
+  "historical": true,
+  "quirks": [
+    "keyless-bursts-have-unknown-origin",
+    "paste-unknown-origin",
+    "no-async-CAS",
+    "partial-key-observation",
+    "menu-enter-dismisses-via-submit-boundary"
+  ]
+}
