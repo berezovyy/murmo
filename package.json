@@ -10,7 +10,7 @@
     "build": "node tools/build.mjs",
     "build:verify": "node tools/build.mjs --verify-deterministic",
     "check": "node tools/typecheck.mjs",
-    "lint": "biome check .",
+    "lint": "biome check --error-on-warnings .",
     "format": "biome format --write .",
     "test": "tools/offline/run.sh node tools/test-all.mjs",
     "test:portable": "tools/offline/run.sh node tools/test-portable.mjs",
