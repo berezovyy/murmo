@@ -5,6 +5,7 @@ members = [
     "packages/config/rust",
     "packages/store/rust",
     "packages/plugin-host",
+    "packages/adapters/codex",
 ]
 
 [workspace.package]

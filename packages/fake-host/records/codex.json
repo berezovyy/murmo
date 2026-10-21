@@ -4,5 +4,12 @@
   "measuredAt": "2026-10-13",
   "report": "docs/experiments/r13-codex-inline.md",
   "historical": true,
-  "quirks": ["Tab-queues", "tracked-draft", "managed-submit-boundary", "native-popup-tab-passes"]
+  "quirks": ["Tab-queues", "tracked-draft", "managed-submit-boundary", "native-popup-tab-passes"],
+  "patch": {
+    "inlineRewrite": "immediate-managed-transport",
+    "inline": { "commitReceipt": "transport-write", "maxBytes": 800 },
+    "menu": false,
+    "ghost": "none",
+    "submit": { "committed": "none", "guardPosition": "managed" }
+  }
 }

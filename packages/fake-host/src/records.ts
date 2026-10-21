@@ -97,13 +97,16 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
     quirks: ['Tab-queues', 'tracked-draft', 'managed-submit-boundary', 'native-popup-tab-passes'],
     patch: {
       // The Codex wrapper labels keys (r13); observed-unmarked is the stock CLI
-      // without a wrapper (E8). The profile models the wrapper so typed correction
-      // in the packet test matches E4.
+      // without a wrapper (E8). Phase 23 advertises the product wrapper: 800-byte
+      // transport cap, managed PTY rewrite, menu/ghost off until prompt detection.
       inputOriginEvidence: 'host-labeled',
+      inlineRewrite: 'immediate-managed-transport',
       edit: { selection: false, certainties: ['tracked'] },
-      ghost: 'end-only',
+      ghost: 'none',
+      menu: false,
       highlight: 'none',
       keyPriority: 'before-peers',
+      inline: { commitReceipt: 'transport-write', maxBytes: 800, nativeCompletion: false, attributed: false },
       submit: { gestures: ['send', 'queue', 'newline'], guardPosition: 'managed', committed: 'none' },
       ui: { anchor: 'overlay', statusMaxLength: 99, normalization: 'preserve', opaqueParts: true, dialogSafe: false },
     },

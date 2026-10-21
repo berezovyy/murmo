@@ -1,0 +1,35 @@
+{
+  "name": "@murmo/adapter-codex",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/js/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/core": "workspace:*",
+    "@murmo/executor": "workspace:*",
+    "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/plugin-rescue": "workspace:*",
+    "@murmo/plugin-shortcuts": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/text": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/lang": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "engine",
+        "entry": "src/js/entry.ts",
+        "targets": [
+          "quickjs"
+        ],
+        "global": "MurmoCodex"
+      }
+    ]
+  }
+}

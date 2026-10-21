@@ -1,0 +1,9 @@
+Real-host checks for the Codex wrapper. They run only through the phase 20
+harness: fake model on localhost, network blocked, throwaway HOME.
+
+  python3 -I harness/harness.py --host codex --integration codex …
+
+Pass-through, decoder and capability unit tests run offline in `pnpm test`
+and `node tools/cargo.mjs test`. Functional bursts, soak, native UI, terminals
+and speed need a pinned Codex in the harness cache and are skipped here when
+that host is missing.
