@@ -19,3 +19,6 @@ target/
 
 # pnpm puts its store in the checkout when HOME is on another filesystem (containers)
 /.pnpm-store/
+
+# Agent worktrees made by Claude Code
+/.claude/worktrees/
