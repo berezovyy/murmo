@@ -1,0 +1,406 @@
+// `@murmo/api/adapter`: the contract between the core, the executors and the
+// host adapters. Plugin authors import `@murmo/api` only; nothing here is part of
+// the author surface (adapter types, `PluginSpec.builtin`, inline rule sets).
+
+import type { PluginService, ProjectChange, ProjectReadResult } from './brokers.ts';
+import type { HostCapabilities } from './caps.ts';
+import type { Certainty, Change, Draft, DraftDelta, HostName, HostState, Range } from './draft.ts';
+import type { ActionResult, Edit, EditResult, EffectType, MenuItem } from './effects.ts';
+import type { ActionId, KeyClaim, KeyId, PluginAction } from './keys.ts';
+import type { DEADLINES, Permission } from './limits.ts';
+import type { PluginManifest } from './manifest.ts';
+import type {
+  Cancellation,
+  Clock,
+  PluginContext,
+  PluginFactory,
+  PluginHook,
+  SubmitCommitted,
+  SubmitPosition,
+  SubmitTransaction,
+} from './plugin.ts';
+
+export type { HostCapabilities } from './caps.ts';
+export * from './index.ts';
+
+export type Unsubscribe = () => void;
+
+// ---------------------------------------------------------------------------
+// Hooks, services and what each permission implies
+
+export interface HookRoute {
+  /** Permissions a plugin must hold for the hook to run; `draft:read:full` satisfies `draft:read`. */
+  readonly requires: readonly Permission[];
+  /** The `DEADLINES` entry that bounds one call. */
+  readonly deadline: keyof typeof DEADLINES;
+}
+
+/**
+ * Every plugin hook and how it is gated. This is the list the helper parity gate
+ * checks (phase 10): an executor must deliver every hook named here, so a route a
+ * runtime drops can't stay hidden behind a fake host that delivers it (lesson 73).
+ * A type test fails when `Plugin` gains a hook missing from this table.
+ */
+export const HOOKS = {
+  activate: { requires: [], deadline: 'activateMs' },
+  onChange: { requires: ['draft:read'], deadline: 'changeMs' },
+  onKey: { requires: [], deadline: 'keyDispatchMs' },
+  onMenuSelect: { requires: [], deadline: 'eventMs' },
+  onAction: { requires: [], deadline: 'eventMs' },
+  onBeforeSubmit: { requires: ['submit'], deadline: 'submitTotalMs' },
+  onSubmitCommitted: { requires: ['submit:observe', 'draft:read'], deadline: 'eventMs' },
+  onSubmitUnresolved: { requires: ['submit:observe'], deadline: 'eventMs' },
+  onProjectFileChange: { requires: ['fs:project-read'], deadline: 'eventMs' },
+  deactivate: { requires: [], deadline: 'eventMs' },
+} as const satisfies { readonly [K in PluginHook]: HookRoute };
+
+/** Context services and the permission each needs (none means always routed). */
+export const SERVICE_ROUTES = {
+  clock: { requires: [] },
+  storage: { requires: [] },
+  'project.read': { requires: ['fs:project-read'] },
+} as const satisfies { readonly [K in PluginService]: { readonly requires: readonly Permission[] } };
+
+/** Effects and the permission each needs to apply. */
+export const EFFECT_ROUTES = {
+  edit: { requires: ['draft:write'] },
+  ghost: { requires: ['draft:read'] },
+  menu: { requires: ['draft:read'] },
+  highlight: { requires: ['draft:read'] },
+  status: { requires: ['draft:read'] },
+} as const satisfies { readonly [K in EffectType]: { readonly requires: readonly Permission[] } };
+
+/**
+ * When a declared permission is granted without an explicit host grant (phase 09
+ * enforces): `declared`, unless the host restricts it; `builtin`, only for
+ * host-installed built-ins; `explicit`, only with an explicit grant.
+ */
+export const PERMISSION_DEFAULTS = {
+  'draft:read': 'declared',
+  'draft:read:full': 'builtin',
+  'submit:observe': 'declared',
+  'draft:write': 'declared',
+  submit: 'declared',
+  network: 'explicit',
+  'fs:project-read': 'explicit',
+} as const satisfies { readonly [K in Permission]: 'declared' | 'builtin' | 'explicit' };
+
+export interface PermissionRoutes {
+  readonly hooks: readonly PluginHook[];
+  readonly services: readonly PluginService[];
+  readonly effects: readonly EffectType[];
+}
+
+/**
+ * The hooks, services and effects a set of granted permissions opens. `network`
+ * opens nothing: no executor routes a network request yet (phase 32).
+ */
+export function routesFor(granted: readonly Permission[]): PermissionRoutes {
+  const held = new Set<Permission>(granted);
+  if (held.has('draft:read:full')) held.add('draft:read');
+  const open = (requires: readonly Permission[]) => requires.every((permission) => held.has(permission));
+  const pick = <K extends string>(table: Readonly<Record<K, { readonly requires: readonly Permission[] }>>) =>
+    (Object.keys(table) as K[]).filter((key) => open(table[key].requires));
+  return { hooks: pick(HOOKS), services: pick(SERVICE_ROUTES), effects: pick(EFFECT_ROUTES) };
+}
+
+// ---------------------------------------------------------------------------
+// Plugin specs, descriptors and executors
+
+interface PluginSpecBase {
+  /** Stable host-owned identity: grants, storage namespace, attribution. Unique per session. */
+  readonly id: string;
+  /** Trusted in-process factory. */
+  readonly factory?: PluginFactory;
+  /** Self-contained ES module source; required by the isolated executor. */
+  readonly source?: string;
+  /** User settings, resolved against the manifest schema before the factory runs. */
+  readonly settings?: Readonly<Record<string, unknown>>;
+  /** Binary assets, supplied once at load, never per change. */
+  readonly assets?: Readonly<Record<string, ArrayBuffer>>;
+  /** A guard whose load or activation fails still blocks every send. */
+  readonly requiredGuard?: boolean;
+  /** Host-reviewed admission; overrides the manifest's request. */
+  readonly resources?: { readonly memoryMiB: number };
+}
+
+/**
+ * A plugin as the host loads it. Only the host marks a spec `builtin` (our own
+ * plugins, installed with Murmo); a plugin's files cannot. Every other spec
+ * needs a manifest, so preflight runs before any of its code.
+ */
+export type PluginSpec =
+  | (PluginSpecBase & {
+      readonly builtin: true;
+      readonly manifest?: PluginManifest;
+      /** Declarative inline rule sets; registered for built-ins only (phase 07). */
+      readonly inline?: readonly InlineRules[];
+    })
+  | (PluginSpecBase & { readonly builtin?: false; readonly manifest: PluginManifest; readonly inline?: never });
+
+/** Plugin metadata the executor reads at load, before activation. */
+export interface PluginDescriptor {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+  readonly permissions: readonly Permission[];
+  readonly guard: boolean;
+  readonly keys: readonly KeyClaim[];
+  readonly actions: readonly PluginAction[];
+  /** Hooks the plugin implements. */
+  readonly hooks: readonly PluginHook[];
+}
+
+/** Typed executor faults; only the budget kinds count toward `LIMITS.faultStrikes`. */
+export type ExecutorFaultCode = 'cpu' | 'timeout' | 'memory' | 'cancelled' | 'exception' | 'output-limit' | 'transport';
+
+export interface ExecutorFault {
+  readonly code: ExecutorFaultCode;
+  readonly pluginId: string;
+  readonly hook: PluginHook | 'load';
+  readonly message: string;
+  /** Load generation of the guest that failed. */
+  readonly generation?: number;
+}
+
+export interface ExecutionOptions {
+  readonly timeoutMs: number;
+  readonly signal?: Cancellation;
+}
+
+/**
+ * Runs plugin code. `in-process` is for trusted code only: it can't preempt a
+ * synchronous loop or an allocation. `isolated` runs one bounded guest per plugin.
+ * Both reject with an `ExecutorFault`-shaped error.
+ */
+export interface Executor {
+  readonly kind: 'in-process' | 'isolated';
+  readonly clock: Clock;
+  load(spec: PluginSpec): Promise<PluginDescriptor>;
+  run(
+    id: string,
+    hook: PluginHook,
+    input: unknown,
+    context: PluginContext,
+    options: ExecutionOptions,
+  ): Promise<unknown>;
+  unload(id: string): Promise<void>;
+  dispose(): Promise<void>;
+  /** Diagnostics only, shape owned by `@murmo/executor` (phase 09). */
+  stats(): unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Host-side brokers behind `PluginStorage` and `ProjectAccess`
+
+/** Durable storage backend; the core namespaces it by plugin ID (phase 14 implements it). */
+export interface StorageBackend {
+  load(namespace: string): Promise<string>;
+  save(namespace: string, json: string): Promise<void>;
+}
+
+export interface ProjectTrustRequest {
+  readonly pluginId: string;
+  readonly root: string;
+  readonly path: string;
+  readonly sha256: string;
+  readonly bytes: number;
+  readonly message: string;
+}
+
+/** Host broker for project reads; approval happens before activation, never inside a hook. */
+export interface ProjectFiles {
+  readonly root: string;
+  readonly limits: { readonly maxFileBytes: number; readonly maxReadBytes: number; readonly maxReads: number };
+  authorize(pluginId: string, path?: string): Promise<boolean>;
+  read(pluginId: string, path: string, signal?: Cancellation): Promise<ProjectReadResult>;
+  onChange(callback: (event: ProjectChange) => void): Unsubscribe;
+  dispose(): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Presentation and submit, as the adapter sees them
+
+/** A merged-menu row: the plugin's item plus the owner the core set from the real plugin ID. */
+export interface PresentedMenuItem extends MenuItem {
+  readonly owner: string;
+}
+
+/** Host-owned record of a third-party edit; the plugin can't fake any of it. */
+export interface EditAttribution {
+  readonly pluginId: string;
+  readonly label: string;
+  readonly before: Draft;
+}
+
+/** The pipeline's final answer for one submit attempt. */
+export type SubmitOutcome =
+  | { readonly action: 'send'; readonly coverage: SubmitPosition }
+  | { readonly action: 'replace'; readonly text: string; readonly coverage: SubmitPosition }
+  | { readonly action: 'block'; readonly reason: string };
+
+/** What an adapter reports when the host accepted a submission; the core adds `level`. */
+export type HostSubmitAccepted = Omit<SubmitCommitted, 'level'>;
+
+/** A native semantic menu selection, bound to its owner, item and version. */
+export interface MenuSelection {
+  readonly pluginId: string;
+  readonly itemId: string;
+  readonly baseVersion: number;
+}
+
+// ---------------------------------------------------------------------------
+// Declarative inline rules (phase 07 owns the semantics)
+
+/**
+ * Immutable data registered before typing; evaluated by a trusted policy in the
+ * core inside the host's native edit transaction. No plugin function runs here.
+ */
+export interface InlineRules {
+  readonly id: string;
+  /** Must equal the spec's ID. */
+  readonly owner: string;
+  /** Ascending; ties keep registration order. */
+  readonly priority: number;
+  readonly enabled: boolean;
+  /** A policy compiled into the core, e.g. `english-word-boundary-v1`. */
+  readonly policy: string;
+  readonly table?: {
+    readonly format: 'packed-sorted-ascii-v1';
+    /** Key into `PluginSpec.assets`. */
+    readonly asset: string;
+    readonly sha256: string;
+    readonly entries: number;
+  };
+  readonly language: 'en';
+  readonly boundaries: ' .,;:!?';
+  readonly case: 'preserve-title';
+  readonly dot: 'wait-next-typed-key';
+  readonly origin: 'fully-typed-span';
+  readonly skip: readonly ('code' | 'path' | 'URL' | 'flag' | 'identifier' | 'foreign-letter-line')[];
+  readonly replacements?: { readonly format: 'literal-utf8-v1'; readonly entries: Readonly<Record<string, string>> };
+  /** Protected words, checked before any lookup. */
+  readonly vocabulary?: readonly string[];
+  /** Largest expansion applied inline (UTF-8 bytes); larger ones take the deferred path. */
+  readonly inlineMaxInsertBytes: number;
+  /** Largest expansion at all (UTF-8 bytes). */
+  readonly maxInsertBytes: number;
+  readonly rejectMemory: 'per-draft';
+}
+
+export interface InlineSnapshot {
+  readonly transactionId: string;
+  readonly version: number;
+  readonly text: string;
+  readonly cursor: number;
+  readonly typedSpans: readonly Range[];
+  readonly certainty: Certainty;
+  readonly selection?: Range;
+  readonly origin: 'typed' | 'paste' | 'unknown';
+  /** Every splice of this native chunk, in order, in the uncorrected native chain. */
+  readonly deltas: readonly DraftDelta[];
+  /** The key whose transaction this is. */
+  readonly key: { readonly id: KeyId; readonly inputText: string; readonly from: number; readonly to: number };
+  readonly state: HostState;
+  /** `next-key` hosts: the authoritative backlog to repair. */
+  readonly deferred?: { readonly before: Draft; readonly deltas: readonly DraftDelta[]; readonly atVersion: number };
+}
+
+export interface InlineCorrection {
+  readonly from: number;
+  readonly to: number;
+  readonly insert: string;
+  readonly original: string;
+  readonly kind: 'typo' | 'shortcut' | 'undo';
+}
+
+export interface InlineReplay {
+  readonly before: Draft;
+  readonly deltas: readonly DraftDelta[];
+  readonly typedSpans: readonly Range[];
+  readonly corrections: readonly InlineCorrection[];
+  readonly undoDepth: number;
+}
+
+export type InlineAnswer =
+  | { readonly action: 'native'; readonly replay?: InlineReplay }
+  | {
+      readonly action: 'replace';
+      readonly text: string;
+      readonly cursor: number;
+      readonly replay?: InlineReplay;
+      readonly owner: string;
+      readonly ruleId: string;
+      readonly undo: { readonly beforeText: string; readonly beforeCursor: number; readonly rejectSeparator: boolean };
+    };
+
+/** The adapter's acknowledgement of what the host really committed for a transaction. */
+export interface InlineCommit {
+  readonly transactionId: string;
+  readonly status: 'applied' | 'fallback' | 'stale' | 'cancelled';
+  readonly text: string;
+  readonly cursor: number;
+  readonly version: number;
+}
+
+/**
+ * The host itself undid an inline correction (Claude's Backspace outside the
+ * shared key path), so the core can keep the word in the per-draft rejected set
+ * after delete and retype (r13-claude-inline: persistent rejection needs it).
+ */
+export interface InlineRejection {
+  /** The applied `InlineCommit` whose correction was rejected. */
+  readonly transactionId: string;
+  /** The word as typed before the correction (`InlineCorrection.original`). */
+  readonly original: string;
+  /** The draft after the rejection committed. */
+  readonly text: string;
+  readonly cursor: number;
+  readonly version: number;
+}
+
+// ---------------------------------------------------------------------------
+// The adapter
+
+/**
+ * One host integration. Every presentation call is version-bound and returns a
+ * typed result; every subscription returns an unsubscribe. The synchronous
+ * callbacks (`onKey`, `onInlineEdit`) evaluate data only and are never awaited.
+ */
+export interface Adapter {
+  readonly host: { readonly name: HostName; readonly version: string };
+  /** Measured capabilities, published by `ready()`. */
+  readonly caps: HostCapabilities;
+  /** Run the real startup probes with notifications suppressed, then publish measured caps. */
+  ready(): Promise<HostCapabilities>;
+  getDraft(): Draft;
+  getState(): HostState;
+
+  /** Compare-and-set at the native commit; return the committed snapshot, not a later read. */
+  applyEditIfVersion(edit: Edit, signal?: Cancellation): Promise<EditResult>;
+  /** The same, with a host-owned attribution record; `unsupported` when the host can't attribute. */
+  applyAttributedEditIfVersion(edit: Edit, attribution: EditAttribution, signal?: Cancellation): Promise<EditResult>;
+  /** Exact restore of text, cursor, selection and typed spans. */
+  restoreDraft(draft: Draft, expectedVersion: number, signal?: Cancellation): Promise<EditResult>;
+
+  showGhost(text: string | null, baseVersion: number): ActionResult;
+  /** Third-party ghosts; accepting one inserts only its text, never the attribution. */
+  showAttributedGhost(text: string | null, baseVersion: number, pluginId: string): ActionResult;
+  showMenu(items: readonly PresentedMenuItem[] | null, selected: number, baseVersion: number): ActionResult;
+  showHighlight(ranges: readonly Range[] | null, baseVersion: number): ActionResult;
+  showStatus(text: string | null, baseVersion: number): ActionResult;
+
+  onDraftChange(callback: (change: Change) => void): Unsubscribe;
+  onKey(callback: (key: KeyId) => 'consume' | 'pass'): Unsubscribe;
+  /** Every configured send, queue and steer gesture, before the host clears the draft. */
+  onBeforeSubmit(callback: (tx: SubmitTransaction) => Promise<SubmitOutcome>): Unsubscribe;
+
+  /** Called inside the native edit transaction; never await the evaluator's caller. */
+  onInlineEdit?(evaluate: (snapshot: InlineSnapshot) => InlineAnswer): Unsubscribe;
+  onInlineCommit?(callback: (commit: InlineCommit) => void): Unsubscribe;
+  onInlineReject?(callback: (rejection: InlineRejection) => void): Unsubscribe;
+  onMenuSelect?(callback: (selection: MenuSelection) => void): Unsubscribe;
+  onAction?(callback: (action: ActionId) => void): Unsubscribe;
+  /** Only after native peers and the transport accepted the prompt; never for a block or newline. */
+  onSubmitCommitted?(callback: (event: HostSubmitAccepted) => void): Unsubscribe;
+}

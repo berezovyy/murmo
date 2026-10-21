@@ -1,0 +1,12 @@
+{
+  "name": "sample-menu",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the ~sample trigger you type." },
+    { "name": "draft:write", "reason": "Replace the trigger with the row you pick." }
+  ],
+  "capabilities": { "required": { "menu": true }, "optional": { "inline.nativeCompletion": true } },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

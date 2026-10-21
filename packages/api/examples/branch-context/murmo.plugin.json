@@ -1,0 +1,17 @@
+{
+  "name": "branch-context",
+  "version": "0.1.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the ;ctx trigger you type." },
+    { "name": "draft:write", "reason": "Replace the trigger with the branch and commit." },
+    { "name": "fs:project-read", "reason": "Read .git/HEAD, the branch ref and the HEAD reflog." }
+  ],
+  "capabilities": { "required": { "edit.multiline": true, "runtime.services": ["project.read"] }, "optional": {} },
+  "settingsSchema": {
+    "type": "object",
+    "properties": { "trigger": { "type": "string", "maxLength": 17, "default": ";ctx" } },
+    "additionalProperties": false
+  }
+}

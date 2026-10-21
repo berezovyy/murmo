@@ -1,0 +1,9 @@
+{
+  "name": "status-counter",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [{ "name": "draft:read", "reason": "Count the characters of the draft." }],
+  "capabilities": { "required": {}, "optional": { "status": true } },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

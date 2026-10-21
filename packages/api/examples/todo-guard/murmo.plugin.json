@@ -1,0 +1,16 @@
+{
+  "name": "todo-guard",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read:full", "reason": "Check pasted text too: a TODO is often pasted from notes." },
+    { "name": "submit", "reason": "Block a send that still has a TODO." }
+  ],
+  "capabilities": { "required": { "submit.block": true }, "optional": { "submit.guardPosition": "final-boundary" } },
+  "settingsSchema": {
+    "type": "object",
+    "properties": { "reason": { "type": "string", "maxLength": 200, "description": "Message shown on block." } },
+    "additionalProperties": false
+  }
+}

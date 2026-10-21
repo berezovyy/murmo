@@ -1,0 +1,15 @@
+{
+  "name": "autocorrect",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the words you type." },
+    { "name": "draft:write", "reason": "Fix a typo after you type its space, and accept a name ghost." }
+  ],
+  "capabilities": {
+    "required": { "edit.atomic": true, "edit.exactRestore": true, "inputOriginEvidence": "host-labeled" },
+    "optional": { "ghost": "any" }
+  },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

@@ -1,0 +1,74 @@
+/** The version manifests negotiate against (`api` ranges). Stays 2.0.0 until v1. */
+export declare const API_VERSION = "2.0.0";
+/**
+ * The draft label shown to authors. Each breaking change before v1 bumps the
+ * counter (`2.0-pre.1`, ...); scaffolds record it and `murmo plugin dev` warns
+ * when it differs.
+ */
+export declare const API_DRAFT = "2.0-pre.0";
+/**
+ * Every permission a plugin can declare. A declaration is never a grant: the host
+ * grants (see `PERMISSION_DEFAULTS` in `@murmo/api/adapter`).
+ *
+ * - `draft:read`: the draft with every non-typed UTF-16 unit masked (typed-only).
+ * - `draft:read:full`: the whole draft, pasted text included.
+ * - `submit:observe`: committed and unresolved send events, read-only.
+ * - `draft:write`: versioned edits, ghosts, menus with edits.
+ * - `submit`: warn or block a send; only host-installed built-ins may rewrite it.
+ * - `network`: declaration only. No executor routes a network request yet
+ *   (phase 32 adds the broker); declaring it grants nothing.
+ * - `fs:project-read`: bounded UTF-8 reads inside the approved project root.
+ */
+export declare const PERMISSIONS: readonly ['draft:read', 'draft:read:full', 'submit:observe', 'draft:write', 'submit', 'network', 'fs:project-read'];
+export type Permission = (typeof PERMISSIONS)[number];
+/**
+ * Wall-clock budgets per hook call, before scaling by measured scheduler lag
+ * (1 to `LIMITS.budgetScaleMax` times). A wall-clock deadline is scheduler
+ * dependent, not an OS real-time guarantee.
+ */
+export declare const DEADLINES: {
+    /** `activate`. */
+    readonly activateMs: 50;
+    /** `onChange`. */
+    readonly changeMs: 100;
+    /** `onKey`, after the synchronous claim decision. */
+    readonly keyDispatchMs: 10;
+    /** All `onBeforeSubmit` calls of one send attempt together. */
+    readonly submitTotalMs: 50;
+    /** Every other hook: menu selection, actions, committed and project-change events. */
+    readonly eventMs: 50;
+};
+export declare const LIMITS: {
+    /** Plugin entry source (`.mjs`). */
+    readonly sourceBytes: 1048576;
+    /** Serialized result of one isolated hook call. */
+    readonly responseBytes: 65536;
+    /** Effects returned by one hook call; more disables the call's output. */
+    readonly effectsPerCall: 128;
+    /** Applied edits per rolling second per third-party plugin. */
+    readonly editsPerSecond: 20;
+    /** Default guest memory ceiling; more needs reviewed admission. */
+    readonly defaultMemoryMiB: 8;
+    /** Largest `resources.memoryMiB` a manifest may request (admission is separate). */
+    readonly maxMemoryMiB: 128;
+    /** All binary assets of one plugin. */
+    readonly assetBytes: 4194304;
+    /** `murmo.plugin.json`, UTF-8. */
+    readonly manifestBytes: 65536;
+    /** Serialized UTF-8 JSON of one plugin's storage namespace. */
+    readonly storageBytes: 65536;
+    /** Keys in one storage namespace. */
+    readonly storageKeys: 64;
+    /** UTF-16 units in one storage key. */
+    readonly storageKeyUnits: 128;
+    /** Consecutive typed budget faults in one hook that disable a plugin. */
+    readonly faultStrikes: 3;
+    /** Largest scheduler-lag multiplier applied to `DEADLINES`. */
+    readonly budgetScaleMax: 8;
+    /** One project file read. */
+    readonly projectFileBytes: 262144;
+    /** All project reads of one plugin per session. */
+    readonly projectSessionBytes: 1048576;
+    /** Project read attempts of one plugin per session. */
+    readonly projectReads: 128;
+};

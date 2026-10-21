@@ -1,0 +1,20 @@
+{
+  "name": "token-meter",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "Estimate the draft's tokens from its length." },
+    { "name": "submit", "reason": "Warn once at send when a budget is exceeded." },
+    { "name": "submit:observe", "reason": "Count only prompts that were really sent." }
+  ],
+  "capabilities": { "required": { "status": true }, "optional": { "submit.committed": "accepted-text" } },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "maxPromptTokens": { "type": "integer", "minimum": 1, "default": 8192 },
+      "dailyBudgetTokens": { "type": "integer", "minimum": 1, "default": 100000 }
+    },
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,688 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "packages/api (phase 03): rules of docs/MANIFEST.md; range table from experiments/platform/devkit/verify.mjs (r14 K1)",
+    "license": "project"
+  },
+  "base": {
+    "name": "example",
+    "version": "1.0.0",
+    "api": "^2.0.0",
+    "entry": "plugin.mjs",
+    "permissions": [{ "name": "draft:read", "reason": "Read the draft length." }],
+    "capabilities": { "required": { "readDraft": true }, "optional": { "api.typed-read-default": true } },
+    "settingsSchema": {
+      "type": "object",
+      "properties": { "enabled": { "type": "boolean", "default": true } },
+      "additionalProperties": false
+    }
+  },
+  "caps": {
+    "managed-host": {
+      "inputOriginEvidence": "host-labeled",
+      "semanticMenuSelection": false,
+      "actions": ["murmo.undo"],
+      "inlineRewrite": "same-transaction",
+      "inline": {
+        "attributed": false,
+        "middle": true,
+        "multiline": true,
+        "observedKeys": ["space", "Backspace"],
+        "allKeysObserved": true,
+        "nativeCompletion": false,
+        "commitReceipt": "native-commit",
+        "maxBytes": 1024
+      },
+      "readDraft": true,
+      "edit": {
+        "atomic": true,
+        "end": true,
+        "middle": true,
+        "multiline": true,
+        "selection": false,
+        "exactRestore": true,
+        "certainties": ["authoritative"],
+        "attributed": true
+      },
+      "ghost": "end-only",
+      "menu": true,
+      "highlight": "none",
+      "status": true,
+      "keys": ["Tab", "Backspace", "F6"],
+      "undoKeys": ["F6"],
+      "keyPriority": "before-peers",
+      "submit": {
+        "transform": true,
+        "block": true,
+        "gestures": ["send", "queue", "newline"],
+        "guardPosition": "managed",
+        "committed": "none"
+      },
+      "ui": {
+        "dialogSafe": true,
+        "anchor": "host-owned",
+        "statusMaxLength": 120,
+        "normalization": "preserve",
+        "opaqueParts": false
+      },
+      "runtime": { "executor": "isolated", "hooks": ["onChange"], "services": ["clock", "storage"] }
+    }
+  },
+  "cases": [
+    {
+      "id": "valid-base",
+      "fn": "validateManifest",
+      "input": {},
+      "output": { "ok": true },
+      "reason": "the documented example is accepted"
+    },
+    {
+      "id": "valid-scoped-name-and-resources",
+      "fn": "validateManifest",
+      "input": { "patch": { "name": "@acme/lint", "resources": { "memoryMiB": 48 } } },
+      "output": { "ok": true },
+      "reason": "scoped names and a reviewed 48 MiB request are valid (MIGRATION: 48 MiB admitted a 30 MiB plugin)"
+    },
+    {
+      "id": "not-object",
+      "fn": "validateManifest",
+      "input": { "value": [] },
+      "output": { "error": { "code": "not-object", "path": "" } },
+      "reason": "an array is not a manifest"
+    },
+    {
+      "id": "builtin-field",
+      "fn": "validateManifest",
+      "input": { "patch": { "builtin": true } },
+      "output": { "error": { "code": "builtin-field", "path": "builtin" } },
+      "reason": "a package must not claim the only route to send-time rewrites (E2)"
+    },
+    {
+      "id": "unknown-field",
+      "fn": "validateManifest",
+      "input": { "patch": { "signature": "abc" } },
+      "output": { "error": { "code": "unknown-field", "path": "signature" } },
+      "reason": "distribution metadata belongs to the installer envelope, not the manifest"
+    },
+    {
+      "id": "missing-field",
+      "fn": "validateManifest",
+      "input": { "patch": { "settingsSchema": null } },
+      "output": { "error": { "code": "missing-field", "path": "settingsSchema" } },
+      "reason": "all seven fields are required"
+    },
+    {
+      "id": "name-uppercase",
+      "fn": "validateManifest",
+      "input": { "patch": { "name": "Example" } },
+      "output": { "error": { "code": "invalid-name", "path": "name" } },
+      "reason": "names are lowercase npm-style"
+    },
+    {
+      "id": "version-prerelease",
+      "fn": "validateManifest",
+      "input": { "patch": { "version": "1.0.0-rc.1" } },
+      "output": { "error": { "code": "invalid-version", "path": "version" } },
+      "reason": "plugin versions are stable semver; the prototype validator accepted this against MANIFEST.md (E7)"
+    },
+    {
+      "id": "version-partial",
+      "fn": "validateManifest",
+      "input": { "patch": { "version": "1.0" } },
+      "output": { "error": { "code": "invalid-version", "path": "version" } },
+      "reason": "versions have three parts"
+    },
+    {
+      "id": "version-leading-zero",
+      "fn": "validateManifest",
+      "input": { "patch": { "version": "01.0.0" } },
+      "output": { "error": { "code": "invalid-version", "path": "version" } },
+      "reason": "no leading zeros, so one version has one spelling"
+    },
+    {
+      "id": "permission-empty-reason",
+      "fn": "validateManifest",
+      "input": { "patch": { "permissions": [{ "name": "network", "reason": "  " }] } },
+      "output": { "error": { "code": "invalid-permissions", "path": "permissions[0].reason" } },
+      "reason": "every permission states why; a blank reason is no reason"
+    },
+    {
+      "id": "permission-missing-reason",
+      "fn": "validateManifest",
+      "input": { "patch": { "permissions": [{ "name": "draft:read" }] } },
+      "output": { "error": { "code": "invalid-permissions", "path": "permissions[0].reason" } },
+      "reason": "a permission without a reason is refused before any code runs"
+    },
+    {
+      "id": "permission-unknown",
+      "fn": "validateManifest",
+      "input": { "patch": { "permissions": [{ "name": "clipboard", "reason": "Copy text." }] } },
+      "output": { "error": { "code": "invalid-permissions", "path": "permissions[0].name" } },
+      "reason": "only the seven API permissions exist"
+    },
+    {
+      "id": "permission-duplicate",
+      "fn": "validateManifest",
+      "input": {
+        "patch": {
+          "permissions": [{ "name": "draft:read", "reason": "A." }, { "name": "draft:read", "reason": "B." }]
+        }
+      },
+      "output": { "error": { "code": "invalid-permissions", "path": "permissions[1].name" } },
+      "reason": "a duplicate would make the shown reason ambiguous"
+    },
+    {
+      "id": "entry-absolute",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "/etc/plugin.mjs" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "the entry stays inside the package"
+    },
+    {
+      "id": "entry-parent",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "../escape.mjs" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "a .. segment escapes the package"
+    },
+    {
+      "id": "entry-inner-parent",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "dist/../../escape.mjs" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "a .. segment anywhere is refused, not normalized"
+    },
+    {
+      "id": "entry-backslash",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "dist\\plugin.mjs" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "backslashes are separators on Windows-style paths"
+    },
+    {
+      "id": "entry-drive",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "C:/plugin.mjs" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "a drive letter is absolute"
+    },
+    {
+      "id": "entry-not-module",
+      "fn": "validateManifest",
+      "input": { "patch": { "entry": "plugin.js" } },
+      "output": { "error": { "code": "invalid-entry", "path": "entry" } },
+      "reason": "the entry is an ES module file"
+    },
+    {
+      "id": "settings-unknown-keyword",
+      "fn": "validateManifest",
+      "input": { "patch": { "settingsSchema": { "type": "object", "properties": {}, "oneOf": [] } } },
+      "output": { "error": { "code": "invalid-settings-schema", "path": "settingsSchema.oneOf" } },
+      "reason": "an unknown keyword would silently skip validation (E7)"
+    },
+    {
+      "id": "settings-unknown-property-keyword",
+      "fn": "validateManifest",
+      "input": {
+        "patch": {
+          "settingsSchema": { "type": "object", "properties": { "name": { "type": "string", "pattern": "^a" } } }
+        }
+      },
+      "output": { "error": { "code": "invalid-settings-schema", "path": "settingsSchema.properties.name" } },
+      "reason": "pattern is outside the subset, so it must not look enforced"
+    },
+    {
+      "id": "settings-nested-object",
+      "fn": "validateManifest",
+      "input": {
+        "patch": { "settingsSchema": { "type": "object", "properties": { "nested": { "type": "object" } } } }
+      },
+      "output": { "error": { "code": "invalid-settings-schema", "path": "settingsSchema.properties.nested" } },
+      "reason": "settings are flat scalars"
+    },
+    {
+      "id": "settings-default-wrong-type",
+      "fn": "validateManifest",
+      "input": {
+        "patch": { "settingsSchema": { "type": "object", "properties": { "n": { "type": "number", "default": "5" } } } }
+      },
+      "output": { "error": { "code": "invalid-setting", "path": "settingsSchema.properties.n.default" } },
+      "reason": "a default must pass its own schema"
+    },
+    {
+      "id": "settings-max-length-on-number",
+      "fn": "validateManifest",
+      "input": {
+        "patch": { "settingsSchema": { "type": "object", "properties": { "n": { "type": "number", "maxLength": 3 } } } }
+      },
+      "output": { "error": { "code": "invalid-settings-schema", "path": "settingsSchema.properties.n" } },
+      "reason": "a keyword that cannot apply would pretend to validate"
+    },
+    {
+      "id": "settings-required-undeclared",
+      "fn": "validateManifest",
+      "input": { "patch": { "settingsSchema": { "type": "object", "properties": {}, "required": ["token"] } } },
+      "output": { "error": { "code": "invalid-settings-schema", "path": "settingsSchema.required" } },
+      "reason": "a required key nobody can set would refuse every activation"
+    },
+    {
+      "id": "capability-proto-path",
+      "fn": "validateManifest",
+      "input": { "patch": { "capabilities": { "required": { "__proto__.polluted": true }, "optional": {} } } },
+      "output": { "error": { "code": "invalid-capabilities", "path": "capabilities.required.__proto__.polluted" } },
+      "reason": "prototype segments never reach the capability lookup"
+    },
+    {
+      "id": "capability-number-requirement",
+      "fn": "validateManifest",
+      "input": { "patch": { "capabilities": { "required": { "ui.statusMaxLength": 80 }, "optional": {} } } },
+      "output": { "error": { "code": "invalid-capabilities", "path": "capabilities.required.ui.statusMaxLength" } },
+      "reason": "requirements are booleans, strings or string arrays"
+    },
+    {
+      "id": "capability-required-and-optional",
+      "fn": "validateManifest",
+      "input": { "patch": { "capabilities": { "required": { "menu": true }, "optional": { "menu": true } } } },
+      "output": { "error": { "code": "invalid-capabilities", "path": "capabilities.optional.menu" } },
+      "reason": "a path cannot be both a refusal reason and a soft wish"
+    },
+    {
+      "id": "resources-too-large",
+      "fn": "validateManifest",
+      "input": { "patch": { "resources": { "memoryMiB": 129 } } },
+      "output": { "error": { "code": "invalid-resources", "path": "resources" } },
+      "reason": "requests stay within the declarable ceiling"
+    },
+    {
+      "id": "api-range-refused-tokens",
+      "fn": "validateManifest",
+      "input": { "patch": { "api": "^2.0.0 || 2.x" } },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "a wildcard in any alternative refuses the manifest"
+    },
+    {
+      "id": "parse-too-large-utf8",
+      "fn": "parseManifest",
+      "input": { "padUnits": 33000, "padChar": "é" },
+      "output": { "error": { "code": "too-large", "path": "" } },
+      "reason": "the 64 KiB limit counts UTF-8 bytes: 33,000 é are 66,000 bytes but only 33,000 UTF-16 units"
+    },
+    {
+      "id": "parse-fits",
+      "fn": "parseManifest",
+      "input": { "padUnits": 30000, "padChar": "a" },
+      "output": { "ok": true },
+      "reason": "a manifest under the limit parses"
+    },
+    {
+      "id": "parse-invalid-json",
+      "fn": "parseManifest",
+      "input": { "text": "{\"name\": " },
+      "output": { "error": { "code": "invalid-json", "path": "" } },
+      "reason": "broken JSON is a typed refusal"
+    },
+
+    {
+      "id": "range-1",
+      "fn": "satisfies",
+      "input": { "core": "1.3.0", "range": "^1.2.0" },
+      "output": { "ok": true },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-2",
+      "fn": "satisfies",
+      "input": { "core": "1.2.0", "range": "^1.3.0" },
+      "output": { "ok": false },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-3",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "^1.2.0" },
+      "output": { "ok": false },
+      "reason": "verify.mjs K1 table: a 1.x plugin never loads on 2.0"
+    },
+    {
+      "id": "range-4",
+      "fn": "satisfies",
+      "input": { "core": "1.3.9", "range": "~1.2.0" },
+      "output": { "ok": false },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-5",
+      "fn": "satisfies",
+      "input": { "core": "1.2.9", "range": "~1.2.0" },
+      "output": { "ok": true },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-6",
+      "fn": "satisfies",
+      "input": { "core": "1.3.0", "range": ">=1.2.0 <2.0.0" },
+      "output": { "ok": true },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-7",
+      "fn": "satisfies",
+      "input": { "core": "1.3.0", "range": "1.2.0 || 1.3.0" },
+      "output": { "ok": true },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-8",
+      "fn": "satisfies",
+      "input": { "core": "0.3.0", "range": "^0.2.3" },
+      "output": { "ok": false },
+      "reason": "verify.mjs K1 table: major-zero caret stops at the minor"
+    },
+    {
+      "id": "range-9",
+      "fn": "satisfies",
+      "input": { "core": "0.0.4", "range": "^0.0.3" },
+      "output": { "ok": false },
+      "reason": "verify.mjs K1 table: 0.0.x caret is exact"
+    },
+    {
+      "id": "range-10",
+      "fn": "satisfies",
+      "input": { "core": "1.3.0", "range": "<=1.3.0 >1.2.0" },
+      "output": { "ok": true },
+      "reason": "verify.mjs K1 table"
+    },
+    {
+      "id": "range-caret-2-minor",
+      "fn": "satisfies",
+      "input": { "core": "2.1.0", "range": "^2.0.0" },
+      "output": { "ok": true },
+      "reason": "2.x twin: a minor release stays compatible"
+    },
+    {
+      "id": "range-caret-2-major",
+      "fn": "satisfies",
+      "input": { "core": "3.0.0", "range": "^2.0.0" },
+      "output": { "ok": false },
+      "reason": "2.x twin: the next major is excluded"
+    },
+    {
+      "id": "range-tilde-2-patch",
+      "fn": "satisfies",
+      "input": { "core": "2.0.9", "range": "~2.0.0" },
+      "output": { "ok": true },
+      "reason": "2.x twin: patches stay inside ~"
+    },
+    {
+      "id": "range-tilde-2-minor",
+      "fn": "satisfies",
+      "input": { "core": "2.1.0", "range": "~2.0.0" },
+      "output": { "ok": false },
+      "reason": "2.x twin: ~ excludes the next minor"
+    },
+    {
+      "id": "range-caret-zero-upper",
+      "fn": "satisfies",
+      "input": { "core": "0.2.9", "range": "^0.2.3" },
+      "output": { "ok": true },
+      "reason": "^0.2.3 still admits later 0.2 patches"
+    },
+    {
+      "id": "range-bad-star",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "*" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "wildcard is an error, never a match (E9)"
+    },
+    {
+      "id": "range-bad-x",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "2.x" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "x-ranges are wildcards"
+    },
+    {
+      "id": "range-bad-partial",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "^2" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "partial versions are refused"
+    },
+    {
+      "id": "range-bad-partial-minor",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "2.0" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "partial versions are refused"
+    },
+    {
+      "id": "range-bad-hyphen",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "2.0.0 - 3.0.0" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "hyphen ranges are refused"
+    },
+    {
+      "id": "range-bad-prerelease",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "^2.0.0-pre.0" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "a prerelease must not satisfy or name a stable range"
+    },
+    {
+      "id": "range-bad-empty-alternative",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "^2.0.0 ||" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "a dangling || is an error"
+    },
+    {
+      "id": "range-bad-leading-zero",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "02.0.0" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "no leading zeros"
+    },
+    {
+      "id": "range-bad-alternative-star",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "2.0.0 || *" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "a valid first alternative does not excuse a wildcard"
+    },
+    {
+      "id": "range-bad-garbage",
+      "fn": "satisfies",
+      "input": { "core": "2.0.0", "range": "garbage" },
+      "output": { "error": { "code": "invalid-range", "path": "api" } },
+      "reason": "garbage is an error"
+    },
+
+    {
+      "id": "settings-defaults",
+      "fn": "resolveSettings",
+      "input": { "settings": {} },
+      "output": { "ok": { "enabled": true } },
+      "reason": "defaults fill absent keys before the factory"
+    },
+    {
+      "id": "settings-user-value",
+      "fn": "resolveSettings",
+      "input": { "settings": { "enabled": false } },
+      "output": { "ok": { "enabled": false } },
+      "reason": "a user value wins over the default"
+    },
+    {
+      "id": "settings-wrong-type",
+      "fn": "resolveSettings",
+      "input": { "settings": { "enabled": "yes" } },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.enabled" } },
+      "reason": "user values are checked before activation"
+    },
+    {
+      "id": "settings-unknown",
+      "fn": "resolveSettings",
+      "input": { "settings": { "secret": true } },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.secret" } },
+      "reason": "unknown settings are refused unless additionalProperties is true"
+    },
+    {
+      "id": "settings-additional-json",
+      "fn": "resolveSettings",
+      "input": {
+        "patch": { "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": true } },
+        "settings": { "anything": { "nested": [1, "two"] } }
+      },
+      "output": { "ok": { "anything": { "nested": [1, "two"] } } },
+      "reason": "additionalProperties true passes JSON data through"
+    },
+    {
+      "id": "settings-required-missing",
+      "fn": "resolveSettings",
+      "input": {
+        "patch": {
+          "settingsSchema": {
+            "type": "object",
+            "properties": { "count": { "type": "integer" } },
+            "required": ["count"]
+          }
+        },
+        "settings": {}
+      },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.count" } },
+      "reason": "a required setting without a default must be supplied"
+    },
+    {
+      "id": "settings-integer",
+      "fn": "resolveSettings",
+      "input": {
+        "patch": {
+          "settingsSchema": {
+            "type": "object",
+            "properties": { "count": { "type": "integer", "minimum": 0, "maximum": 3 } }
+          }
+        },
+        "settings": { "count": 1.5 }
+      },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.count" } },
+      "reason": "integer means integer"
+    },
+    {
+      "id": "settings-bounds",
+      "fn": "resolveSettings",
+      "input": {
+        "patch": {
+          "settingsSchema": {
+            "type": "object",
+            "properties": { "count": { "type": "integer", "minimum": 0, "maximum": 3 } }
+          }
+        },
+        "settings": { "count": 4 }
+      },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.count" } },
+      "reason": "maximum is enforced"
+    },
+    {
+      "id": "settings-max-length-utf16",
+      "fn": "resolveSettings",
+      "input": {
+        "patch": {
+          "settingsSchema": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 1 } } }
+        },
+        "settings": { "name": "🙂" }
+      },
+      "output": { "error": { "code": "invalid-setting", "path": "settings.name" } },
+      "reason": "maxLength counts UTF-16 units: one emoji is two"
+    },
+
+    {
+      "id": "negotiate-optional-missing",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": {
+          "capabilities": {
+            "required": { "readDraft": true },
+            "optional": { "ghost": "any", "api.typed-read-default": true }
+          }
+        }
+      },
+      "output": {
+        "ok": {
+          "apiVersion": "2.0.0",
+          "apiDraft": "2.0-pre.0",
+          "optional": { "ghost": false, "api.typed-read-default": true },
+          "missingOptional": ["ghost"]
+        }
+      },
+      "reason": "a missing optional capability is reported, never invented"
+    },
+    {
+      "id": "negotiate-array-subset",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": { "capabilities": { "required": { "submit.gestures": ["queue", "send"] }, "optional": {} } }
+      },
+      "output": { "ok": { "apiVersion": "2.0.0", "apiDraft": "2.0-pre.0", "optional": {}, "missingOptional": [] } },
+      "reason": "array requirements mean all listed elements, in any order"
+    },
+    {
+      "id": "negotiate-guard-position",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": { "capabilities": { "required": { "submit.guardPosition": "final-boundary" }, "optional": {} } }
+      },
+      "output": { "error": { "code": "capability-unavailable", "path": "capabilities.required.submit.guardPosition" } },
+      "reason": "the K7/E3 recipe: a guard that needs final coverage is refused on a managed host"
+    },
+    {
+      "id": "negotiate-unknown-path",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": { "capabilities": { "required": { "made.up": true }, "optional": {} } }
+      },
+      "output": { "error": { "code": "capability-unknown", "path": "capabilities.required.made.up" } },
+      "reason": "a typo is told apart from a missing host feature"
+    },
+    {
+      "id": "negotiate-unknown-optional",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": { "capabilities": { "required": {}, "optional": { "made.up": true } } }
+      },
+      "output": {
+        "ok": {
+          "apiVersion": "2.0.0",
+          "apiDraft": "2.0-pre.0",
+          "optional": { "made.up": false },
+          "missingOptional": ["made.up"]
+        }
+      },
+      "reason": "an optional path from a newer API degrades instead of refusing"
+    },
+    {
+      "id": "negotiate-legacy-range",
+      "fn": "negotiate",
+      "input": { "caps": "managed-host", "patch": { "api": "^1.2.0" } },
+      "output": { "error": { "code": "api-mismatch", "path": "api" } },
+      "reason": "^1.x manifests are refused with a message, before any plugin code runs"
+    },
+    {
+      "id": "negotiate-absent-coexistence",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": { "capabilities": { "required": { "coexistence.editorComposition": "chainable" }, "optional": {} } }
+      },
+      "output": {
+        "error": { "code": "capability-unavailable", "path": "capabilities.required.coexistence.editorComposition" }
+      },
+      "reason": "unmeasured coexistence is unknown, never safe (K7/E5)"
+    }
+  ]
+}

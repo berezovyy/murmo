@@ -1,0 +1,12 @@
+{
+  "name": "semicolon-menu",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the ; trigger you type." },
+    { "name": "draft:write", "reason": "Replace the trigger with the snippet you pick." }
+  ],
+  "capabilities": { "required": { "menu": true, "edit.atomic": true }, "optional": {} },
+  "settingsSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+}

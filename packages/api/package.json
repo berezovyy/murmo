@@ -4,9 +4,34 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./adapter": "./src/adapter.ts"
   },
   "murmo": {
-    "runtime": "portable"
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "api",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoApi"
+      },
+      {
+        "name": "adapter",
+        "entry": "src/adapter.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoApiAdapter"
+      }
+    ]
   }
 }

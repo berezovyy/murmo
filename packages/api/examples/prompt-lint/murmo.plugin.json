@@ -1,0 +1,25 @@
+{
+  "name": "prompt-lint",
+  "version": "0.1.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    { "name": "draft:read:full", "reason": "Lint the whole prompt, pasted text included." },
+    { "name": "draft:write", "reason": "Apply a quick fix you pick from the menu." },
+    { "name": "submit", "reason": "Warn once before a prompt with issues is sent." },
+    { "name": "submit:observe", "reason": "Reset the warning after a send." }
+  ],
+  "capabilities": { "required": {}, "optional": { "actions": ["murmo.menu"], "highlight": "any" } },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "vaguePhrases": {
+        "type": "string",
+        "maxLength": 1000,
+        "default": "fix it,make it better,etc.",
+        "description": "Comma-separated phrases to flag."
+      }
+    },
+    "additionalProperties": false
+  }
+}

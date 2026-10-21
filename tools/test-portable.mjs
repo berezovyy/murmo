@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
+import { manifestParity } from './api-parity.mjs';
 import { targets } from './build.mjs';
 import { root } from './workspace.mjs';
 
@@ -77,3 +78,7 @@ async function quickjsParity() {
 
 await quickjsParity();
 console.log('quickjs parity: Node, QuickJS-wasm and rquickjs agree');
+
+const manifest = await manifestParity();
+console.log(`manifest parity: ${manifest.cases} cases agree on ${manifest.runtimes.join(', ')}`);
+for (const skip of manifest.skipped) console.log(`manifest parity: SKIP ${skip}`);
