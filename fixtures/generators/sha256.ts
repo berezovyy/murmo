@@ -15,27 +15,15 @@ const K = new Uint32Array([
   0xc67178f2,
 ]);
 
-// Fields are declared and set in the constructor, not class fields: lowered
-// to the quickjs target (es2020), class fields need an esbuild runtime
-// helper, which the portability gate rejects as an external import.
 export class Sha256 {
-  declare private readonly h: Uint32Array;
-  declare private readonly block: Uint8Array;
-  declare private readonly w: Uint32Array;
-  declare private filled: number;
-  declare private bytes: number;
-  declare private done: boolean;
-
-  constructor() {
-    this.h = new Uint32Array([
-      0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-    ]);
-    this.block = new Uint8Array(64);
-    this.w = new Uint32Array(64);
-    this.filled = 0;
-    this.bytes = 0;
-    this.done = false;
-  }
+  private readonly h = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  private readonly block = new Uint8Array(64);
+  private readonly w = new Uint32Array(64);
+  private filled = 0;
+  private bytes = 0;
+  private done = false;
 
   update(text: string): this {
     if (this.done) throw new Error('sha256: update after digest');

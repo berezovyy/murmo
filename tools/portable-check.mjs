@@ -38,6 +38,9 @@ export function staticProblems({ code, metafile, packages, portable }) {
   for (const [input, info] of Object.entries(metafile.inputs)) {
     const owner = ownerOf(input, packages);
     for (const imp of info.imports ?? []) {
+      // esbuild's own helpers (class fields, spread, ...) are inlined into the
+      // bundle but listed as an external `<runtime>` import.
+      if (imp.path === '<runtime>') continue;
       const spec = imp.original ?? imp.path;
       if (imp.external) problems.push(`${input}: external import \`${spec}\` cannot load in a single-file bundle`);
       if (!owner || !isBare(spec)) continue;

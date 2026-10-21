@@ -66,3 +66,10 @@ test('a declared but non-allowlisted package is rejected in portable code', () =
   });
   assert.match(problems.join('\n'), /portable allowlist/);
 });
+
+test('esbuild runtime helpers are not an external import: lowered class fields are inlined (phases 02, 03)', () => {
+  assert.deepEqual(
+    statics('var M=1;', metafile([{ path: '<runtime>', kind: 'import-statement', external: true }])),
+    [],
+  );
+});
