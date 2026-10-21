@@ -1,0 +1,10 @@
+[package]
+name = "murmo-js-runtime"
+version = "0.0.0"
+description = "Embedded QuickJS setup shared by murmo-plugin-host and the murmo codex wrapper"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+rquickjs.workspace = true

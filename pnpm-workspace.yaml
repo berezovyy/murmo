@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+  - packages/adapters/*
+  - packages/plugins/*
+  - fixtures
+
+engineStrict: true
+strictPeerDependencies: true
+# No dependency runs an install script (lesson 75). esbuild works without its
+# postinstall: the JS API loads the binary from its platform package.
+ignoredBuiltDependencies:
+  - esbuild

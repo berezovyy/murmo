@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Fixtures must keep their exact bytes (CRLF and BOM cases live here).
+fixtures/** -text
+*.bin binary

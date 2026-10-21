@@ -1,0 +1,21 @@
+# Research evidence: kept on disk, cited by docs/, never committed (third-party sources, binaries).
+/experiments/
+
+# Design docs, the build plan and research notes: kept on disk, never committed.
+/docs/
+
+# Dependencies and build output
+node_modules/
+dist/
+target/
+*.tsbuildinfo
+
+# Measurement outputs (tools/runs.mjs keeps the newest 3 per measurement)
+/.runs/
+
+# Local state
+.DS_Store
+*.log
+
+# pnpm puts its store in the checkout when HOME is on another filesystem (containers)
+/.pnpm-store/

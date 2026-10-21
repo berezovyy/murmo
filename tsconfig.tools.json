@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noImplicitAny": false
+  },
+  "include": ["tools/**/*.mjs", "tools/**/*.ts"]
+}

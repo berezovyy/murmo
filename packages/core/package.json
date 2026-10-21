@@ -1,0 +1,25 @@
+{
+  "name": "@murmo/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "core",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoCore"
+      }
+    ]
+  }
+}

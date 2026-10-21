@@ -1,0 +1,27 @@
+{
+  "name": "murmo-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "build:verify": "node tools/build.mjs --verify-deterministic",
+    "check": "node tools/typecheck.mjs",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "tools/offline/run.sh node tools/test-all.mjs",
+    "test:portable": "tools/offline/run.sh node tools/test-portable.mjs",
+    "check:licenses": "node tools/licenses.mjs",
+    "rust": "node tools/cargo.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "26.6.5",
+    "esbuild": "0.28.2",
+    "quickjs-emscripten": "0.32.0",
+    "typescript": "7.0.2"
+  }
+}
