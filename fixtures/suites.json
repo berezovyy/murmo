@@ -107,6 +107,39 @@
       "variants": 5
     },
     {
+      "file": "menu/enter.json",
+      "owner": "16, 20",
+      "cases": 8,
+      "variants": 8
+    },
+    {
+      "file": "menu/keys.json",
+      "owner": "16, 20",
+      "cases": 4,
+      "variants": 4
+    },
+    {
+      "file": "menu/open.json",
+      "owner": "16",
+      "cases": 11,
+      "variants": 11
+    },
+    {
+      "file": "menu/r9.json",
+      "owner": "16",
+      "cases": 1
+    },
+    {
+      "file": "menu/ranking.json",
+      "owner": "16",
+      "cases": 11
+    },
+    {
+      "file": "menu/width.json",
+      "owner": "16",
+      "cases": 4
+    },
+    {
       "file": "lang-en/case-policy-r8.json",
       "owner": "12, 13",
       "cases": 27

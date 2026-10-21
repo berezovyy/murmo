@@ -1,0 +1,125 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "fn": "menu.rank",
+  "provenance": {
+    "source": "docs/plan/16-semicolon-menu.md ranking tiers; lesson 11 ordered fixtures",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "cases": [
+    {
+      "id": "exact-beats-prefix",
+      "note": "Tier 0 (name equals query) ranks above a longer prefix hit.",
+      "input": {
+        "shortcuts": [{ "name": "rvw", "firstLine": "Review" }, { "name": "rvwx", "firstLine": "Longer" }],
+        "query": "rvw"
+      },
+      "output": ["rvw", "rvwx"]
+    },
+    {
+      "id": "prefix-beats-contains",
+      "note": "Tier 1 (starts with) ranks above a contains hit (tier 3).",
+      "input": {
+        "shortcuts": [{ "name": "xrv", "firstLine": "Contains" }, { "name": "rvw", "firstLine": "Prefix" }],
+        "query": "rv"
+      },
+      "output": ["rvw", "xrv"]
+    },
+    {
+      "id": "compact-prefix",
+      "note": "Tier 2: compact name [a-z0-9] starts with compact query.",
+      "input": {
+        "shortcuts": [{ "name": "r-v-w", "firstLine": "Compact" }],
+        "query": "rvw"
+      },
+      "output": ["r-v-w"]
+    },
+    {
+      "id": "contains",
+      "note": "Tier 3: name contains query when it is not a prefix.",
+      "input": {
+        "shortcuts": [{ "name": "xrvw", "firstLine": "Contains" }],
+        "query": "rvw"
+      },
+      "output": ["xrvw"]
+    },
+    {
+      "id": "first-line-word",
+      "note": "Tier 4: a word of the first line starts with the query.",
+      "input": {
+        "shortcuts": [{ "name": "aa", "firstLine": "Review this change" }],
+        "query": "Review"
+      },
+      "output": ["aa"]
+    },
+    {
+      "id": "project-before-personal",
+      "note": "Same tier: a project row ranks above a personal one, even if its name is later.",
+      "input": {
+        "shortcuts": [
+          { "name": "zz", "firstLine": "Z", "source": "project" },
+          { "name": "aa", "firstLine": "A", "source": "personal" }
+        ],
+        "query": ""
+      },
+      "output": ["zz", "aa"]
+    },
+    {
+      "id": "shorter-name",
+      "note": "Same tier and source: shorter name wins.",
+      "input": {
+        "shortcuts": [{ "name": "aaa", "firstLine": "Long" }, { "name": "aa", "firstLine": "Short" }],
+        "query": "a"
+      },
+      "output": ["aa", "aaa"]
+    },
+    {
+      "id": "name-order",
+      "note": "Same tier, source and length: name order.",
+      "input": {
+        "shortcuts": [{ "name": "ab", "firstLine": "B" }, { "name": "aa", "firstLine": "A" }],
+        "query": "a"
+      },
+      "output": ["aa", "ab"]
+    },
+    {
+      "id": "eight-row-cap",
+      "note": "At most 8 rows, even when more names match (phase 16 Proposal).",
+      "input": {
+        "shortcuts": [
+          { "name": "a0", "firstLine": "0" },
+          { "name": "a1", "firstLine": "1" },
+          { "name": "a2", "firstLine": "2" },
+          { "name": "a3", "firstLine": "3" },
+          { "name": "a4", "firstLine": "4" },
+          { "name": "a5", "firstLine": "5" },
+          { "name": "a6", "firstLine": "6" },
+          { "name": "a7", "firstLine": "7" },
+          { "name": "a8", "firstLine": "8" },
+          { "name": "a9", "firstLine": "9" }
+        ],
+        "query": "a"
+      },
+      "output": ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
+    },
+    {
+      "id": "zero-matches",
+      "note": "Zero matches close the menu: the filter returns no rows.",
+      "input": {
+        "shortcuts": [{ "name": "rvw", "firstLine": "Review" }],
+        "query": "zzz"
+      },
+      "output": []
+    },
+    {
+      "id": "prefixed-name-matches-query",
+      "note": "A stored ;rvw still matches query rvw (the typed text after ;).",
+      "input": {
+        "shortcuts": [{ "name": ";rvw", "firstLine": "Review" }],
+        "query": "rvw"
+      },
+      "output": [";rvw"]
+    }
+  ]
+}

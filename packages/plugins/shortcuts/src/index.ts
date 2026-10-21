@@ -1,6 +1,6 @@
 // @murmo/plugin-shortcuts: compile trusted shortcuts into inline and deferred
-// tables, collision warnings, and the read-only list the `;` menu (phase 16)
-// will query. Expansion itself is the core interpreter (phase 07).
+// tables, collision warnings, the read-only list, and the `;` menu (phase 16).
+// Expansion itself is the core interpreter (phase 07).
 
 export {
   COMMON_IDENTIFIERS,
@@ -28,5 +28,28 @@ export {
   type ShortcutSource,
 } from './compile.ts';
 export { listShortcuts, type ShortcutListItem } from './list.ts';
+export { r9MenuShortcuts, SAMPLE_SHORTCUTS, syntheticShortcut } from './menu/catalog.ts';
+export {
+  compactName,
+  displayName,
+  filterNames,
+  MENU_ROWS,
+  type NameTable,
+  type PackedEntry,
+  packNames,
+  type RankedRow,
+} from './menu/pack.ts';
+export {
+  createMenuState,
+  HISTORY_ID,
+  MENU_ID,
+  MENU_VERSION,
+  type MenuOptions,
+  type MenuState,
+  menuFactory,
+  menuPlugin,
+} from './menu/plugin.ts';
+export { defaultCellMeasure, formatRow } from './menu/rows.ts';
+export { commandPrefix, findTrigger, hostBlocksMenu, inCode, type Trigger } from './menu/trigger.ts';
 export { type InlineCapOptions, shortcutsFactory, shortcutsInlineRules, shortcutsPlugin } from './rules.ts';
 export { INIT_TEMPLATE } from './template.ts';

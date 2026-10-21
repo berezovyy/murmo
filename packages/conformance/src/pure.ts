@@ -12,6 +12,7 @@ import type { PureCase } from '@murmo/fixtures';
 import { sha256, summarize } from '@murmo/fixtures/generators';
 import { lookupWord } from '@murmo/plugin-autocorrect';
 import { configFunctions } from './fns/config.ts';
+import { menuFunctions } from './fns/menu.ts';
 import { provenanceFunctions } from './fns/provenance.ts';
 import { shortcutsFunctions } from './fns/shortcuts.ts';
 import { textFunctions } from './fns/text.ts';
@@ -46,6 +47,7 @@ export const pureFunctions: Readonly<Record<string, PureEntry>> = {
   ...provenanceFunctions,
   ...configFunctions,
   ...shortcutsFunctions,
+  ...menuFunctions,
 };
 
 export interface PureSubject extends Subject {

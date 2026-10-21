@@ -1,0 +1,85 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/16-semicolon-menu.md Enter never sends; lessons 32, 74; 4 hosts \u00d7 2 plugin orders",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "requires": ["core.keys", "plugin.menu=release"]
+  },
+  "cases": [
+    {
+      "id": "menu-enter-pi-menu-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (pi, menu then shortcuts).",
+      "plugins": ["menu", "shortcuts"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-pi-shortcuts-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (pi, shortcuts then menu).",
+      "plugins": ["shortcuts", "menu"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-opencode-menu-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (OpenCode profile, menu then shortcuts).",
+      "host": { "dialogSafe": false },
+      "plugins": ["menu", "shortcuts"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-opencode-shortcuts-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (OpenCode profile, shortcuts then menu).",
+      "host": { "dialogSafe": false },
+      "plugins": ["shortcuts", "menu"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-codex-menu-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (Codex profile, menu then shortcuts).",
+      "host": { "tabQueues": true },
+      "plugins": ["menu", "shortcuts"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-codex-shortcuts-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (Codex profile, shortcuts then menu).",
+      "host": { "tabQueues": true },
+      "plugins": ["shortcuts", "menu"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-claude-menu-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (Claude profile, menu then shortcuts).",
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "plugins": ["menu", "shortcuts"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "menu-enter-claude-shortcuts-first",
+      "tags": ["menu-enter", "harness"],
+      "note": "Enter with the ; menu open sends nothing (Claude profile, shortcuts then menu).",
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "plugins": ["shortcuts", "menu"],
+      "steps": [{ "type": ";rvw" }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    }
+  ]
+}

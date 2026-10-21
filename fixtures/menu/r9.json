@@ -1,0 +1,27 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "fn": "menu.r9Count",
+  "provenance": {
+    "source": "experiments/claude-code/r9/build.py 1,006-shortcut packed table",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "cases": [
+    {
+      "id": "r9-1006",
+      "note": "Six fixture shortcuts plus ;s0000-;s0999 is the r9 menu set (E1).",
+      "input": {
+        "fixture": {
+          "tst": "Run the test suite, fix failures, and do not edit the tests.",
+          "rvw": "Review this change for bugs, edge cases and missing tests.",
+          "shrug": "shrug",
+          "emo": "emo",
+          ";dc": "dc",
+          ";big": "big"
+        }
+      },
+      "output": 1006
+    }
+  ]
+}

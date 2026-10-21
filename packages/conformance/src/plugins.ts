@@ -4,10 +4,10 @@
 // have not shipped. A stand-in is the API sample of the same job (phase 03),
 // advertised as `plugin.<name>: 'sample'`, so cases that need the real
 // plugin's behaviour require `plugin.<name>=release` and skip with that reason.
-// The guard cases use the `todo-guard` API sample: Murmo ships no guard of its own.
+// Phase 16 ships the `;` menu as `menu` / `snippets` `release`. The guard
+// cases use the `todo-guard` API sample: Murmo ships no guard of its own.
 
 import type { PluginFactory } from '@murmo/api';
-import semicolonMenuSample from '@murmo/api/examples/semicolon-menu';
 import statusCounterSample from '@murmo/api/examples/status-counter';
 import todoGuardSample from '@murmo/api/examples/todo-guard';
 import conflicts from '@murmo/fixtures/plugins/conflicts';
@@ -22,7 +22,7 @@ import slow50 from '@murmo/fixtures/plugins/slow50';
 import stale from '@murmo/fixtures/plugins/stale';
 import thrower from '@murmo/fixtures/plugins/thrower';
 import { autocorrectFactory } from '@murmo/plugin-autocorrect';
-import { shortcutsFactory } from '@murmo/plugin-shortcuts';
+import { menuFactory, shortcutsFactory } from '@murmo/plugin-shortcuts';
 
 export type PluginBuild = 'fixture' | 'sample' | 'release';
 
@@ -49,7 +49,8 @@ export const plugins: Readonly<Record<string, RegisteredPlugin>> = {
   edits: fixture(edits),
   autocorrect: release(autocorrectFactory),
   shortcuts: release(shortcutsFactory),
-  snippets: sample(semicolonMenuSample),
+  snippets: release(menuFactory),
+  menu: release(menuFactory),
   counter: sample(statusCounterSample),
   'todo-guard': sample(todoGuardSample),
 };

@@ -1,0 +1,82 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/16-semicolon-menu.md never-open cases; r9 x;, backticks, /, @, ! on all four hosts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["menu"],
+    "trust": "builtin",
+    "requires": ["core.keys", "plugin.menu=release"]
+  },
+  "cases": [
+    {
+      "id": "opens-at-word-start",
+      "note": "Typing ; at the start of the draft opens the menu (r9 open).",
+      "steps": [{ "type": ";" }, { "check": { "ui": { "menuRows": { "min": 1 } } } }],
+      "expect": { "ui": { "menuRows": { "min": 1 } }, "requests": [] }
+    },
+    {
+      "id": "never-inside-word",
+      "note": "x; must not open: it would hijack typing (r9 midword).",
+      "steps": [{ "type": "x;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-in-backticks",
+      "note": "A ; inside an inline code span must not open.",
+      "steps": [{ "type": "`x;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-in-fence",
+      "note": "A ; inside a fenced code block must not open.",
+      "steps": [{ "type": "```\n;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-after-slash",
+      "note": "Host / commands keep Tab; Murmo must not open on /;.",
+      "steps": [{ "type": "/;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-after-at",
+      "note": "Host @ mentions keep Tab; Murmo must not open on @;.",
+      "steps": [{ "type": "@;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-after-bang",
+      "note": "Host ! shell prefix keeps Tab; Murmo must not open on !;.",
+      "steps": [{ "type": "!;" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-in-shell",
+      "note": "Shell mode is not prose; ; must not open.",
+      "steps": [{ "state": { "mode": "shell" } }, { "type": ";" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-in-vim-normal",
+      "note": "Vim Normal is not insert; ; must not open.",
+      "steps": [{ "state": { "editorMode": "normal" } }, { "type": ";" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-with-popup",
+      "note": "A native popup owns the key; ; must not open.",
+      "steps": [{ "state": { "popup": { "owner": "host" } } }, { "type": ";" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    },
+    {
+      "id": "never-pasted",
+      "note": "A pasted ; has no typed span and must not open.",
+      "steps": [{ "paste": ";" }],
+      "expect": { "ui": { "menu": null }, "requests": [] }
+    }
+  ]
+}

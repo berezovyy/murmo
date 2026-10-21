@@ -1,0 +1,52 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "fn": "menu.formatRow",
+  "provenance": {
+    "source": "docs/plan/16-semicolon-menu.md width cases; lesson 3 Pi TUI crash",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "cases": [
+    {
+      "id": "ascii-20",
+      "note": "A long first line clipped to 20 cells is never wider than 20.",
+      "input": {
+        "name": "rvw",
+        "firstLine": "Review this change for bugs, edge cases and missing tests.",
+        "width": 20
+      },
+      "output": { "over": false }
+    },
+    {
+      "id": "cjk-30",
+      "note": "CJK counts two cells; clipping must not split a wide character.",
+      "input": {
+        "name": "jp",
+        "firstLine": "\u65e5\u672c\u8a9e\u306e\u30ec\u30d3\u30e5\u30fc",
+        "width": 30
+      },
+      "output": { "over": false }
+    },
+    {
+      "id": "emoji-40",
+      "note": "Emoji and ZWJ sequences must still fit 40 cells.",
+      "input": {
+        "name": "emo",
+        "firstLine": "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e",
+        "width": 40
+      },
+      "output": { "over": false }
+    },
+    {
+      "id": "mixed-87",
+      "note": "The 87-column terminal used in knowledge \u00a7 9 never gets a too-wide row.",
+      "input": {
+        "name": "emo",
+        "firstLine": "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e",
+        "width": 87
+      },
+      "output": { "over": false }
+    }
+  ]
+}

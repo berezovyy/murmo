@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CapsPatch } from '@murmo/core/testing';
-import { type CompileShortcut, compileShortcuts, shortcutsPlugin } from '../src/index.ts';
+import { type CompileShortcut, compileShortcuts, type MenuOptions, menuPlugin, shortcutsPlugin } from '../src/index.ts';
 
 export const expectedPath = fileURLToPath(
   new URL('../../../../fixtures/shortcuts/replacements/expected.json', import.meta.url),
@@ -36,6 +36,18 @@ export function pluginOf(
   options: { asyncEdits?: boolean; inlineMaxBytes?: number } = {},
 ) {
   return shortcutsPlugin(compileShortcuts({ replacements: seeds(entries), ...options }), options);
+}
+
+export function menuOf(
+  entries: Readonly<Record<string, string>>,
+  options: MenuOptions & { origin?: 'user' | 'project' } = {},
+) {
+  const { origin = 'user', ...menu } = options;
+  const compiled = compileShortcuts({
+    replacements: seeds(entries, origin),
+    ...(menu.overrides ? { overrides: menu.overrides } : {}),
+  });
+  return menuPlugin(compiled, menu);
 }
 
 export type HostName = 'pi' | 'opencode' | 'codex' | 'claude';

@@ -1,0 +1,24 @@
+{
+  "name": "menu",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/menu/plugin.ts",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the typed ; trigger and query." },
+    { "name": "draft:write", "reason": "Replace the trigger with the shortcut you pick." }
+  ],
+  "capabilities": {
+    "required": { "menu": true },
+    "optional": { "edit.atomic": true, "inline.nativeCompletion": true }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "replacements": { "type": "object", "additionalProperties": { "type": "string" } },
+      "overrides": { "type": "array", "items": { "type": "string" } },
+      "width": { "type": "integer", "minimum": 1 },
+      "history": { "type": "boolean" }
+    },
+    "additionalProperties": false
+  }
+}

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./generators": "./generators/index.ts",
+    "./menu": "./menu/generate.ts",
     "./plugins/*": "./plugins/*.js"
   },
   "murmo": {

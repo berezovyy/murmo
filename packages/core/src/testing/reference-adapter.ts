@@ -226,6 +226,8 @@ export class ReferenceAdapter implements Adapter {
   readonly #actions = new Set<(action: ActionId) => void>();
   readonly #menuSelects = new Set<(selection: MenuSelection) => void>();
   readonly #inline = new Set<(snapshot: InlineSnapshot) => InlineAnswer>();
+  /** Draft before a native-completion Tab, restored by the next Backspace (Claude E5). */
+  #completionRevert: Draft | null = null;
   readonly #inlineCommits = new Set<(commit: InlineCommit) => void>();
   readonly #inlineRejects = new Set<(rejection: InlineRejection) => void>();
   #inlineSeq = 0;
@@ -725,6 +727,31 @@ export class ReferenceAdapter implements Adapter {
     const state = this.#state;
     if ((state.popup !== null || state.dialog) && hostUiKeys.has(id)) return;
     const d = this.#value;
+    if (id === 'Tab' && this.caps.inline.nativeCompletion) {
+      const row = this.menu?.[this.menuSelected];
+      const edit = row?.inlineEdit;
+      if (edit && edit.baseVersion === d.version) {
+        this.#completionRevert = copy(d);
+        this.#splice([{ origin: 'native-menu', from: edit.from, to: edit.to, insert: edit.insert }]);
+        return;
+      }
+    }
+    if (id === 'Backspace' && this.#completionRevert) {
+      const saved = this.#completionRevert;
+      this.#completionRevert = null;
+      const before = this.#value;
+      this.#value = {
+        text: saved.text,
+        cursor: saved.cursor,
+        version: before.version + 1,
+        certainty: saved.certainty,
+        typedSpans: copy(saved.typedSpans),
+        ...(saved.selection ? { selection: copy(saved.selection) } : {}),
+      };
+      this.#notify('undo', before, [{ origin: 'undo', from: 0, to: before.text.length, insert: saved.text }]);
+      return;
+    }
+    this.#completionRevert = null;
     if (id === 'Enter') await this.submit('send');
     else if (id === 'Tab' && this.#tabQueues) await this.submit('queue');
     else if (id === 'Left' && d.cursor > 0) this.move(graphemeStep(d.text, d.cursor, -1));

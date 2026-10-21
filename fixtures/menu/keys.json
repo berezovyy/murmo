@@ -1,0 +1,51 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/16-semicolon-menu.md key cases; r9 Tab insert, Esc close, Space expansion",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["menu"],
+    "trust": "builtin",
+    "requires": ["core.keys", "plugin.menu=release"]
+  },
+  "cases": [
+    {
+      "id": "tab-inserts-rvw",
+      "tags": ["harness"],
+      "note": "Tab inserts the selected expansion byte-exact and does not send (lesson 32).",
+      "steps": [{ "type": ";rvw" }, { "key": "Tab" }],
+      "expect": {
+        "draft": {
+          "text": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly."
+        },
+        "requests": [],
+        "ui": { "menu": null }
+      }
+    },
+    {
+      "id": "escape-closes",
+      "note": "Escape closes the menu without inserting or sending.",
+      "steps": [{ "type": ";rvw" }, { "key": "Escape" }],
+      "expect": { "draft": { "text": ";rvw" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "backspace-edits-query",
+      "note": "Backspace edits the query; deleting past the last letter still leaves ; open.",
+      "steps": [
+        { "type": ";rv" },
+        { "key": "Backspace" },
+        { "check": { "draft": { "text": ";r" }, "ui": { "menuRows": { "min": 1 } } } }
+      ],
+      "expect": { "draft": { "text": ";r" }, "requests": [] }
+    },
+    {
+      "id": "backspace-deletes-trigger",
+      "note": "Deleting the ; closes the menu.",
+      "steps": [{ "type": ";" }, { "key": "Backspace" }],
+      "expect": { "draft": { "text": "" }, "ui": { "menu": null }, "requests": [] }
+    }
+  ]
+}
