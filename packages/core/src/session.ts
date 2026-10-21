@@ -7,13 +7,26 @@
 // (present.ts), and never throws into the host (guard.ts).
 //
 // Where later phases extend it: the key path is the router in keys.ts
-// (native → undo → menu → claims); the inline evaluator is 07; the session
-// subscribes to `onBeforeSubmit` (08); commit gates add the submit window (08)
-// and permissions, edit rate and attribution (09); the runner becomes the
+// (native → undo → menu → claims); the inline evaluator is 07; commit gates
+// add permissions, edit rate and attribution (09); the runner becomes the
 // real executors (09).
+//
+// Phase 08: `onBeforeSubmit` / `onSubmitCommitted` subscriptions, the submit
+// window gate, and `finalGuard`.
 
-import type { ActionId, Capabilities, Change, Draft, Edit, KeyId, PluginHook } from '@murmo/api';
-import type { Adapter, HostCapabilities, MenuSelection, Unsubscribe } from '@murmo/api/adapter';
+import type {
+  ActionId,
+  Capabilities,
+  Change,
+  Clock,
+  Draft,
+  Edit,
+  KeyId,
+  PluginHook,
+  SubmitGesture,
+  SubmitTransaction,
+} from '@murmo/api';
+import type { Adapter, HostCapabilities, MenuSelection, SubmitOutcome, Unsubscribe } from '@murmo/api/adapter';
 import { validateClaims } from './claims.ts';
 import { type Accepted, DraftState } from './draft-state.ts';
 import { type CommitGate, Edits, editable } from './edits.ts';
@@ -32,8 +45,9 @@ import { KeyRouter } from './keys.ts';
 import { Menu } from './menu.ts';
 import { resolveOrder } from './order.ts';
 import { Presentation } from './present.ts';
-import { isCurrent, issueTicket, type SessionView } from './stale.ts';
+import { isCurrent, issueTicket, type SessionView, type Ticket } from './stale.ts';
 import { Counters, type SessionStats } from './stats.ts';
+import { type MenuSurface, SubmitController, submitOptions } from './submit/index.ts';
 import { UndoLog } from './undo.ts';
 
 export interface SessionOptions {
@@ -50,9 +64,9 @@ export interface SessionOptions {
   /** Core errors in one session before it turns itself off. */
   readonly failureLimit?: number;
   /**
-   * Extra checks at step 5 of the commit path. Phase 08 adds the submit
-   * window (`submit-in-progress`), phase 09 permissions, edit rate and
-   * attribution.
+   * Extra checks at step 5 of the commit path. The submit window
+   * (`submit-in-progress`) is always installed; phase 09 adds permissions,
+   * edit rate and attribution.
    */
   readonly gates?: readonly CommitGate[];
   /**
@@ -60,6 +74,17 @@ export interface SessionOptions {
    * spec list is the order. Missing, duplicate or unknown IDs refuse loading.
    */
   readonly order?: readonly string[];
+  /** Injected time: submit deadlines and the commit window. */
+  readonly clock?: Clock;
+  /** `final-boundary` refuses a managed-position call (V1-require-final). Default `managed`. */
+  readonly guardPolicy?: 'managed' | 'final-boundary';
+  /** Off until phase 29 measures host submit-hook limits (lesson 76). */
+  readonly scaleSubmitDeadline?: boolean;
+  readonly pressure?: number;
+  /** Forward until clear, default 2_000 ms. */
+  readonly commitWindowMs?: number;
+  /** Test override; the session's merged menu is the default. */
+  readonly menu?: MenuSurface;
 }
 
 export interface Session {
@@ -76,6 +101,10 @@ export interface Session {
   /** Unsubscribes, cancels everything in flight, hides Murmo's UI, unloads plugins. */
   dispose(): Promise<void>;
   stats(): SessionStats;
+  /** The adapter's `onBeforeSubmit` callback; also callable from tests. */
+  beforeSubmit(tx: SubmitTransaction): Promise<SubmitOutcome>;
+  /** Guards-only pass at the host's final boundary (Claude `UserPromptSubmit`). */
+  finalGuard(input: { text: string; gesture: SubmitGesture }): Promise<SubmitOutcome>;
 }
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
@@ -108,6 +137,8 @@ class CoreSession implements Session {
   #edits: Edits | undefined;
   #effects: EffectDeps | undefined;
   #view: SessionView | undefined;
+  /** Phase 08. */
+  #submit: SubmitController | undefined;
   #queue: Promise<void> = Promise.resolve();
   #seq = 0;
   #settled = 0;
@@ -178,18 +209,6 @@ class CoreSession implements Session {
     });
     this.#presentation = presentation;
     const notice = (text: string) => presentation.notice(text);
-    const edits = new Edits({
-      adapter,
-      caps: hostCaps,
-      view,
-      intake,
-      undo: this.#undo,
-      counters,
-      gates: this.#options.gates ?? [],
-      notice,
-      publish: (accepted) => this.#publish(accepted),
-    });
-    this.#edits = edits;
     const menu = new Menu({
       adapter,
       caps: hostCaps,
@@ -200,6 +219,49 @@ class CoreSession implements Session {
       counters,
     });
     this.#menu = menu;
+    const submitOpts = submitOptions(this.#options);
+    // Phase 08: submit window is a live commit-path gate (r14 S1 last-moment).
+    const submit = new SubmitController({
+      host: () => ({
+        name: adapter.host.name,
+        version: adapter.host.version,
+        caps: this.#caps ?? { ...hostCaps, runtime: this.#runner.runtime },
+      }),
+      adapterCaps: () => this.#hostCaps ?? hostCaps,
+      view,
+      runner: this.#runner,
+      clock: submitOpts.clock,
+      plugins: () => this.#plugins,
+      counters,
+      notice,
+      menu: this.#options.menu ?? menu,
+      guardPolicy: submitOpts.guardPolicy,
+      evidence: hostCaps.inputOriginEvidence,
+      deadlineMs: submitOpts.deadlineMs,
+      commitWindowMs: submitOpts.commitWindowMs,
+      fault: (plugin, hook, error) => this.#fault(plugin, hook, error),
+      onLifecycleReset: () => this.#resetOnCommit(),
+      track: (work) => this.#track(work),
+      seq: () => ++this.#seq,
+      setLatest: (id, hook, seq) => this.#latest.set(`${id}\u0000${hook}`, seq),
+      applyEffects: (plugin, value, ticket: Ticket) => {
+        const effects = this.#effects;
+        return effects ? applyEffects(plugin, value, ticket, effects) : Promise.resolve();
+      },
+    });
+    this.#submit = submit;
+    const edits = new Edits({
+      adapter,
+      caps: hostCaps,
+      view,
+      intake,
+      undo: this.#undo,
+      counters,
+      gates: [submit, ...(this.#options.gates ?? [])],
+      notice,
+      publish: (accepted) => this.#publish(accepted),
+    });
+    this.#edits = edits;
     this.#effects = { view, edits, presentation, menu, counters, editable: isEditable, notice };
 
     for (const plugin of this.#plugins) {
@@ -239,15 +301,19 @@ class CoreSession implements Session {
     this.#unsubscribe.push(
       adapter.onDraftChange(guard.wrap((change: Change) => this.#changed(change), undefined)),
       adapter.onKey(guard.wrap((key: KeyId) => this.#key(key), 'pass' as const)),
+      adapter.onBeforeSubmit(async (tx) => this.beforeSubmit(tx)),
     );
-    // Phase 06: logical actions and native semantic menu selection. Phase 08
-    // adds onBeforeSubmit on this same list.
     if (adapter.onAction) {
       this.#unsubscribe.push(adapter.onAction(guard.wrap((action: ActionId) => this.#action(action), undefined)));
     }
     if (adapter.onMenuSelect) {
       this.#unsubscribe.push(
         adapter.onMenuSelect(guard.wrap((selection: MenuSelection) => this.#semanticSelect(selection), undefined)),
+      );
+    }
+    if (adapter.onSubmitCommitted) {
+      this.#unsubscribe.push(
+        adapter.onSubmitCommitted(guard.wrap((event) => this.#submit?.noteAccepted(event), undefined)),
       );
     }
     this.#subscribed = true;
@@ -292,6 +358,7 @@ class CoreSession implements Session {
    * Phase 07 inserts inline evaluation beside this; phase 08 does not touch it.
    */
   #key(key: KeyId): 'consume' | 'pass' {
+    this.#submit?.noteKey();
     return this.#router?.route(key).result ?? 'pass';
   }
 
@@ -369,6 +436,7 @@ class CoreSession implements Session {
       if (own) this.#counters.ownChanges++;
       else intake.bumpEpoch();
       this.#undo.observe(change.draft);
+      this.#submit?.noteChange(change.draft);
       presentation.dropStale(change.draft.version);
       this.#menu?.dropStale(change.draft.version);
       presentation.render();
@@ -457,6 +525,40 @@ class CoreSession implements Session {
     while (this.#tasks.size) await Promise.allSettled([...this.#tasks]);
   }
 
+  // Phase 08: adapter-facing submit. Fail closed on a core throw so a send a
+  // guard would block cannot ride a pipeline crash (guards fail closed; E8).
+  async beforeSubmit(tx: SubmitTransaction): Promise<SubmitOutcome> {
+    await this.ready;
+    const submit = this.#submit;
+    if (!this.#live || !submit) return { action: 'block', reason: 'session is not ready' };
+    try {
+      return await submit.beforeSubmit(tx);
+    } catch (error) {
+      this.#guard.record(error);
+      return { action: 'block', reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async finalGuard(input: { text: string; gesture: SubmitGesture }): Promise<SubmitOutcome> {
+    await this.ready;
+    const submit = this.#submit;
+    if (!this.#live || !submit) return { action: 'block', reason: 'session is not ready' };
+    try {
+      return await submit.finalGuard(input);
+    } catch (error) {
+      this.#guard.record(error);
+      return { action: 'block', reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  /** Per-draft state that a committed send drops (pending `.` and rejected words are 07/13). */
+  #resetOnCommit(): void {
+    this.#undo.clear();
+    this.#intake?.bumpEpoch();
+    this.#options.menu?.dismiss();
+    this.#menu?.dismiss();
+  }
+
   #kill(): void {
     this.#killNotice = KILL_NOTICE;
     try {
@@ -474,6 +576,7 @@ class CoreSession implements Session {
 
   async #dispose(): Promise<void> {
     this.#disposed = true;
+    this.#submit?.dispose();
     this.#intake?.bumpEpoch();
     for (const off of this.#unsubscribe.splice(0)) {
       try {
@@ -537,6 +640,13 @@ class CoreSession implements Session {
       },
       failures: this.#guard.failures,
       faults: c.faults,
+      submits: c.submits,
+      blocked: c.blocked,
+      ...(c.lastBlockReason === undefined ? {} : { lastBlockReason: c.lastBlockReason }),
+      committed: c.committed,
+      unresolved: c.unresolved,
+      observerOverflow: c.observerOverflow,
+      ...(c.lastDeniedReason === undefined ? {} : { lastDeniedReason: c.lastDeniedReason }),
     };
   }
 }

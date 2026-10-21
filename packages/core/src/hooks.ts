@@ -11,6 +11,7 @@ import type {
   Draft,
   EffectType,
   HostState,
+  Permission,
   PluginAction,
   PluginHook,
   RuntimeCapabilities,
@@ -34,6 +35,10 @@ export interface PluginEntry {
   readonly name: string;
   readonly version: string;
   readonly builtin: boolean;
+  /** A guard blocks the send whenever it fails, times out or lacks its permission. */
+  readonly guard: boolean;
+  /** Declared permissions; phase 09 substitutes grants. */
+  readonly permissions: readonly Permission[];
   /** Hooks the plugin implements and its permissions open (`routesFor`; phase 09 uses grants). */
   readonly hooks: ReadonlySet<PluginHook>;
   /** Effect types its permissions open. */
@@ -56,6 +61,8 @@ export function entryOf(plugin: LoadedPlugin): PluginEntry {
     name: descriptor.name,
     version: descriptor.version,
     builtin: plugin.builtin,
+    guard: descriptor.guard,
+    permissions: descriptor.permissions,
     hooks: new Set(descriptor.hooks.filter((hook) => routes.hooks.includes(hook))),
     effects: new Set(routes.effects),
     actions: new Set(descriptor.actions),

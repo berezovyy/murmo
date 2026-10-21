@@ -11,8 +11,10 @@
 // release (a held commit) end the settle after a run of idle turns.
 
 import type { ActionId, Gesture, HostState, KeyId, Origin, Range } from '@murmo/api';
+import type { SubmitOutcome } from '@murmo/api/adapter';
 import type { RunnerHealth } from '../hooks.ts';
 import { createSession, type Session, type SessionOptions } from '../session.ts';
+import type { MenuSurface } from '../submit/menu.ts';
 import { createManualClock, type ManualClock } from './clock.ts';
 import { createDirectRunner, type DirectPluginSpec, type DirectRunner } from './direct-runner.ts';
 import { type CapsPatch, ReferenceAdapter, type ReferenceAdapterOptions } from './reference-adapter.ts';
@@ -30,6 +32,14 @@ export interface HarnessOptions {
   /** Explicit plugin order; missing/duplicate/unknown IDs refuse the session. */
   readonly order?: readonly string[];
   readonly notify?: (message: string) => void;
+  readonly guardPolicy?: SessionOptions['guardPolicy'];
+  readonly scaleSubmitDeadline?: boolean;
+  readonly pressure?: number;
+  readonly commitWindowMs?: number;
+  /** Test override of the submit pipeline's menu surface. */
+  readonly menu?: MenuSurface;
+  /** Hold the native forward so tests can race an edit against the send. */
+  readonly holdSubmit?: boolean;
   /**
    * Commits wait at the host until the next input step has landed, so every
    * commit races one input (the pending-merge and stale-commit cases).
@@ -142,8 +152,12 @@ export class Driver {
     return this.#input(() => this.#adapter.setState(state));
   }
 
-  async submit(gesture: Gesture): Promise<void> {
-    await this.#input(() => this.#adapter.submit(gesture));
+  async submit(gesture: Gesture): Promise<SubmitOutcome> {
+    let outcome: SubmitOutcome = { action: 'send', coverage: 'managed' };
+    await this.#input(async () => {
+      outcome = await this.#adapter.submit(gesture);
+    });
+    return outcome;
   }
 
   action(id: ActionId): Promise<void> {
@@ -201,6 +215,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     ...(options.nativePeer ? { nativePeer: options.nativePeer } : {}),
   });
   if (options.holdCommits) adapter.holdCommits(true);
+  if (options.holdSubmit) adapter.holdSubmit(true);
   const runner = createDirectRunner({
     plugins: options.plugins ?? [],
     clock,
@@ -211,11 +226,17 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     : createSession({
         adapter,
         runner,
+        clock,
         keyBursts: options.keyBursts ?? true,
         ...(options.failureLimit === undefined ? {} : { failureLimit: options.failureLimit }),
         ...(options.gates ? { gates: options.gates } : {}),
         ...(options.notify ? { notify: options.notify } : {}),
         ...(options.order ? { order: options.order } : {}),
+        ...(options.guardPolicy ? { guardPolicy: options.guardPolicy } : {}),
+        ...(options.scaleSubmitDeadline ? { scaleSubmitDeadline: true } : {}),
+        ...(options.pressure === undefined ? {} : { pressure: options.pressure }),
+        ...(options.commitWindowMs === undefined ? {} : { commitWindowMs: options.commitWindowMs }),
+        ...(options.menu ? { menu: options.menu } : {}),
       });
   let harness: Harness | undefined;
   const driver = new Driver(() => harness as Harness, options.holdCommits === true);

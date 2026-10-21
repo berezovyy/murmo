@@ -44,9 +44,9 @@ test('commit-failure, undo, degraded-origin and presentation edit fixtures pass 
     options,
   );
   const skipped = verdicts.filter((v) => v.status === 'skip');
-  assert.ok(
-    skipped.every((v) => v.case === 'edit-during-submit' && v.reason === 'needs core.submit'),
-    `unexpected skips: ${skipped.map((v) => `${v.case} ${v.reason}`).join('; ')}`,
+  assert.deepEqual(
+    skipped.map((v) => `${v.case} ${v.reason}`),
+    [],
   );
   const failed = verdicts.filter((v) => v.status === 'fail');
   assert.deepEqual(
@@ -112,16 +112,41 @@ test('cases that need later phases skip with that reason, never pass', async () 
     createCoreSubject({ now: options.now }),
     options,
   );
-  const skip = (id: string, reason: string) => {
-    const runs = byCase(verdicts, id);
-    assert.ok(runs.length > 0, id);
-    assert.ok(
-      runs.every((v) => v.status === 'skip' && v.reason === reason),
-      `${id}: ${runs.map((v) => `${v.status} ${v.reason}`).join('; ')}`,
-    );
-  };
-  skip('C8', 'needs core.submit');
-  skip('V1-Tab-queue', 'needs core.submit');
   const c12 = byCase(verdicts, 'C12');
   assert.ok(c12.every((v) => v.status === 'skip' && v.declared === true));
+});
+
+test('C8 passes: a required guard blocks the send and keeps the draft (vision principle 8)', async () => {
+  const { verdicts } = await runSuites(
+    [suite('core/conformance/cases.json')],
+    createCoreSubject({ now: options.now }),
+    options,
+  );
+  const runs = byCase(verdicts, 'C8');
+  assert.ok(runs.length > 0, 'C8 was not planned');
+  for (const v of runs) assert.equal(v.status, 'pass', `C8: ${v.reason ?? v.status}`);
+});
+
+test('ported submit cases pass: C14, V1-Tab-queue, V1-steer, V1-newline, V1-managed-peer, V1-final-peer, V1-require-final (E1, E2, E3)', async () => {
+  const { verdicts } = await runSuites(
+    [suite('core/conformance/cases.json')],
+    createCoreSubject({ now: options.now }),
+    options,
+  );
+  const required = [
+    'C14',
+    'V1-Tab-queue',
+    'V1-steer',
+    'V1-newline',
+    'V1-managed-peer',
+    'V1-final-peer',
+    'V1-require-final',
+  ];
+  for (const id of required) {
+    const runs = byCase(verdicts, id);
+    assert.ok(runs.length > 0, `${id} was not planned`);
+    for (const v of runs) {
+      assert.equal(v.status, 'pass', `${id}${v.variant ? `/${v.variant}` : ''}: ${v.reason ?? v.status}`);
+    }
+  }
 });

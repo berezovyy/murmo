@@ -163,7 +163,11 @@ export class Edits {
     }
     // 5. Gates from the submit window and the permission layer.
     for (const gate of gates) {
-      if (gate.check({ plugin, edit, draft: before, state }) !== null) return 'denied';
+      const reason = gate.check({ plugin, edit, draft: before, state });
+      if (reason !== null) {
+        this.#deps.counters.lastDeniedReason = reason;
+        return 'denied';
+      }
     }
     if (!plugin.builtin && !caps.edit.attributed) {
       this.#deps.notice(`Plugin ${plugin.id}: this host cannot attribute plugin edits`);

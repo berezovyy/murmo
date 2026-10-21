@@ -10,7 +10,7 @@ export default (settings = {}) => {
       name: 'r14-guard',
       version: '1',
       guard: true,
-      permissions: ['draft:read', 'submit'],
+      permissions: ['draft:read:full', 'submit'],
       onBeforeSubmit(tx) {
         return tx.draft.text.startsWith('r14submit-deny')
           ? { action: 'block', reason: `R14 guard saw ${tx.draft.text}` }
@@ -34,7 +34,7 @@ export default (settings = {}) => {
   return {
     name: `r14-${letter}`,
     version: '1.0.0',
-    permissions: ['draft:read', 'draft:write', 'submit'],
+    permissions: ['draft:read:full', 'draft:write', 'submit'],
     keys: [{ key: 'F6', when: ['editable', 'ghost-visible-by-me'], action: 'accept-ghost' }],
     onChange(change) {
       const d = change.draft;

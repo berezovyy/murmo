@@ -1,8 +1,10 @@
 // @murmo/core: the session between one host adapter and the plugins (docs/plan/05–09).
 // Phase 05: draft state, ordered deltas, versioned edits, owned undo, the
 // stale-result check, presentation and the fail-open guard. Phase 06: key
-// router, claim validation, explicit plugin order and the merged menu. The
-// reference adapter, a direct hook runner and a driver live in `@murmo/core/testing`.
+// router, claim validation, explicit plugin order and the merged menu.
+// Phase 08: the before-submit pipeline, guard position, and submit-committed
+// delivery. The reference adapter, a direct hook runner and a driver live in
+// `@murmo/core/testing`.
 
 export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
 export { type Accepted, DraftState, degradeOrigins } from './draft-state.ts';
@@ -37,4 +39,21 @@ export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type Vi
 export { createSession, KILL_NOTICE, type Session, type SessionOptions } from './session.ts';
 export { isCurrent, issueTicket, type SessionView, type StaleReason, staleReason, type Ticket } from './stale.ts';
 export { Counters, type DecisionBy, type PluginHealth, type SessionStats, type Surface } from './stats.ts';
+export {
+  COMMIT_WINDOW_MS,
+  COMMITTED_DEDUP,
+  declaredAccess,
+  type MenuSurface,
+  noMenu,
+  OBSERVER_QUEUE,
+  REWRITE_DIAGNOSTIC,
+  runPipeline,
+  SUBMIT_DEADLINE_MS,
+  type SubmitAccess,
+  SubmitController,
+  type SubmitControllerDeps,
+  type SubmitDecisionCounts,
+  submitDeadlineMs,
+  submitOptions,
+} from './submit/index.ts';
 export { restoredExactly, restoreTarget, type UndoGesture, UndoLog, type UndoRecord } from './undo.ts';

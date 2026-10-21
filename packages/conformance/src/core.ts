@@ -10,8 +10,8 @@
 // host's, no typed coverage without host-labeled evidence, no core failure,
 // and a dispose that unsubscribes everything.
 //
-// Features: `core.edits` and `core.keys`; `core.inline` (07),
-// `core.submit` (08), `core.permissions` and `executor.isolated` (09) are
+// Features: `core.edits`, `core.keys` and `core.submit`; `core.inline` (07),
+// `core.permissions` and `executor.isolated` (09) are
 // added by those phases, so cases that need them skip with "needs <feature>".
 
 import type { Draft } from '@murmo/api';
@@ -32,7 +32,7 @@ export interface CoreSubjectOptions {
 export const PEER_TODO = ' TODO';
 
 export function coreFeatures(): Record<string, string | boolean> {
-  return { 'core.edits': true, 'core.keys': true, ...pluginFeatures() };
+  return { 'core.edits': true, 'core.keys': true, 'core.submit': true, ...pluginFeatures() };
 }
 
 /** The host quirks a case asks for, as reference-adapter capability overrides. */
@@ -70,6 +70,7 @@ async function harnessFor(c: EditorCase, builtin: boolean, control: boolean): Pr
     ...(host?.tabQueues ? { tabQueues: true } : {}),
     ...(host?.nativePeer === 'inject-todo' ? { nativePeer: (text: string) => text + PEER_TODO } : {}),
     ...(host?.commitTiming === 'hold' ? { holdCommits: true } : {}),
+    ...(c.core?.guardPolicy ? { guardPolicy: c.core.guardPolicy } : {}),
   });
   const { adapter } = harness;
   if (host?.commitTiming === 'compete' || host?.commitTiming === 'race') adapter.timing = host.commitTiming;

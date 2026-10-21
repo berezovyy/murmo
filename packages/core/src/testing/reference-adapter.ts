@@ -224,7 +224,11 @@ export class ReferenceAdapter implements Adapter {
   raceText = ' ';
   #holdCommits = false;
   #held: (() => void)[] = [];
+  #holdSubmit = false;
+  #heldSubmit: (() => void)[] = [];
   #lastKey: KeyId | null = null;
+  /** The next non-newline submit records no request and emits no committed event. */
+  transportFault = false;
   /**
    * The undo oracle: for each version a committed edit produced, the draft
    * before that edit, kept by the host itself. A restore is checked against it,
@@ -383,6 +387,11 @@ export class ReferenceAdapter implements Adapter {
     return this.#subscribe(this.#menuSelects, callback);
   }
 
+  /** Re-emit an acceptance, for duplicate-id tests. */
+  emitCommitted(event: HostSubmitAccepted): void {
+    for (const callback of [...this.#committed]) callback(event);
+  }
+
   /** Subscribers still registered, so a test can see that dispose unsubscribed everything. */
   subscribers(): number {
     return (
@@ -502,6 +511,26 @@ export class ReferenceAdapter implements Adapter {
   }
 
   /**
+   * Holds the native forward until `releaseSubmit`, so a last-moment edit
+   * or host-side change can land between the pipeline's answer and the send.
+   */
+  holdSubmit(hold: boolean): void {
+    this.#holdSubmit = hold;
+    if (!hold) this.releaseSubmit();
+  }
+
+  /** Forwards waiting on `holdSubmit`; tests spin on this before racing input. */
+  get submitHeld(): number {
+    return this.#heldSubmit.length;
+  }
+
+  releaseSubmit(): void {
+    const held = this.#heldSubmit;
+    this.#heldSubmit = [];
+    for (const release of held) release();
+  }
+
+  /**
    * A submit gesture. `newline` inserts a typed newline. Otherwise Murmo's
    * submit callbacks decide, the host rechecks the version, the native peer
    * runs where the guard position puts it, and the fake model records the
@@ -522,19 +551,27 @@ export class ReferenceAdapter implements Adapter {
       if (outcome.action === 'block') return outcome;
       if (outcome.action === 'replace') text = outcome.text;
     }
-    if (this.#value.version !== initial.version) return { action: 'block', reason: 'stale native submit' };
+    if (this.#holdSubmit) await new Promise<void>((resolve) => this.#heldSubmit.push(resolve));
+    if (this.#value.version !== initial.version) return { action: 'block', reason: 'draft changed during submit' };
+    if (this.transportFault) {
+      this.transportFault = false;
+      return { action: 'block', reason: 'transport failure' };
+    }
     if (position === 'managed' && this.#nativePeer) text = this.#nativePeer(text);
     this.requests.push({ text, gesture });
+    const typedSpans = copy(initial.typedSpans);
     this.fill('', 'unknown');
-    const event: HostSubmitAccepted = {
-      text,
-      gesture,
-      submissionId: String(++this.#submissions),
-      position,
-      acceptedAtMs: this.#clock.wallTimeMs(),
-      typedSpans: copy(initial.typedSpans),
-    };
-    for (const callback of [...this.#committed]) callback(event);
+    if (this.caps.submit.committed === 'accepted-text') {
+      const event: HostSubmitAccepted = {
+        text,
+        gesture,
+        submissionId: String(++this.#submissions),
+        position,
+        acceptedAtMs: this.#clock.wallTimeMs(),
+        typedSpans,
+      };
+      for (const callback of [...this.#committed]) callback(event);
+    }
     return outcome;
   }
 

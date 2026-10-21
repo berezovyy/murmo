@@ -78,7 +78,7 @@ Don't pick a free key for "open my menu": the r14 linter's default F7 was not de
 
 ### Committed sends and storage (`token-meter`)
 
-`onBeforeSubmit` sees an attempt, which may still be blocked. Count work in `onSubmitCommitted`, which needs `submit:observe` and arrives once, after the host accepted the prompt. Its `level` is `observed` or `inferred`; `onSubmitUnresolved` tells you the core couldn't tell. Storage values are JSON, per plugin, bounded (`LIMITS.storageBytes`, 64 KiB); a write can return `quota` or `denied` (for example in private mode), so handle the result.
+`onBeforeSubmit` sees an attempt, which may still be blocked. Count work in `onSubmitCommitted`, which needs `submit:observe` and arrives once, after the host accepted the prompt. Its `level` is `observed` (the adapter saw the accept) or `inferred` (the core forwarded and the host cleared the draft with no key in between). For `queue`, that means queued, which the user may still cancel. `onSubmitUnresolved` tells you the core couldn't tell. The hook is not cancelled by the next key; there is no journal, so a crash can still lose it. Storage values are JSON, per plugin, bounded (`LIMITS.storageBytes`, 64 KiB); a write can return `quota` or `denied` (for example in private mode), so handle the result.
 
 ### Project files (`file-picker`, `branch-context`)
 

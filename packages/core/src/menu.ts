@@ -141,6 +141,16 @@ export class Menu {
     this.render();
   }
 
+  /** Submit pipeline: a plugin menu is showing for this draft version. */
+  visibleAt(version: number): boolean {
+    return this.#visibleVersion === version && this.choices().length > 0;
+  }
+
+  /** Submit pipeline: close the menu without sending. */
+  dismiss(): void {
+    this.close();
+  }
+
   /** Up/Down wrap; Tab selects (or passes for native completion); Enter/Escape close. */
   handleKey(key: string): 'navigate' | 'select' | 'native-completion' | 'close' | 'none' {
     if (!this.open) return 'none';

@@ -81,11 +81,21 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 
 ## Submit
 
-- `onBeforeSubmit` runs for `send`, `queue` and `steer` (`SubmitGesture`) before the host clears the draft; `newline` never reaches it. Decisions: `send`, `block` with a reason, or `replace` (built-ins only).
-- Plugins run in order; a timely block wins. A plugin with `guard: true` blocks the send whenever it fails, times out or lacks its permission; a non-guard that fails is skipped.
-- `position` says where the call runs (`SubmitPosition`). `managed` covers Murmo's own chain only: a native peer that runs later can still change the text. `final-boundary` runs after every native peer, right before transport. Managed is never final protection. A guard that needs final coverage requires `"submit.guardPosition": "final-boundary"` in its manifest and is refused on hosts that can't provide it.
-- `onSubmitCommitted` (`SubmitCommitted`) arrives at most once per submission, after the host accepted it, never for a block, failure or newline. `level` is `observed` when the adapter saw the host accept it, `inferred` when the core forwarded the send and the host cleared the draft with no key in between. It is not a journal: a crash can lose it. `acceptedAtMs` is host acceptance time, not provider time.
-- `onSubmitUnresolved` (`SubmitUnresolved`) reports a submission the core let through but could not resolve. "Can't tell" is not "not sent".
+- `onBeforeSubmit` runs for `send`, `queue` and `steer` (`SubmitGesture`) before the host clears the draft; `newline` never reaches it. Decisions: `send`, `block` with a reason, or `replace` (built-ins only). Enter never corrects or expands: a pending `.` decision is not flushed by submit.
+- Every non-newline gesture runs the same pipeline. `send` is a prompt the host will transmit; `queue` is accepted into the host queue (the user may still pull it back); `steer` is a follow-up on a running turn. Slash commands and shell lines are not prompts unless an adapter says so.
+- Plugins run in user order; a timely block wins. A plugin with `guard: true` blocks the send whenever it fails, times out, is disabled, is not yet activated, or lacks its permission; a non-guard that fails is skipped. All plugins of one attempt share `DEADLINES.submitTotalMs` (50 ms, unscaled until host limits are measured).
+- `position` says where the call runs (`SubmitPosition`) and is the `coverage` on the pipeline's `SubmitOutcome`. What a guard can promise:
+
+  | Position | Gesture | What the guard saw | What may still change |
+  |---|---|---|---|
+  | `managed` | `send`, `queue`, `steer` | Murmo's plugin chain only | A native peer that runs later |
+  | `final-boundary` | `send`, `queue`, `steer` | Text after every native peer, right before transport | Nothing Murmo can see |
+  | (n/a) | `newline` | The pipeline is not called | — |
+
+  Managed is never final protection. A guard that needs final coverage requires `"submit.guardPosition": "final-boundary"` in its manifest and is refused on a managed-only host (`guardPolicy: final-boundary` then blocks with `final guard boundary unavailable`). Adapters that have a later hook (Claude `UserPromptSubmit`) call `finalGuard({text, gesture})`, which runs guards only, no transforms.
+- `onSubmitCommitted` (`SubmitCommitted`) arrives at most once per submission, after the host accepted it, never for a block, failure or newline. Duplicate `submissionId`s among the last 256 are dropped. Each observer has a 32-event queue; overflow drops the oldest. The hook survives later typing; its effects stay bound to their version. Delivery is at most once: there is no journal or retry in v1. `acceptedAtMs` is host acceptance time, not provider time.
+- `level` is `observed` when the adapter saw the host accept it (`caps.submit.committed: 'accepted-text'`), `inferred` when the core forwarded a `send`/`queue`/`steer` and the host cleared the draft with no key in between. For `queue`, "committed" means queued, still cancellable. On a managed host a native peer may have changed what was really sent; the event text is what Murmo forwarded.
+- `onSubmitUnresolved` (`SubmitUnresolved`) reports a submission the core let through but could not resolve (window closed, a key came first, certainty became `unknown`). "Can't tell" is not "not sent".
 
 ## Services
 

@@ -55,6 +55,19 @@ export class Counters {
   failures = 0;
   /** Plugin hook faults. */
   faults = 0;
+  /** Send/queue/steer attempts that reached the pipeline (not newline, not a menu dismiss). */
+  submits = 0;
+  /** Pipeline blocks that counted as a refused send (not a menu dismiss). */
+  blocked = 0;
+  lastBlockReason: string | undefined;
+  /** Committed events delivered (`observed` or `inferred`). */
+  committed = 0;
+  /** Forwards that ended `unknown`; observers got `onSubmitUnresolved`. */
+  unresolved = 0;
+  /** Oldest committed/unresolved events dropped from a full observer queue. */
+  observerOverflow = 0;
+  /** Last commit-gate denial reason (`submit-in-progress`, …). */
+  lastDeniedReason: string | undefined;
 }
 
 export interface PluginHealth {
@@ -103,4 +116,11 @@ export interface SessionStats {
   readonly ui: Readonly<Record<Surface, Readonly<Record<ResultCode, number>>>>;
   readonly failures: number;
   readonly faults: number;
+  readonly submits: number;
+  readonly blocked: number;
+  readonly lastBlockReason?: string;
+  readonly committed: number;
+  readonly unresolved: number;
+  readonly observerOverflow: number;
+  readonly lastDeniedReason?: string;
 }

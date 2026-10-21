@@ -5,7 +5,9 @@
 
 export default (settings = {}) => {
   const mode = settings.mode || 'edit';
-  const permissions = settings.permissions || ['draft:read', 'draft:write', 'submit'];
+  const permissions =
+    settings.permissions ||
+    (mode === 'submit' ? ['draft:read:full', 'draft:write', 'submit'] : ['draft:read', 'draft:write', 'submit']);
   let fired = false;
   let count = 0;
   const effect = (d, insert, from = 0, to = d.text.length) => [
