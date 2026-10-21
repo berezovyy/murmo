@@ -58,10 +58,18 @@ def append_jsonl(path: Path, row: dict) -> None:
         handle.write(json.dumps(row, ensure_ascii=False, default=str) + '\n')
 
 
+# Cargo writes these into every target directory it builds into. A folder
+# that is merely named `target` (the `cc` crate has a `src/target` module;
+# an installed package can ship `target/release/<bin>`) is not a build cache.
+CARGO_TARGET_MARKERS = ('CACHEDIR.TAG', '.rustc_info.json')
+
+
 def stray_targets(root: Path = paths.REPO) -> list[str]:
-    """`target/` folders inside the checkout (AGENTS.md: builds use the shared cache)."""
+    """Cargo target folders inside the checkout (AGENTS.md: builds use the shared cache)."""
     found = []
     for path in root.rglob('target'):
-        if path.is_dir() and 'node_modules' not in path.parts and '.git' not in path.parts:
+        if 'node_modules' in path.parts or '.git' in path.parts or not path.is_dir():
+            continue
+        if any((path / marker).exists() for marker in CARGO_TARGET_MARKERS):
             found.append(str(path.relative_to(root)))
     return sorted(found)

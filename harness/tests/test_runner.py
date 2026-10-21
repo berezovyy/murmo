@@ -150,6 +150,16 @@ class Retention(unittest.TestCase):
     def test_no_target_folder_in_checkout(self):
         self.assertEqual(evidence.stray_targets(paths.REPO), [])
 
+    def test_only_cargo_build_folders_count_as_stray(self):
+        """A source module or shipped files named `target` are not a build cache."""
+        with scratch() as folder:
+            (folder / 'vendor' / 'cc' / 'src' / 'target').mkdir(parents=True)
+            (folder / 'installed' / 'target' / 'release').mkdir(parents=True)
+            build = folder / 'crate' / 'target'
+            build.mkdir(parents=True)
+            (build / 'CACHEDIR.TAG').write_text('Signature: 8a477f597d28d172789f06886806bc55\n')
+            self.assertEqual(evidence.stray_targets(folder), ['crate/target'])
+
 
 class RealHomeInventoryIsMetadataOnly(unittest.TestCase):
     """Rule 11: the real-HOME check never opens a file and never stores a name."""
