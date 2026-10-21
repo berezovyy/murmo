@@ -1,0 +1,13 @@
+// Bun's built-in TOML parser reports no TOML line (its error.line is the
+// JavaScript call site) and returns different CRLF values (lesson 27, r8 § 53).
+// Murmo parses TOML with @murmo/config (smol-toml) on every JS host.
+language js
+
+or {
+  `Bun.TOML` as $use where {
+    register_diagnostic(span=$use, message="Bun's built-in TOML parser is not allowed: parse with @murmo/config (smol-toml), which reports TOML lines on every host.", severity="error")
+  },
+  `Bun["TOML"]` as $use where {
+    register_diagnostic(span=$use, message="Bun's built-in TOML parser is not allowed: parse with @murmo/config (smol-toml), which reports TOML lines on every host.", severity="error")
+  }
+}

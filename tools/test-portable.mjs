@@ -1,6 +1,7 @@
 // Portable-runtime checks that need built bundles or the Rust toolchain:
 // QuickJS parity of a smoke bundle, the language pack's session cost (phase
-// 12), then the conformance gate (phase 02).
+// 12), then the conformance gate (phase 02), then config and store parity
+// with the Rust twins (phase 14).
 //
 // QuickJS parity: the same guest bundle must give the same result in Node, in
 // QuickJS-wasm (used by executor tests) and in the rquickjs build the Codex
@@ -15,7 +16,9 @@ import { build } from 'esbuild';
 import { getQuickJS } from 'quickjs-emscripten';
 import { manifestParity } from './api-parity.mjs';
 import { targets } from './build.mjs';
+import { configParity } from './config-parity.mjs';
 import { LIMITS, langLoadCost } from './lang-load.mjs';
+import { storeParity } from './store-parity.mjs';
 import { runConformance } from './test-conformance.mjs';
 import { root } from './workspace.mjs';
 
@@ -91,3 +94,11 @@ for (const r of await langLoadCost()) {
   );
 }
 await runConformance();
+
+// Phase 14: @murmo/config and @murmo/store agree with their Rust twins.
+const config = await configParity();
+console.log(`config parity: Node and Rust agree on ${config.cases} parse cases and ${config.sessions} sessions`);
+const store = await storeParity();
+console.log(
+  `store parity: ${store.crashRuns} Rust crash runs read back whole, ${store.sets} mixed sets lost nothing, ${store.requests} protocol replies agree`,
+);

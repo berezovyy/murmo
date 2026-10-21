@@ -1,0 +1,316 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/platform/core/r12/hostile-test.mjs (the 16 r12 K3 hostile .murmo.toml cases), loaded as a project file; outputs: phase 14 expectations (docs/plan/14 E5)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "config.parse",
+  "cases": [
+    {
+      "id": "valid",
+      "input": {
+        "source": "version=1\n[replace]\nx=\"hello\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["x", "hello"]]
+      }
+    },
+    {
+      "id": "escape",
+      "input": {
+        "source": "[replace]\nx=\"\\e[31mRED\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "paste-end",
+      "input": {
+        "source": "[replace]\nx=\"\\e[201~INJECT\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "osc52",
+      "input": {
+        "source": "[replace]\nx=\"\\e]52;c;SGVsbG8=\\u0007\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "nul",
+      "input": {
+        "source": "[replace]\nx=\"\\u0000BAD\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "lone-surrogate",
+      "input": {
+        "source": "[replace]\nx=\"\\uD800\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 2,
+            "column": 4
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "rtl",
+      "input": {
+        "source": "[replace]\nx=\"\\u202eBAD\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "raw-control-error",
+      "input": {
+        "source": "[replace]\nx=\"\u001b[201~\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 2,
+            "column": 4
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "deep",
+      "input": {
+        "source": [
+          "words=",
+          {
+            "repeat": "[",
+            "times": 1200
+          },
+          "\"x\"",
+          {
+            "repeat": "]",
+            "times": 1200
+          }
+        ],
+        "origin": "project"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "too-deep",
+            "severity": "error",
+            "line": 1,
+            "column": 39
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "huge",
+      "input": {
+        "source": [
+          "#",
+          {
+            "repeat": "x",
+            "times": 300000
+          }
+        ],
+        "origin": "project"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "too-large",
+            "severity": "error",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "100k",
+      "input": {
+        "numbered": {
+          "template": "k{i}=\"v\"\n",
+          "count": 100000
+        },
+        "source": "[replace]\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "too-large",
+            "severity": "error",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "recursion",
+      "input": {
+        "source": "[replace]\nx=\"y\"\ny=\"Z\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["x", "y"], ["y", "Z"]]
+      }
+    },
+    {
+      "id": "slash",
+      "input": {
+        "source": "[replace]\n\"/\"=\"INJECT\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "at",
+      "input": {
+        "source": "[replace]\n\"@\"=\"INJECT\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "bang",
+      "input": {
+        "source": "[replace]\n\"!\"=\"INJECT\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "guard",
+      "input": {
+        "source": "[replace]\nx=\"AKIAFAKEFAKEFAKEFAKE\"",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["x", "AKIAFAKEFAKEFAKEFAKE"]]
+      }
+    }
+  ]
+}

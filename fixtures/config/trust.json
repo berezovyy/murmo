@@ -1,0 +1,261 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/replacements/loader/trust.test.ts (r8 trust cases, the 7 hostile references of r8 section 54). Ops: write {path, text|hex|repeat:{char,count}}, append {path, text}, unlink, symlink {path, target} (\"{outside}\" is a file outside the repository), mkfifo. Needs a file system: run by packages/config/test/trust.test.ts and tools/config-parity.mjs, skipped by the pure subject",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "config.trust",
+  "cases": [
+    {
+      "id": "base",
+      "tags": ["base"],
+      "input": {
+        "ops": [
+          {
+            "op": "write",
+            "path": ".murmo.toml",
+            "text": "version=1\n[replace]\nrvw='Review the change.'\ntst={file='prompt.txt'}\n"
+          },
+          {
+            "op": "write",
+            "path": "prompt.txt",
+            "text": "Run tests.\n"
+          }
+        ]
+      },
+      "output": {
+        "unapproved": "review",
+        "approved": {
+          "rvw": "Review the change.",
+          "tst": "Run tests."
+        }
+      }
+    },
+    {
+      "id": "r8-fixture",
+      "note": "the moved r8 project folder, copied into a fresh repository",
+      "input": {
+        "copy": {
+          "from": "shortcuts/replacements",
+          "files": [".murmo.toml", ".murmo/deploy-check.md", ".murmo/big.md"]
+        }
+      },
+      "output": {
+        "approved": {
+          "tst": "Run the test suite, fix failures, and do not edit the tests.",
+          "rvw": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.",
+          "shrug": "\u00af\\_(\u30c4)_/\u00af",
+          "emo": "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e",
+          ";dc": "Before deploying, check:\n- migrations are reversible\n- feature flags default to off\n- the rollback command is written down",
+          ";big": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.\nLorem ipsum dolor sit amet, consectetur adipiscing elit,"
+        }
+      }
+    },
+    {
+      "id": "hostile-parent",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "../../etc/hosts",
+        "ops": []
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "traversal",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-absolute",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "/etc/hosts",
+        "ops": []
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "absolute",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-windows-absolute",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "C:\\Windows\\system.ini",
+        "ops": []
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "absolute",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-outside-link",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "prompt.txt",
+        "ops": [
+          {
+            "op": "unlink",
+            "path": "prompt.txt"
+          },
+          {
+            "op": "symlink",
+            "path": "prompt.txt",
+            "target": "{outside}"
+          }
+        ]
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "escapes",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-oversized",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "prompt.txt",
+        "ops": [
+          {
+            "op": "write",
+            "path": "prompt.txt",
+            "repeat": {
+              "char": "x",
+              "count": 1048576
+            }
+          }
+        ]
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "too-large",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-fifo",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "prompt.txt",
+        "ops": [
+          {
+            "op": "unlink",
+            "path": "prompt.txt"
+          },
+          {
+            "op": "mkfifo",
+            "path": "prompt.txt"
+          }
+        ]
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "not-regular",
+        "opened": []
+      }
+    },
+    {
+      "id": "hostile-invalid-utf8",
+      "tags": ["hostile"],
+      "note": "applied over case base, then .murmo.toml is rewritten with tst={file=<reference>}",
+      "input": {
+        "reference": "prompt.txt",
+        "ops": [
+          {
+            "op": "write",
+            "path": "prompt.txt",
+            "hex": "c328"
+          }
+        ]
+      },
+      "output": {
+        "trust": "not-approvable",
+        "problem": "invalid-utf8",
+        "opened": ["prompt.txt"]
+      }
+    },
+    {
+      "id": "change-shortcut-text",
+      "tags": ["change"],
+      "note": "applied to an approved copy of case base",
+      "input": {
+        "ops": [
+          {
+            "op": "append",
+            "path": ".murmo.toml",
+            "text": "more='One more shortcut'\n"
+          }
+        ]
+      },
+      "output": {
+        "trust": "changed"
+      }
+    },
+    {
+      "id": "change-referenced-bytes",
+      "tags": ["change"],
+      "note": "applied to an approved copy of case base",
+      "input": {
+        "ops": [
+          {
+            "op": "write",
+            "path": "prompt.txt",
+            "text": "Changed referenced prompt.\n"
+          }
+        ]
+      },
+      "output": {
+        "trust": "changed"
+      }
+    },
+    {
+      "id": "change-internal-symlink",
+      "tags": ["change"],
+      "note": "applied to an approved copy of case base",
+      "input": {
+        "ops": [
+          {
+            "op": "write",
+            "path": "same.txt",
+            "text": "Run tests.\n"
+          },
+          {
+            "op": "unlink",
+            "path": "prompt.txt"
+          },
+          {
+            "op": "symlink",
+            "path": "prompt.txt",
+            "target": "same.txt"
+          }
+        ]
+      },
+      "output": {
+        "trust": "changed"
+      }
+    },
+    {
+      "id": "change-other-repo",
+      "tags": ["change"],
+      "note": "case base cloned into a second repository after the first is approved",
+      "input": {
+        "otherRepo": true,
+        "ops": []
+      },
+      "output": {
+        "trust": "review"
+      }
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "experiments/replacements/parse/corpus (the 15 r8 parser-parity cases, r8 section 53); tags: whether r8 measured the file as valid TOML; outputs: @murmo/config, checked against the Rust twin by tools/config-parity.mjs",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "config.parse",
+  "cases": [
+    {
+      "id": "fixture",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "# Shared round 8 fixture for text replacements. Do not edit; copy it.\nversion = 1\n\n[replace]\ntst   = 'Run the test suite, fix failures, and do not edit the tests.'\nrvw   = '''\nReview this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.'''\nshrug = '\u00af\\_(\u30c4)_/\u00af'\nemo   = 'Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e'\n\";dc\" = { file = \".murmo/deploy-check.md\" }\n\";big\" = { file = \".murmo/big.md\" }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [
+          [
+            ";big",
+            {
+              "file": ".murmo/big.md"
+            }
+          ],
+          [
+            ";dc",
+            {
+              "file": ".murmo/deploy-check.md"
+            }
+          ],
+          [
+            "emo",
+            "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e"
+          ],
+          [
+            "rvw",
+            "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly."
+          ],
+          ["shrug", "\u00af\\_(\u30c4)_/\u00af"],
+          ["tst", "Run the test suite, fix failures, and do not edit the tests."]
+        ]
+      }
+    },
+    {
+      "id": "literal-basic",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\na='path\\name'\nb=\"line\\nnext\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["a", "path\\name"], ["b", "line\nnext"]]
+      }
+    },
+    {
+      "id": "triple-literal",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\na='''\nfirst\nsecond \\ raw\n'''\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["a", "first\nsecond \\ raw\n"]]
+      }
+    },
+    {
+      "id": "shrug-literal",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\nshrug='\u00af\\_(\u30c4)_/\u00af'\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["shrug", "\u00af\\_(\u30c4)_/\u00af"]]
+      }
+    },
+    {
+      "id": "shrug-double-error",
+      "tags": ["toml-invalid"],
+      "input": {
+        "source": "version=1\n[replace]\nshrug=\"\u00af\\_(\u30c4)_/\u00af\"\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 3,
+            "column": 10
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shrug-double-escaped",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\nshrug=\"\u00af\\\\_(\u30c4)_/\u00af\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["shrug", "\u00af\\_(\u30c4)_/\u00af"]]
+      }
+    },
+    {
+      "id": "crlf",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\r\n[replace]\r\na='''\r\nfirst\r\nsecond\r\n'''\r\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["a", "first\nsecond\n"]]
+      }
+    },
+    {
+      "id": "bom",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "\ufeff# Shared round 8 fixture for text replacements. Do not edit; copy it.\nversion = 1\n\n[replace]\ntst   = 'Run the test suite, fix failures, and do not edit the tests.'\nrvw   = '''\nReview this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly.'''\nshrug = '\u00af\\_(\u30c4)_/\u00af'\nemo   = 'Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e'\n\";dc\" = { file = \".murmo/deploy-check.md\" }\n\";big\" = { file = \".murmo/big.md\" }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [
+          [
+            ";big",
+            {
+              "file": ".murmo/big.md"
+            }
+          ],
+          [
+            ";dc",
+            {
+              "file": ".murmo/deploy-check.md"
+            }
+          ],
+          [
+            "emo",
+            "Ship it \ud83d\ude80 \u2014 \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 \ud83c\uddfa\ud83c\udde6 caf\u00e9 \u65e5\u672c\u8a9e"
+          ],
+          [
+            "rvw",
+            "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly."
+          ],
+          ["shrug", "\u00af\\_(\u30c4)_/\u00af"],
+          ["tst", "Run the test suite, fix failures, and do not edit the tests."]
+        ]
+      }
+    },
+    {
+      "id": "tabs",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version\t=\t1\n[replace]\n\tx\t=\t\"a\tb\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["x", "a\tb"]]
+      }
+    },
+    {
+      "id": "duplicate",
+      "tags": ["toml-invalid"],
+      "input": {
+        "source": "version=1\n[replace]\na='one'\na='two'\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "unknown-table",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\na='one'\n[future]\nunknown='preserved by parser, ignored by loader'\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": [["a", "one"]]
+      }
+    },
+    {
+      "id": "broken-equal",
+      "tags": ["toml-invalid"],
+      "input": {
+        "source": "version=1\n[replace]\na 'one'\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 3,
+            "column": 3
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "broken-quote",
+      "tags": ["toml-invalid"],
+      "input": {
+        "source": "version=1\n[replace]\na='one\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 3,
+            "column": 7
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "broken-inline",
+      "tags": ["toml-invalid"],
+      "input": {
+        "source": "version=1\n[replace]\na={ file = 'x' \n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 3,
+            "column": 16
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "1000-shortcuts",
+      "tags": ["toml-valid"],
+      "input": {
+        "source": "version=1\n[replace]\n",
+        "numbered": {
+          "template": "\";s{i}\" = 'Run the tests for component {i}.\\ Keep text literal.'\n",
+          "count": 1000
+        }
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": {
+          "count": 1000,
+          "sha256": "b3e0c7ad6127da0d16191e605e8373daed77f53d863d9f8df0fcdb72de1ec37b"
+        }
+      }
+    }
+  ]
+}

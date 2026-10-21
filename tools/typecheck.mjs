@@ -8,7 +8,9 @@ import { listPackages, root } from './workspace.mjs';
 const tsc = join(root, 'node_modules', '.bin', 'tsc');
 const projects = [join(root, 'tsconfig.tools.json')];
 for (const pkg of listPackages()) {
-  for (const name of ['tsconfig.json', 'test/tsconfig.json']) {
+  // `src/node/`: the Node/Bun side of a portable package (`murmo.nodeOnly`),
+  // checked with Node types while the package's own tsconfig excludes it.
+  for (const name of ['tsconfig.json', 'src/node/tsconfig.json', 'test/tsconfig.json']) {
     const file = join(pkg.dir, name);
     if (existsSync(file)) projects.push(file);
   }

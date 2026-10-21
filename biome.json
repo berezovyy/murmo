@@ -23,7 +23,29 @@
   "javascript": {
     "formatter": { "quoteStyle": "single", "semicolons": "always" }
   },
+  "plugins": ["./tools/lint/no-bun-toml.grit"],
   "linter": {
-    "rules": { "preset": "recommended" }
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "bun": {
+                "importNames": ["TOML"],
+                "message": "Bun's built-in TOML parser is not allowed: parse with @murmo/config (smol-toml)."
+              }
+            },
+            "patterns": [
+              {
+                "group": ["**/*.toml", "*.toml"],
+                "message": "Importing a .toml file uses Bun's built-in TOML parser: read the file and parse it with @murmo/config."
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 }

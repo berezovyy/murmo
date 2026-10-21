@@ -16,9 +16,12 @@ export const allowed = new Map([
   ['Zlib', 'foldhash, via rquickjs'],
 ]);
 
-/** Parses `A OR (B AND C) WITH X` and reports whether it can be satisfied. */
+/**
+ * Parses `A OR (B AND C) WITH X` and reports whether it can be satisfied.
+ * `A/B` is the pre-SPDX Cargo spelling of `A OR B` (version_check, via sha2).
+ */
 export function permits(expression, ids = allowed) {
-  const tokens = expression.replace(/[()]/g, ' $& ').trim().split(/\s+/);
+  const tokens = expression.replace(/\//g, ' OR ').replace(/[()]/g, ' $& ').trim().split(/\s+/);
   let at = 0;
   const peek = () => tokens[at];
   const or = () => {

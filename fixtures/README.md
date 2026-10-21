@@ -28,6 +28,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `core/inline/` | boundaries, bursts, shortcut sizes | 07 |
 | `security/` | hostile plugins and third-party rules, with 2.0-pre verdicts | 09, 32 |
 | `autocorrect/` | round-4 50 prompts, r7 Unicode cases | 13 |
+| `config/` | r8 TOML corpus, r12 hostile files, schema v1 branches (`config.parse`); r8 trust attacks (`config.trust`, needs a file system) | 14 |
 | `shortcuts/replacements/` | the r8 project folder, moved byte for byte | 15 |
 | `names/` | splitter 29 cases (moved file read through a table) | 19, 36 |
 | `stress/` | huge paste, regex-heavy inputs, IME and normalization stand-ins | 02 |

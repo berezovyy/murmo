@@ -12,9 +12,12 @@ test('a GPL, CC BY-SA or unlicensed dependency fails; a permissive choice passes
     { name: 'dual-forced', license: 'MIT AND GPL-2.0-or-later' },
     { name: 'dual-choice', license: 'GPL-2.0-only OR MIT' },
     { name: 'unicode', license: '(MIT OR Apache-2.0) AND Unicode-3.0' },
+    // Old Cargo manifests write OR as a slash; both branches still count.
+    { name: 'legacy-slash', license: 'MIT/Apache-2.0' },
+    { name: 'legacy-copyleft', license: 'GPL-3.0-only/AGPL-3.0-only' },
   ];
   assert.deepEqual(
     violations(deps).map((d) => d.name),
-    ['copyleft', 'typo-data', 'unlabelled', 'dual-forced'],
+    ['copyleft', 'typo-data', 'unlabelled', 'dual-forced', 'legacy-copyleft'],
   );
 });

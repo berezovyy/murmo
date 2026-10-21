@@ -1,0 +1,1167 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "murmo phase 14: one snippet per validation branch of config schema v1 (docs/plan/14); outputs: @murmo/config, checked against the Rust twin by tools/config-parity.mjs",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "config.parse",
+  "cases": [
+    {
+      "id": "empty",
+      "input": {
+        "source": ""
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "version-missing",
+      "input": {
+        "source": "[replace]\n\";a\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [[";a", "x"]]
+      }
+    },
+    {
+      "id": "version-2",
+      "input": {
+        "source": "version = 2\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "unsupported-version",
+            "severity": "error",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "version-float",
+      "input": {
+        "source": "version = 1.0\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "version-string",
+      "input": {
+        "source": "version = \"1\"\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "unsupported-version",
+            "severity": "error",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "language-ok",
+      "input": {
+        "source": "language = \"pt-BR\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "language": "pt-BR"
+      }
+    },
+    {
+      "id": "language-bad",
+      "input": {
+        "source": "language = \"English\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "language-type",
+      "input": {
+        "source": "language = 3\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "replace-not-table",
+      "input": {
+        "source": "replace = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-empty",
+      "input": {
+        "source": "[replace]\n\"\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-long",
+      "input": {
+        "source": "[replace]\n\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-space",
+      "input": {
+        "source": "[replace]\n\"a b\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-nel",
+      "input": {
+        "source": "[replace]\n\"a\\u0085b\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-nbsp",
+      "input": {
+        "source": "[replace]\n\"a\\u00a0b\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-first",
+      "input": {
+        "source": "[replace]\n\"#x\" = \"x\"\n\"-x\" = \"y\"\n\".x\" = \"z\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          },
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-allowed-first",
+      "input": {
+        "source": "[replace]\n\";x\" = \"1\"\n\",x\" = \"2\"\n\"\\\\x\" = \"3\"\n\"=x\" = \"4\"\n\"+x\" = \"5\"\n\"7x\" = \"6\"\n\"\u00e9x\" = \"7\"\n\"\u0661x\" = \"8\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [
+          ["+x", "5"],
+          [",x", "2"],
+          ["7x", "6"],
+          [";x", "1"],
+          ["=x", "4"],
+          ["\\x", "3"],
+          ["\u00e9x", "7"],
+          ["\u0661x", "8"]
+        ]
+      }
+    },
+    {
+      "id": "shortcut-control",
+      "input": {
+        "source": "[replace]\n\"a\\u001b\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "shortcut-bidi",
+      "input": {
+        "source": "[replace]\n\"a\\u2066\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "expansion-tab-lf-cr",
+      "input": {
+        "source": "[replace]\nx = \"a\\tb\\nc\\rd\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["x", "a\tb\nc\rd"]]
+      }
+    },
+    {
+      "id": "expansion-c1",
+      "input": {
+        "source": "[replace]\nx = \"a\\u0085b\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "expansion-del",
+      "input": {
+        "source": "[replace]\nx = \"a\\u007fb\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unsafe-text",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "expansion-16k",
+      "input": {
+        "source": [
+          "[replace]\nx = \"",
+          {
+            "repeat": "y",
+            "times": 16384
+          },
+          "\"\n"
+        ]
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [
+          [
+            "x",
+            "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "expansion-16k-plus",
+      "input": {
+        "source": [
+          "[replace]\nx = \"",
+          {
+            "repeat": "y",
+            "times": 16385
+          },
+          "\"\n"
+        ]
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "expansion-too-large",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "expansion-multibyte-limit",
+      "input": {
+        "source": [
+          "[replace]\nx = \"",
+          {
+            "repeat": "\u00e9",
+            "times": 8193
+          },
+          "\"\n"
+        ]
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "expansion-too-large",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "entry-type",
+      "input": {
+        "source": "[replace]\nx = 3\ny = []\nz = { text = \"a\" }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          },
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "entry-file",
+      "input": {
+        "source": "[replace]\nx = { file = \".murmo/a.md\" }\ny = { file = 3 }\nz = { file = \"b.md\", mode = \"x\" }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          },
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": [
+          [
+            "x",
+            {
+              "file": ".murmo/a.md"
+            }
+          ],
+          [
+            "z",
+            {
+              "file": "b.md"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": "dotted-keys",
+      "input": {
+        "source": "[replace]\n\"a.b\".c = \"x\"\nd.e = \"y\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          },
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "order",
+      "input": {
+        "source": "[replace]\n\"\u00e9\" = \"1\"\n\"z\" = \"2\"\n\"\ud835\udc00\" = \"3\"\n\"\uff21\" = \"4\"\n\"A\" = \"5\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [["A", "5"], ["z", "2"], ["\u00e9", "1"], ["\uff21", "4"], ["\ud835\udc00", "3"]]
+      }
+    },
+    {
+      "id": "proto-key",
+      "input": {
+        "source": "[replace]\n\";__proto__\" = \"x\"\n[plugins.menu]\n\"__proto__\" = 1\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [[";__proto__", "x"]],
+        "plugins": {
+          "menu": {
+            "settings": {
+              "__proto__": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "words",
+      "input": {
+        "source": "[words]\nprotect = [\"ratatui\", \"OutboxWorker\", \"ratatui\", \"a b\", 3, \"\"]\nother = 1\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "protect": ["ratatui", "OutboxWorker"]
+      }
+    },
+    {
+      "id": "words-not-list",
+      "input": {
+        "source": "[words]\nprotect = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "words-not-table",
+      "input": {
+        "source": "words = 1\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "autocorrect",
+      "input": {
+        "source": "[autocorrect]\nenabled = true\nlevel = 2\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "autocorrect": true
+      }
+    },
+    {
+      "id": "autocorrect-type",
+      "input": {
+        "source": "[autocorrect]\nenabled = \"yes\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "autocorrect-project",
+      "input": {
+        "source": "[autocorrect]\nenabled = true\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "autocorrect-off-project",
+      "input": {
+        "source": "[autocorrect]\nenabled = false\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "autocorrect": false
+      }
+    },
+    {
+      "id": "privacy",
+      "input": {
+        "source": "[privacy]\nprivate = true\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "private": true
+      }
+    },
+    {
+      "id": "privacy-off-project",
+      "input": {
+        "source": "[privacy]\nprivate = false\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "plugins",
+      "input": {
+        "source": "[plugins]\norder = [\"autocorrect\", \"shortcuts\", \"menu\", \"menu\", \"Bad\", 3, \"@me/x\"]\n[plugins.rescue]\nenabled = true\nidle = 1500\nratio = 0.5\nbig = 9007199254740991\nlist = [1, \"a\", true]\nnested = { a = { b = 1 } }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "pluginOrder": ["autocorrect", "shortcuts", "menu", "@me/x"],
+        "plugins": {
+          "rescue": {
+            "enabled": true,
+            "settings": {
+              "big": 9007199254740991,
+              "idle": 1500,
+              "list": [1, "a", true],
+              "nested": {
+                "a": {
+                  "b": 1
+                }
+              },
+              "ratio": 0.5
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "plugins-bad-values",
+      "input": {
+        "source": "[plugins.rescue]\nwhen = 1979-05-27T07:32:00Z\ninf = inf\nnan = nan\nhuge = 9007199254740992\nenabled = \"yes\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          },
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 5,
+            "column": 1
+          },
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 6,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "plugins": {
+          "rescue": {
+            "settings": {}
+          }
+        }
+      }
+    },
+    {
+      "id": "plugins-project",
+      "input": {
+        "source": "[plugins]\norder = [\"menu\"]\n[plugins.menu]\nenabled = true\n[plugins.rescue]\nenabled = false\nidle = 10\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "plugins": {
+          "menu": {
+            "settings": {}
+          },
+          "rescue": {
+            "enabled": false,
+            "settings": {
+              "idle": 10
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "plugins-bad-id",
+      "input": {
+        "source": "[plugins.Bad]\nx = 1\n[plugins]\nrescue = 3\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          },
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 4,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "plugins-not-table",
+      "input": {
+        "source": "plugins = []\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "unknown",
+      "input": {
+        "source": "future = 1\n[later]\nx = 1\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          },
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "excerpt-escaped",
+      "input": {
+        "source": "[replace]\n\"/\\u001b[31m\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "long-excerpt",
+      "input": {
+        "source": "[replace]\n\"/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "crlf-positions",
+      "input": {
+        "source": "version = 1\r\n[replace]\r\n\"/\" = \"x\"\r\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "bom-positions",
+      "input": {
+        "source": "\ufeff[replace]\n\"/\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "multiline-before-key",
+      "input": {
+        "source": "[replace]\na = \"\"\"\nline\n\"\"\"\n\"/\" = \"x\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-shortcut",
+            "severity": "warning",
+            "line": 5,
+            "column": 1
+          }
+        ],
+        "shortcuts": [["a", "line\n"]]
+      }
+    },
+    {
+      "id": "header-array",
+      "input": {
+        "source": "[[replace]]\nx = 1\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-type",
+            "severity": "warning",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "inline-table-plugin",
+      "input": {
+        "source": "plugins = { menu = { enabled = false } }\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "plugins": {
+          "menu": {
+            "enabled": false,
+            "settings": {}
+          }
+        }
+      }
+    },
+    {
+      "id": "error-mid-line",
+      "input": {
+        "source": "a = 1\nb = = 2\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 2,
+            "column": 5
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "error-unicode-col",
+      "input": {
+        "source": "[replace]\n\"\u00e9\u00e9\" = \"x\" junk\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 2,
+            "column": 12
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "error-eof",
+      "input": {
+        "source": "[replace]\nx = { file = \"a\"\n"
+      },
+      "output": {
+        "status": "ignored",
+        "diagnostics": [
+          {
+            "code": "parse",
+            "severity": "error",
+            "line": 2,
+            "column": 17
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "too-many",
+      "input": {
+        "numbered": {
+          "template": "k{i} = \"v\"\n",
+          "count": 1001
+        },
+        "source": "[replace]\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "too-many-shortcuts",
+            "severity": "error",
+            "line": 1,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "thousand",
+      "input": {
+        "numbered": {
+          "template": "k{i} = \"v\"\n",
+          "count": 1000
+        },
+        "source": "[replace]\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": {
+          "count": 1000,
+          "sha256": "99eb27d86b707ab95598b35158f598681fac8f88bfd9dacd3c54c57e6c59e20b"
+        }
+      }
+    },
+    {
+      "id": "integer-big",
+      "input": {
+        "source": "[plugins.rescue]\nn = 9223372036854775807\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "invalid-value",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "plugins": {
+          "rescue": {
+            "settings": {}
+          }
+        }
+      }
+    }
+  ]
+}

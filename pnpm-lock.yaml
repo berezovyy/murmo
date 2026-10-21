@@ -28,11 +28,33 @@ importers:
 
   packages/api: {}
 
+  packages/config:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../store
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../text
+      smol-toml:
+        specifier: 1.9.0
+        version: 1.9.0
+    devDependencies:
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../fixtures
+
   packages/conformance:
     dependencies:
       '@murmo/api':
         specifier: workspace:*
         version: link:../api
+      '@murmo/config':
+        specifier: workspace:*
+        version: link:../config
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
@@ -74,6 +96,12 @@ importers:
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
+
+  packages/store:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
 
   packages/text:
     dependencies:
@@ -449,6 +477,10 @@ packages:
     resolution: {integrity: sha512-So0Sqw869y/S2oE3Nuc0uT3Dhqgvsj8FSrwBdsuTosVsG8ME5/OcudU1GxsrIFdFABgy17GHnTVO9TYV/bLQcA==}
     engines: {node: '>=16.0.0'}
 
+  smol-toml@1.9.0:
+    resolution: {integrity: sha512-hpd+HLON7HdZXqYchMM/+LaTTbdK0AU3NngIJ4KVyWbY9bfQqdL9cD+4yf6dUoU2Ap4VsU0JkQi6FxAI1B2mXQ==}
+    engines: {node: '>= 18'}
+
   typescript@7.0.2:
     resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
     engines: {node: '>=16.20.0'}
@@ -697,6 +729,8 @@ snapshots:
       '@jitl/quickjs-wasmfile-release-asyncify': 0.32.0
       '@jitl/quickjs-wasmfile-release-sync': 0.32.0
       quickjs-emscripten-core: 0.32.0
+
+  smol-toml@1.9.0: {}
 
   typescript@7.0.2:
     optionalDependencies:

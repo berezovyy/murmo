@@ -1,0 +1,17 @@
+[package]
+name = "murmo-config"
+version = "0.0.0"
+description = "Reads murmo.toml and .murmo.toml for the helper and the Codex wrapper, with the same rules and diagnostics as @murmo/config"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+libc.workspace = true
+murmo-store.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true

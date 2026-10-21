@@ -1,0 +1,31 @@
+{
+  "name": "@murmo/store",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
+    "bundles": [
+      {
+        "name": "store",
+        "entry": "src/index.ts",
+        "targets": [
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoStore"
+      }
+    ]
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*"
+  }
+}

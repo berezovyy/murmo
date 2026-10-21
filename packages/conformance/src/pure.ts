@@ -10,6 +10,7 @@
 
 import type { PureCase } from '@murmo/fixtures';
 import { sha256, summarize } from '@murmo/fixtures/generators';
+import { configFunctions } from './fns/config.ts';
 import { provenanceFunctions } from './fns/provenance.ts';
 import { textFunctions } from './fns/text.ts';
 import type { Assertion, Capabilities, Observed, Run, Subject } from './types.ts';
@@ -40,6 +41,7 @@ export const pureFunctions: Readonly<Record<string, PureEntry>> = {
   'generators.summary': summary,
   ...textFunctions,
   ...provenanceFunctions,
+  ...configFunctions,
 };
 
 export interface PureSubject extends Subject {
