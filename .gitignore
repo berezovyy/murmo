@@ -13,6 +13,11 @@ target/
 # Measurement outputs (tools/runs.mjs keeps the newest 3 per measurement)
 /.runs/
 
+# Real-host harness: run evidence (newest 3 per measurement) and the host cache
+/harness/out/
+/.harness-cache/
+__pycache__/
+
 # Local state
 .DS_Store
 *.log

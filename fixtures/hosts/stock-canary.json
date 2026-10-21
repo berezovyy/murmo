@@ -1,0 +1,66 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/20 Tests and acceptance (every host reaches only the fake server); experiments/platform/hosts-r14/tools/mac-smoke.py typed-line smoke; lessons 44, 53, 54, 61",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "typed-line-reaches-fake",
+      "tags": ["smoke", "submit"],
+      "note": "Lessons 44, 53: the one submit of a run carries exactly the typed synthetic line to the fake server, and nothing else is sent as a prompt.",
+      "steps": [
+        { "type": "murmo harness canary line" },
+        { "check": { "draft": { "text": "murmo harness canary line" }, "requests": [] } },
+        { "submit": "send" }
+      ],
+      "expect": {
+        "requests": ["murmo harness canary line"]
+      }
+    },
+    {
+      "id": "typed-unicode-draft",
+      "tags": ["unicode"],
+      "note": "Accented, CJK and emoji text typed key by key reaches the draft unchanged (wide cells read back as one character); nothing is submitted.",
+      "steps": [{ "type": "café naïve 日本 👋 ok" }],
+      "expect": {
+        "draft": { "text": "café naïve 日本 👋 ok" },
+        "requests": []
+      }
+    },
+    {
+      "id": "newline-gesture-keeps-draft",
+      "tags": ["newline"],
+      "note": "Lesson 61: the newline gesture is Ctrl+J, never a modified Enter, and it must not submit.",
+      "steps": [{ "type": "alpha line" }, { "submit": "newline" }, { "type": "beta line" }],
+      "expect": {
+        "draft": { "text": "alpha line\nbeta line" },
+        "requests": []
+      }
+    },
+    {
+      "id": "bracketed-paste-multiline",
+      "tags": ["paste"],
+      "note": "A short bracketed paste with a newline lands as two draft lines and does not submit (pi S-Enter incident: a newline must never act as Enter).",
+      "steps": [{ "paste": "pasted first\npasted second" }],
+      "expect": {
+        "draft": { "text": "pasted first\npasted second" },
+        "requests": []
+      }
+    },
+    {
+      "id": "paste-then-submit",
+      "tags": ["paste", "submit"],
+      "note": "Lesson 54: a pasted line plus typed text is submitted whole; Codex pastes go in chunks below its 1,024-byte read.",
+      "steps": [{ "paste": "pasted words" }, { "type": " and typed words" }, { "submit": "send" }],
+      "expect": {
+        "requests": ["pasted words and typed words"]
+      }
+    }
+  ]
+}

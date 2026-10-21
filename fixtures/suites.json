@@ -73,6 +73,12 @@
       "variants": 14
     },
     {
+      "file": "hosts/stock-canary.json",
+      "owner": "20",
+      "cases": 5,
+      "variants": 5
+    },
+    {
       "file": "lang-en/case-policy-r8.json",
       "owner": "12, 13",
       "cases": 27

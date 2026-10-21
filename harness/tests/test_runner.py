@@ -1,0 +1,256 @@
+"""Runner, canary, evidence and cleanup: each test names the failure it catches."""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+import os
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+from support import new_run, needs_sandbox, real_install, scratch, stub_host, stub_install
+
+from murmo_harness import evidence, paths
+from murmo_harness.integrations import STOCK, Integration, IntegrationState, PluginState
+from murmo_harness.inventory import RealHomeInventory
+from murmo_harness.runner import Expectations, HostSubject, expand, load_suite
+
+CASE = {
+    'id': 'typed-line',
+    'steps': [{'type': 'stub line'}, {'submit': 'send'}],
+    'expect': {'requests': ['stub line']},
+}
+
+
+class DisabledButHealthy(Integration):
+    """A session that says healthy while a plugin is disabled (lessons 71, 76)."""
+
+    name = 'disabled-but-healthy'
+
+    def state(self, host, profile):
+        return IntegrationState(healthy=True, plugins=[PluginState('lint', False, 'faulted', 3), PluginState('correct', True)])
+
+
+def subject(run, attempt, integration=None, host='stub', install=None):
+    return HostSubject(
+        run, host, install or stub_install(), integration=integration or STOCK, expectations=Expectations(),
+        attempt=attempt, platform=paths.current_platform(),
+    )
+
+
+class FunctionalNotLoaded(unittest.TestCase):
+    """r14 H1 with 2.0-pre: 42/42 plugins loaded while features degraded. A case
+    passes only on screen and fake-server evidence, and a disabled plugin is
+    reported even when the session says healthy."""
+
+    def test_pass_needs_the_fake_server_to_see_the_text(self):
+        needs_sandbox()
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                ok = subject(run, folder / 'a').run_case('t.json', CASE)
+                wrong = subject(run, folder / 'b').run_case('t.json', {**CASE, 'expect': {'requests': ['other line']}})
+            self.assertEqual(ok['status'], 'pass', ok)
+            self.assertEqual(wrong['status'], 'fail')
+            checks = json.loads((folder / 'b' / 'cases' / 'typed-line~120x40' / 'verdict.json').read_text())['checks']
+            self.assertEqual(checks[0]['actual'], ['stub line'])
+            self.assertEqual(checks[0]['source'], 'fake-server')
+
+    def test_disabled_plugin_fails_although_session_healthy(self):
+        needs_sandbox()
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                verdict = subject(run, folder / 'a', DisabledButHealthy()).run_case('t.json', CASE)
+            record = json.loads((folder / 'a' / 'cases' / 'typed-line~120x40' / 'verdict.json').read_text())
+            self.assertEqual(verdict['status'], 'fail')
+            self.assertTrue(record['plugins']['healthy'])
+            self.assertEqual(record['plugins']['disabled'], ['lint'])
+            failed = [c for c in record['checks'] if not c['ok']]
+            self.assertEqual([c['what'] for c in failed], ['plugins.noneUnexpectedlyDisabled'])
+
+    def test_case_without_assertions_fails(self):
+        """Anti-vacuity: steps with nothing to check cannot pass."""
+        needs_sandbox()
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                verdict = subject(run, folder / 'a').run_case('t.json', {'id': 'empty', 'steps': [{'type': 'x'}], 'expect': {}})
+            self.assertEqual(verdict['status'], 'fail')
+            self.assertEqual(verdict['reason'], 'no assertions ran')
+
+    def test_unsupported_steps_skip_with_reason_never_pass(self):
+        with scratch() as folder, stub_host():
+            run = new_run(folder)
+            sub = subject(run, folder / 'a')
+            for case, needle in (
+                ({'id': 'p', 'plugins': [{'id': 'A', 'plugin': 'conflicts'}], 'steps': [{'type': 'x'}], 'expect': {'requests': []}}, 'plugins'),
+                ({'id': 'f', 'steps': [{'fill': 'x'}], 'expect': {'requests': []}}, 'fill'),
+                ({'id': 'u', 'steps': [{'type': 'x'}], 'expect': {'ui': {'ghost': 'y'}}}, 'ui'),
+                ({'id': 'c', 'steps': [{'type': 'x'}], 'expect': {'draft': {'text': 'x', 'cursor': 1}}}, 'cursor'),
+            ):
+                verdict = sub.run_case('t.json', case)
+                self.assertEqual(verdict['status'], 'skip')
+                self.assertIn(needle, verdict['reason'])
+            self.assertEqual(run.launches, 0)
+
+    def test_shared_fixture_suites_load(self):
+        """The runner reads the shared fixture format; every host case maps or skips."""
+        for name in ('stock-canary.json', 'r14-followup.json'):
+            suite, cases = load_suite(paths.FIXTURES / 'hosts' / name)
+            self.assertTrue(cases)
+            self.assertEqual(suite, f'hosts/{name}')
+        self.assertEqual(expand(['a', {'repeat': 'b', 'times': 3}]), 'abbb')
+
+    def test_expectation_files_change_cases_without_harness_changes(self):
+        """Adapter phases add per-host expectation files; nothing else changes."""
+        with scratch() as folder:
+            target = folder / 'stock'
+            target.mkdir()
+            (target / 'stub.json').write_text(json.dumps({
+                'kind': 'host-expectations/v1', 'host': 'stub',
+                'suites': {'t.json': {'typed-line': {'skip': 'stub cannot do this (test)'}}},
+            }))
+            exp = Expectations.load('stock', 'stub', folder)
+            run = new_run(folder)
+            with stub_host():
+                sub = HostSubject(run, 'stub', stub_install(), integration=STOCK, expectations=exp,
+                                  attempt=folder / 'a', platform=paths.current_platform())
+                verdict = sub.run_case('t.json', CASE)
+            self.assertEqual((verdict['status'], verdict['declared']), ('skip', True))
+
+
+class FormatCanary(unittest.TestCase):
+    """knowledge § 9: a compatibility test silently stopped testing anything.
+    Each run reports its canary; a run against a mismatched version fails."""
+
+    def test_mismatched_version_fails_canary(self):
+        needs_sandbox()
+        from murmo_harness.probe import probe
+
+        real = real_install('pi')
+        wrong = dataclasses.replace(real, version='1.2.0' if real.version != '1.2.0' else '1.3.0')
+        with scratch() as folder, new_run(folder) as run:
+            good = probe(run, 'pi', real)
+            bad = probe(run, 'pi', wrong, submit=False)
+        self.assertTrue(good['passed'], good['canary'])
+        self.assertTrue(good['canary']['checks']['fake-got-exact-line'])
+        self.assertFalse(bad['passed'])
+        self.assertFalse(bad['canary']['checks']['version-matches'])
+
+
+class Retention(unittest.TestCase):
+    """AGENTS.md: at most 3 attempts per measurement; no stray target/ folder."""
+
+    def test_keeps_last_three(self):
+        with scratch() as folder:
+            made = [evidence.new_attempt('suite', 'pi-1.3.0-darwin-arm64', base=folder, now=1_800_000_000 + i) for i in range(5)]
+            left = sorted(p.name for p in (folder / 'suite' / 'pi-1.3.0-darwin-arm64').iterdir())
+            self.assertEqual(left, [p.name for p in made[-3:]])
+
+    def test_no_target_folder_in_checkout(self):
+        self.assertEqual(evidence.stray_targets(paths.REPO), [])
+
+
+class RealHomeInventoryIsMetadataOnly(unittest.TestCase):
+    """Rule 11: the real-HOME check never opens a file and never stores a name."""
+
+    def test_names_hashed_contents_unread(self):
+        with scratch() as folder:
+            (folder / '.codex').mkdir()
+            secret = folder / '.codex' / 'private-name.txt'
+            secret.write_text('contents nobody may read')
+            secret.chmod(0)  # unreadable: an open() would fail, lstat() does not
+            inventory = RealHomeInventory(folder)
+            before = inventory.snapshot()
+            dumped = json.dumps(before)
+            self.assertNotIn('private-name', dumped)
+            self.assertEqual(len(before), 2)
+            (folder / '.codex' / 'new').write_text('x')
+            result = RealHomeInventory.compare(before, inventory.snapshot())
+            self.assertEqual(result['counts']['added'], 1)
+            # The new file, and its folder's mtime.
+            self.assertEqual(result['byRoot'], {'.codex': {'added': 1, 'removed': 0, 'changed': 1}})
+            secret.chmod(0o600)
+
+    def test_sandbox_denies_host_access_to_real_agent_folders(self):
+        """Lesson 53 / r10: hosts read the real Claude profile and real-home
+        skills. On macOS the sandbox denies even a stat of those folders."""
+        if sys.platform != 'darwin':
+            self.skipTest('Linux containers never mount the real HOME')
+        probe = 'import os,sys\nfor p in sys.argv[1:]:\n  try:\n    os.stat(p); print("open", p)\n  except PermissionError:\n    print("denied")\n  except FileNotFoundError:\n    print("absent")\n'
+        targets = [str(Path.home() / d) for d in ('.claude', '.codex', '.agents', '.config/opencode', '.npm')]
+        with scratch() as folder, new_run(folder) as run:
+            argv = run.sandbox.wrap([sys.executable, '-I', '-c', probe, *targets])
+            done = subprocess.run(argv, capture_output=True, text=True, timeout=30, env={'PATH': '/usr/bin:/bin'})
+        results = done.stdout.split()
+        self.assertNotIn('open', results)
+        self.assertEqual(len([r for r in results if r in ('denied', 'absent')]), len(targets))
+
+
+class PtyScreen(unittest.TestCase):
+    def test_modify_other_keys_query_does_not_kill_the_reader(self):
+        # Round 4 (r4e7c): Claude's Ctrl+G opened vim, vim sent `CSI ? 4 m`, pyte
+        # raised a TypeError in the reader thread and the run died without cleanup.
+        from murmo_harness.deps import ensure_pyte
+        from murmo_harness.drivers.pty import make_screen
+
+        pyte = ensure_pyte()
+        replies: list[str] = []
+        screen = make_screen(pyte, 20, 2, replies.append)
+        stream = pyte.Stream(screen)
+        stream.feed('\x1b[?4m\x1b[1mok')
+        self.assertEqual(screen.display[0].rstrip(), 'ok')
+        self.assertTrue(screen.buffer[0][0].bold)
+
+
+class CleanExit(unittest.TestCase):
+    """Rule 11: consecutive runs leave no host, helper, tmux server or temp home."""
+
+    RUNS = int(os.environ.get('MURMO_HARNESS_CLEAN_RUNS', '100'))
+
+    def test_reused_terminal_is_not_ours(self):
+        """Found here: one run claimed (and would have killed) another run's
+        host that the OS had given the same, since-released tty. Rule 10:
+        never signal anything that is not ours."""
+        import time as clock
+
+        from murmo_harness.procs import Proc, ProcessRegistry
+
+        registry = ProcessRegistry()
+        registry.ttys['ttys099'] = clock.time() - 1
+        then = clock.strftime('%a %b %d %H:%M:%S %Y', clock.localtime(clock.time() - 3600))
+        now = clock.strftime('%a %b %d %H:%M:%S %Y', clock.localtime())
+        table = {
+            10: Proc(10, 1, 10, 'S', 'ttys099', then, 'someone else'),
+            11: Proc(11, 1, 11, 'S', 'ttys099', now, 'ours'),
+        }
+        self.assertEqual(sorted(registry._owned(table)), [11])
+
+    def test_consecutive_runs_leave_nothing(self):
+        needs_sandbox()
+        import shutil
+
+        drivers = ['pty', 'tmux'] if shutil.which('tmux') else ['pty']
+        with scratch() as folder, stub_host('--child'):
+            ids = []
+            for i in range(self.RUNS):
+                run = new_run(folder / f'r{i}', read_denials=False)
+                ids.append(run.id)
+                with run:
+                    session = run.open_session('stub', stub_install(), driver=drivers[i % len(drivers)])
+                    session.type('x')
+                self.assertTrue(run.cleanup['clean'], (i, run.cleanup))
+                shutil.rmtree(folder / f'r{i}', ignore_errors=True)
+        # Afterwards, nothing that carries any of these runs' ids exists
+        # (other harness runs on the machine may be busy; they are not ours).
+        from murmo_harness.procs import snapshot
+
+        left = [p.command for p in snapshot().values() if any(i in p.command for i in ids)]
+        temps = [p for p in paths.temp_root().iterdir() if any(p.name.startswith(i) for i in ids)]
+        sockets_dir = Path(f'/tmp/tmux-{os.getuid()}')
+        sockets = [p for p in sockets_dir.iterdir() if any(p.name.startswith(i) for i in ids)] if sockets_dir.exists() else []
+        self.assertEqual((left, temps, sockets), ([], [], []))
+
+
+if __name__ == '__main__':
+    unittest.main()

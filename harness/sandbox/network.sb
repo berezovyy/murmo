@@ -1,0 +1,33 @@
+(version 1)
+; Murmo real-host harness: the macOS network sandbox (harness/README.md,
+; safety rules 2, 10 and 11). The harness renders this template per run:
+; @RUN_TAG@ is the run's id, @REAL_HOME@ the real home folder. Every denial
+; carries the run tag, so the harness can count this run's denied attempts
+; in the system log without reading anything else from it.
+(allow default)
+
+; Rule 2: no network except loopback and local Unix sockets.
+(deny network* (with message "@RUN_TAG@"))
+(allow network-outbound (remote ip "localhost:*"))
+(allow network-inbound (local ip "localhost:*"))
+(allow network-bind (local ip "localhost:*"))
+(allow network* (local unix-socket))
+(allow network* (remote unix-socket))
+
+; Hostname lookups go through mDNSResponder's socket and would carry a
+; provider hostname off the machine; a lookup is a network attempt too.
+(deny network-outbound (remote unix-socket (path-literal "/private/var/run/mDNSResponder")) (with message "@RUN_TAG@"))
+
+; Rules 10 and 11: hosts never read or write the real agent folders.
+(deny file-read* file-write*
+  (subpath "@REAL_HOME@/.claude")
+  (literal "@REAL_HOME@/.claude.json")
+  (subpath "@REAL_HOME@/.codex")
+  (subpath "@REAL_HOME@/.pi")
+  (subpath "@REAL_HOME@/.agents")
+  (subpath "@REAL_HOME@/.npm")
+  (subpath "@REAL_HOME@/.config/opencode")
+  (subpath "@REAL_HOME@/.local/share/opencode")
+  (subpath "@REAL_HOME@/.local/state/opencode")
+  (subpath "@REAL_HOME@/.cache/opencode")
+  (with message "@RUN_TAG@"))
