@@ -4,13 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
   },
   "dependencies": {
     "@murmo/api": "workspace:*"
   },
   "murmo": {
     "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
     "bundles": [
       {
         "name": "executor",

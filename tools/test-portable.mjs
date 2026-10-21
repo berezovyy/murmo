@@ -95,6 +95,27 @@ for (const r of await langLoadCost()) {
 }
 await runConformance();
 
+function isolatedConformance() {
+  // C12 through the real helper is too process-heavy to run beside the
+  // config-load p99 gate (pnpm test); this is the isolated conformance gate.
+  const run = spawnSync(
+    process.execPath,
+    [
+      '--test',
+      join(root, 'packages/conformance/test/isolated.gate.ts'),
+      join(root, 'packages/executor/test/isolated.gate.ts'),
+    ],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      env: process.env,
+    },
+  );
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+}
+isolatedConformance();
+console.log('isolated helper: C12 and V1-C12-memory pass through murmo-plugin-host');
+
 // Phase 14: @murmo/config and @murmo/store agree with their Rust twins.
 const config = await configParity();
 console.log(`config parity: Node and Rust agree on ${config.cases} parse cases and ${config.sessions} sessions`);

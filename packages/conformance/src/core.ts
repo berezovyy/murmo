@@ -11,8 +11,8 @@
 // and a dispose that unsubscribes everything.
 //
 // Features: `core.edits`, `core.keys`, `core.submit`, `core.inline` and
-// `core.permissions`; `executor.isolated` (10) is added by that phase,
-// so cases that need them skip with "needs <feature>".
+// `core.permissions`; `executor.isolated` is advertised when the Node subject
+// is constructed with the real helper (phase 10).
 
 import type { Draft, Permission } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
@@ -34,6 +34,10 @@ import type { Assertion, Capabilities, Observed, Run, Subject } from './types.ts
 export interface CoreSubjectOptions {
   /** A monotonic clock in milliseconds, for timing only (performance.now, or Date.now in QuickJS). */
   readonly now: () => number;
+  /** Isolated helper (phase 10): the Node subject injects a harness that loads source. */
+  readonly harness?: (c: EditorCase, builtin: boolean, control: boolean) => Promise<Harness>;
+  readonly executors?: readonly string[];
+  readonly features?: Record<string, string | boolean>;
 }
 
 /** What a native peer adds to the sent text (V1-managed-peer, V1-final-peer): the guard's marker. */
@@ -311,11 +315,12 @@ class CoreStepDriver implements StepDriver {
 }
 
 export function createCoreSubject(options: CoreSubjectOptions): Subject {
+  const make = options.harness ?? harnessFor;
   const caps: Capabilities = {
     kinds: ['editor-ops'],
-    executors: ['in-process'],
+    executors: [...(options.executors ?? ['in-process'])],
     trust: ['builtin', 'third-party'],
-    features: coreFeatures(),
+    features: { ...coreFeatures(), ...options.features },
   };
   return {
     name: 'core',
@@ -324,8 +329,8 @@ export function createCoreSubject(options: CoreSubjectOptions): Subject {
       const c = run.case as EditorCase;
       const builtin = run.trust !== 'third-party';
       const timed = c.control === true || c.timing !== undefined || c.measure !== undefined;
-      const main = await harnessFor(c, builtin, false);
-      const control = timed ? await harnessFor(c, builtin, true) : null;
+      const main = await make(c, builtin, false);
+      const control = timed ? await make(c, builtin, true) : null;
       const observed = await interpretEditorCase(run, new CoreStepDriver(main, control, options.now, run));
       // A commit still held at the host lands now, so dispose never waits on it.
       main.adapter.holdCommits(false);

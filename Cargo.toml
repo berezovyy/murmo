@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["packages/js-runtime", "packages/config/rust", "packages/store/rust"]
+members = [
+    "packages/js-runtime",
+    "packages/config/rust",
+    "packages/store/rust",
+    "packages/plugin-host",
+]
 
 [workspace.package]
 edition = "2021"
@@ -18,6 +23,8 @@ unicode-segmentation = "=1.13.3"
 toml = { version = "=0.9.11", default-features = false, features = ["std", "parse", "serde"] }
 sha2 = "=0.10.9"
 murmo-store = { path = "packages/store/rust" }
+murmo-config = { path = "packages/config/rust" }
+murmo-js-runtime = { path = "packages/js-runtime" }
 
 [profile.release]
 opt-level = "s"

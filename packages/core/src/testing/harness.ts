@@ -11,7 +11,7 @@
 // release (a held commit) end the settle after a run of idle turns.
 
 import type { ActionId, Gesture, HostState, KeyId, Origin, Permission, Range } from '@murmo/api';
-import type { SubmitOutcome } from '@murmo/api/adapter';
+import type { Executor, SubmitOutcome } from '@murmo/api/adapter';
 import { createInProcessExecutor } from '@murmo/executor';
 import type { HookRunner, RunnerHealth } from '../hooks.ts';
 import { createPluginHost, type HostPluginSpec } from '../plugins/host.ts';
@@ -26,6 +26,13 @@ export interface HarnessOptions {
   readonly grants?: Readonly<Record<string, readonly Permission[]>>;
   /** `direct` skips deadlines (phase 05 tests); default is the in-process executor. */
   readonly runner?: 'executor' | 'direct';
+  /** Isolated helper or any other Executor; when set, plugins should include `source`. */
+  readonly executor?: Executor;
+  /**
+   * Settle waits on real I/O (the isolated helper) instead of only spinning
+   * microtasks on the manual clock.
+   */
+  readonly realtime?: boolean;
   readonly caps?: CapsPatch;
   readonly draft?: ReferenceAdapterOptions['draft'];
   readonly tabQueues?: boolean;
@@ -83,10 +90,12 @@ const MAX_TURNS = 1_000_000;
 export class Driver {
   readonly #harness: () => Harness;
   readonly #hold: boolean;
+  readonly #realtime: boolean;
 
-  constructor(harness: () => Harness, hold: boolean) {
+  constructor(harness: () => Harness, hold: boolean, realtime = false) {
     this.#harness = harness;
     this.#hold = hold;
+    this.#realtime = realtime;
   }
 
   get #adapter(): ReferenceAdapter {
@@ -192,6 +201,10 @@ export class Driver {
     const { session, clock } = this.#harness();
     if (!session) return;
     await session.ready;
+    if (this.#realtime) {
+      await session.settle();
+      return;
+    }
     let advanced = 0;
     let idle = 0;
     let last = '';
@@ -239,17 +252,21 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
             (plugin): HostPluginSpec => ({
               id: plugin.id,
               builtin: plugin.builtin,
-              factory: plugin.factory,
+              ...(plugin.factory ? { factory: plugin.factory } : {}),
+              ...(plugin.source ? { source: plugin.source } : {}),
               ...(plugin.settings === undefined ? {} : { settings: plugin.settings }),
               ...(plugin.inline ? { inline: plugin.inline } : {}),
               ...(plugin.assets ? { assets: plugin.assets } : {}),
               ...(plugin.requiredGuard === undefined ? {} : { requiredGuard: plugin.requiredGuard }),
+              ...(plugin.resources ? { resources: plugin.resources } : {}),
             }),
           ),
-          executor: createInProcessExecutor({
-            clock,
-            ...(options.pressure === undefined ? {} : { pressure: () => options.pressure ?? 1 }),
-          }),
+          executor:
+            options.executor ??
+            createInProcessExecutor({
+              clock,
+              ...(options.pressure === undefined ? {} : { pressure: () => options.pressure ?? 1 }),
+            }),
           ...(options.grants === undefined ? {} : { grants: options.grants }),
           ...(options.health === undefined ? {} : { health: options.health }),
         });
@@ -271,7 +288,11 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
         ...(options.menu ? { menu: options.menu } : {}),
       });
   let harness: Harness | undefined;
-  const driver = new Driver(() => harness as Harness, options.holdCommits === true);
+  const driver = new Driver(
+    () => harness as Harness,
+    options.holdCommits === true,
+    options.realtime === true || options.executor !== undefined,
+  );
   harness = { clock, adapter, runner, session, driver };
   if (session) {
     await session.ready;

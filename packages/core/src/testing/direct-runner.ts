@@ -32,13 +32,16 @@ import { CancelledError } from './clock.ts';
 export interface DirectPluginSpec {
   readonly id: string;
   readonly builtin: boolean;
-  readonly factory: PluginFactory;
+  readonly factory?: PluginFactory;
+  /** Isolated executor source; ignored by the direct runner. */
+  readonly source?: string;
   readonly settings?: Readonly<Record<string, unknown>>;
   /** Built-in inline rule sets (phase 07). Ignored, then refused, on third-party specs. */
   readonly inline?: readonly InlineRules[];
   readonly assets?: Readonly<Record<string, ArrayBuffer>>;
   /** A guard whose load fails still blocks every send (phase 09). */
   readonly requiredGuard?: boolean;
+  readonly resources?: { readonly memoryMiB: number };
 }
 
 export interface DirectRunnerOptions {
@@ -177,6 +180,7 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
           const settings = spec.inline?.some((rule) => rule.enabled)
             ? { ...spec.settings, autocorrect: false }
             : (spec.settings ?? {});
+          if (!spec.factory) throw new Error('direct runner needs factory');
           const plugin = spec.factory(clone(settings));
           const descriptor = descriptorOf(spec.id, plugin);
           const storage = new MemoryStorage();

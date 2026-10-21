@@ -14,6 +14,7 @@
     "@murmo/api": "workspace:*",
     "@murmo/config": "workspace:*",
     "@murmo/core": "workspace:*",
+    "@murmo/executor": "workspace:*",
     "@murmo/fixtures": "workspace:*",
     "@murmo/plugin-shortcuts": "workspace:*",
     "@murmo/provenance": "workspace:*",

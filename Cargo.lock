@@ -150,6 +150,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "murmo-plugin-host"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "murmo-js-runtime",
+ "murmo-store",
+ "rquickjs",
+ "serde_json",
+]
+
+[[package]]
 name = "murmo-store"
 version = "0.0.0"
 dependencies = [

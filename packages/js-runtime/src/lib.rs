@@ -48,11 +48,19 @@ pub struct Engine {
     interrupted: Rc<Cell<bool>>,
 }
 
+/// A QuickJS runtime with `limits` applied and no interrupt handler yet.
+/// `murmo-plugin-host` installs a CPU/wall watchdog; `Engine` installs a wall
+/// deadline. One setup, two callers (lesson 57).
+pub fn create_runtime(limits: Limits) -> Result<Runtime, JsError> {
+    let runtime = Runtime::new().map_err(|e| JsError::Init(e.to_string()))?;
+    runtime.set_memory_limit(limits.memory_bytes);
+    runtime.set_max_stack_size(limits.stack_bytes);
+    Ok(runtime)
+}
+
 impl Engine {
     pub fn new(limits: Limits) -> Result<Self, JsError> {
-        let runtime = Runtime::new().map_err(|e| JsError::Init(e.to_string()))?;
-        runtime.set_memory_limit(limits.memory_bytes);
-        runtime.set_max_stack_size(limits.stack_bytes);
+        let runtime = create_runtime(limits)?;
         let deadline: Rc<Cell<Option<Instant>>> = Rc::new(Cell::new(None));
         let interrupted = Rc::new(Cell::new(false));
         let (watch, flag) = (deadline.clone(), interrupted.clone());
@@ -106,6 +114,11 @@ impl Engine {
     /// Bytes the engine has allocated, for budgets and reports.
     pub fn memory_used(&self) -> i64 {
         self.runtime.memory_usage().malloc_size
+    }
+
+    /// The underlying runtime, for callers that install their own watchdog.
+    pub fn runtime(&self) -> &Runtime {
+        &self.runtime
     }
 
     fn guarded<R>(

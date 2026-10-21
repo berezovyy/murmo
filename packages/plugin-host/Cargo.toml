@@ -1,0 +1,22 @@
+[package]
+name = "murmo-plugin-host"
+version = "0.1.0"
+description = "Isolated plugin host: one supervisor per session, one QuickJS worker per third-party plugin"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "murmo-plugin-host"
+path = "src/main.rs"
+
+[lib]
+name = "murmo_plugin_host"
+path = "src/lib.rs"
+
+[dependencies]
+libc.workspace = true
+murmo-js-runtime.workspace = true
+murmo-store.workspace = true
+rquickjs.workspace = true
+serde_json.workspace = true

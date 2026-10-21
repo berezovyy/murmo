@@ -166,16 +166,26 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   };
 
   const execute = async (call: HookCall): Promise<unknown> => {
-    if (disposed || call.signal.cancelled) throw executorFault('cancelled', 'cancelled');
+    if (disposed) throw executorFault('cancelled', 'cancelled');
     const entry = loaded.get(call.pluginId);
     if (!entry) throw executorFault('exception', `plugin ${call.pluginId} is not loaded`);
     const ctx = context(call, entry);
-    const result = await options.executor.run(call.pluginId, call.hook, inputOf(call, ctx), ctx, {
-      timeoutMs: deadlineMs(call),
-      signal: call.signal,
-    });
-    if (call.signal.cancelled) throw executorFault('cancelled', 'cancelled');
-    return result;
+    try {
+      const result = await options.executor.run(call.pluginId, call.hook, inputOf(call, ctx), ctx, {
+        timeoutMs: deadlineMs(call),
+        signal: call.signal,
+      });
+      // The key that dispatched this hook also updates the draft, which would
+      // make the ticket stale. Drop the result, but never a typed guest fault
+      // (C12: a looper must still be struck).
+      if (call.signal.cancelled) throw executorFault('cancelled', 'cancelled');
+      return result;
+    } catch (error) {
+      const code = (error as { code?: unknown } | null)?.code;
+      if (typeof code === 'string' && code !== 'cancelled') throw error;
+      if (call.signal.cancelled) throw executorFault('cancelled', 'cancelled');
+      throw error;
+    }
   };
 
   return {

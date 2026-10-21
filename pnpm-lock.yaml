@@ -58,6 +58,9 @@ importers:
       '@murmo/core':
         specifier: workspace:*
         version: link:../core
+      '@murmo/executor':
+        specifier: workspace:*
+        version: link:../executor
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../fixtures
