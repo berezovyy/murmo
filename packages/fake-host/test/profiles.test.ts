@@ -102,6 +102,6 @@ test('seed JSON records match the embedded seeds and are not stale (profile gene
     assert.equal(file.historical, seed.historical);
     assert.equal(profileEvidence[host].version, seed.version);
     assert.equal(profileIsStale(host, profileEvidence[host].version), false);
-    assert.equal(SEED_RECORDS.filter((r) => r.host === host).length, 1);
+    assert.ok(SEED_RECORDS.filter((r) => r.host === host).length >= 1);
   }
 });

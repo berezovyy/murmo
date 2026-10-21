@@ -1,5 +1,5 @@
-// Capability records the profiles are generated from. Claude's row is the
-// phase-24 adapter (not historical). Other hosts stay on round-13/14 seeds
+// Capability records the profiles are generated from. Claude (24) and Pi (21)
+// are adapter-measured (not historical). Other hosts stay on round-13/14 seeds
 // until their adapters emit a fresh record. A record never claims 2.0-pre
 // guarantees no real adapter has shown (`edit.attributed`, `dialogSafe`,
 // `submit.committed` as accepted-text).
@@ -142,16 +142,25 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
   {
     host: 'pi',
     version: '1.3.0',
-    measuredAt: '2026-10-13',
-    report: 'docs/experiments/r13-pi-inline.md',
-    historical: true,
+    measuredAt: '2026-10-21',
+    report: 'docs/plan/21-adapter-pi.md',
+    historical: false,
     quirks: ['one-editor-slot', 'opaque-paste-uneditable', 'managed-submit-boundary'],
     patch: {
-      edit: { selection: false },
+      inputOriginEvidence: 'host-labeled',
+      edit: { selection: false, attributed: true, certainties: ['authoritative'] },
       ghost: 'end-only',
       highlight: 'visible-row',
       undoKeys: ['Undo', 'F6'],
-      submit: { gestures: ['send', 'queue', 'steer'], guardPosition: 'managed', committed: 'none' },
+      keyPriority: 'unknown',
+      inlineRewrite: 'same-transaction',
+      inline: { attributed: true, commitReceipt: 'native-commit', nativeCompletion: false },
+      submit: {
+        gestures: ['send', 'queue', 'steer'],
+        guardPosition: 'managed',
+        committed: 'accepted-text',
+      },
+      ui: { dialogSafe: true, opaqueParts: true, statusMaxLength: 512, anchor: 'host-owned' },
     },
   },
 ];

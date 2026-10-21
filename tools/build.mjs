@@ -62,6 +62,7 @@ async function buildOne({ pkg, bundle, target }, outRoot) {
     target: t.target,
     ...(t.format === 'iife' ? { globalName: bundle.global } : {}),
     ...(t.platform === 'neutral' ? { mainFields: ['module', 'main'], conditions: ['import', 'default'] } : {}),
+    ...(bundle.external?.length ? { external: bundle.external } : {}),
     legalComments: 'eof',
     sourcemap: false,
     charset: 'utf8',
@@ -93,6 +94,7 @@ export async function gate(built, packages) {
           metafile: JSON.parse(readFileSync(b.metaFile, 'utf8')),
           packages,
           portable: false,
+          allowedExternal: b.bundle.external ?? [],
         });
     for (const p of problems) failures.push(`${b.pkg.manifest.name} [${b.target}] ${b.bundle.name}: ${p}`);
   }

@@ -84,7 +84,7 @@ function claudeKeys(): string[] {
 }
 
 export function capsFromRecord(record: CapabilityRecord) {
-  const base = patchCaps(referenceCaps(), historicalFloor());
+  const base = record.historical ? patchCaps(referenceCaps(), historicalFloor()) : referenceCaps();
   const patched = patchCaps(base, record.patch);
   if (record.host === 'claude') {
     return patchCaps(patched, { keys: claudeKeys() });

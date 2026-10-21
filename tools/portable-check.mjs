@@ -29,8 +29,9 @@ const forbiddenSource = [
 ];
 
 /** Static checks over the esbuild metafile and the bundle text. */
-export function staticProblems({ code, metafile, packages, portable }) {
+export function staticProblems({ code, metafile, packages, portable, allowedExternal = [] }) {
   const problems = [];
+  const allowed = new Set(allowedExternal);
   for (const [pattern, why] of forbiddenSource) {
     const match = pattern.exec(stripLegalComments(code));
     if (match) problems.push(`forbidden \`${match[0]}\`: ${why}`);
@@ -42,10 +43,14 @@ export function staticProblems({ code, metafile, packages, portable }) {
       // bundle but listed as an external `<runtime>` import.
       if (imp.path === '<runtime>') continue;
       const spec = imp.original ?? imp.path;
-      if (imp.external) problems.push(`${input}: external import \`${spec}\` cannot load in a single-file bundle`);
+      const name = isBare(spec) ? packageNameOf(spec) : spec;
+      const hostProvided =
+        allowed.has(spec) || allowed.has(name) || (!portable && (spec.startsWith('node:') || spec.startsWith('bun:')));
+      if (imp.external && !hostProvided) {
+        problems.push(`${input}: external import \`${spec}\` cannot load in a single-file bundle`);
+      }
       if (!owner || !isBare(spec)) continue;
-      const name = packageNameOf(spec);
-      if (!declaredDependencies(owner.manifest).has(name)) {
+      if (!declaredDependencies(owner.manifest).has(name) && !hostProvided) {
         problems.push(
           `${input}: imports \`${name}\`, which ${owner.manifest.name} does not declare (phantom dependency)`,
         );
