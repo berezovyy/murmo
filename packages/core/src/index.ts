@@ -4,9 +4,19 @@
 // router, claim validation, explicit plugin order and the merged menu.
 // Phase 07: inline rules on the key path (typos, short shortcuts, `.` waits).
 // Phase 08: the before-submit pipeline, guard position, and submit-committed
-// delivery. The reference adapter, a direct hook runner and a driver live in
+// delivery. Phase 09: in-process executor, permissions, budgets and
+// attribution. The reference adapter, a direct hook runner and a driver live in
 // `@murmo/core/testing`.
 
+export {
+  createMemoryProjectFiles,
+  createMemoryStorage,
+  createStorageBroker,
+  denyProject,
+  type MemoryProjectFile,
+  type PluginStorageBroker,
+  type StorageBroker,
+} from './brokers/index.ts';
 export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
 export { type Accepted, DraftState, degradeOrigins } from './draft-state.ts';
 export {
@@ -56,6 +66,25 @@ export {
 export { type Decision, KeyRouter, type KeyRouterDeps } from './keys.ts';
 export { MENU_MAX_PER_PLUGIN, MENU_WINDOW, Menu, type MenuChoice, type MenuDeps, visibleWindow } from './menu.ts';
 export { type PluginOrderCode, PluginOrderError, resolveOrder, uniquePluginIds } from './order.ts';
+export {
+  type Admission,
+  admit,
+  attributionGate,
+  ChangeCoalescer,
+  createPluginHost,
+  deadlineFor,
+  EditRate,
+  type FaultAction,
+  FaultBook,
+  type GrantMap,
+  grantAccess,
+  grantedPermissions,
+  type HostPluginSpec,
+  isGranted,
+  type PluginHost,
+  type PluginHostOptions,
+  permissionGate,
+} from './plugins/index.ts';
 export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type VisibleGhost } from './present.ts';
 export { createSession, KILL_NOTICE, type Session, type SessionOptions } from './session.ts';
 export { isCurrent, issueTicket, type SessionView, type StaleReason, staleReason, type Ticket } from './stale.ts';

@@ -10,11 +10,11 @@
 // host's, no typed coverage without host-labeled evidence, no core failure,
 // and a dispose that unsubscribes everything.
 //
-// Features: `core.edits`, `core.keys`, `core.submit` and `core.inline` (07);
-// `core.permissions` and `executor.isolated` (09) are added by those phases,
+// Features: `core.edits`, `core.keys`, `core.submit`, `core.inline` and
+// `core.permissions`; `executor.isolated` (10) is added by that phase,
 // so cases that need them skip with "needs <feature>".
 
-import type { Draft } from '@murmo/api';
+import type { Draft, Permission } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
 import {
   type CapsPatch,
@@ -39,7 +39,14 @@ export interface CoreSubjectOptions {
 export const PEER_TODO = ' TODO';
 
 export function coreFeatures(): Record<string, string | boolean> {
-  return { 'core.edits': true, 'core.keys': true, 'core.submit': true, 'core.inline': true, ...pluginFeatures() };
+  return {
+    'core.edits': true,
+    'core.keys': true,
+    'core.submit': true,
+    'core.inline': true,
+    'core.permissions': true,
+    ...pluginFeatures(),
+  };
 }
 
 /** The host quirks a case asks for, as reference-adapter capability overrides. */
@@ -75,6 +82,7 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
       const bundle = testInlineRules(id);
       return { ...spec, inline: [bundle.rules], assets: bundle.assets };
     }
+    if (plugin === 'todo-guard') return { ...spec, requiredGuard: true };
     return spec;
   });
 }
@@ -85,6 +93,7 @@ async function harnessFor(c: EditorCase, builtin: boolean, control: boolean): Pr
     plugins: control ? [] : pluginSpecs(c, builtin),
     caps: capsFor(host),
     control,
+    ...(c.grants ? { grants: c.grants as Record<string, readonly Permission[]> } : {}),
     ...(host?.certainty ? { draft: { text: '', certainty: host.certainty } } : {}),
     ...(host?.tabQueues ? { tabQueues: true } : {}),
     ...(host?.nativePeer === 'inject-todo' ? { nativePeer: (text: string) => text + PEER_TODO } : {}),

@@ -65,7 +65,11 @@ test('third-party replace with changed text sends nothing and leaves the draft (
       return { action: 'replace', text: tx.draft.text.replace("don't", 'do') };
     },
   }));
-  const h = await createHarness({ plugins: [attacker], draft: { text: "don't delete backups" } });
+  const h = await createHarness({
+    plugins: [attacker],
+    draft: { text: "don't delete backups" },
+    grants: { attacker: ['draft:read:full'] },
+  });
   const outcome = await h.driver.submit('send');
   assert.equal(outcome.action, 'block');
   if (outcome.action === 'block') assert.equal(outcome.reason, REWRITE_DIAGNOSTIC('attacker'));
@@ -320,6 +324,9 @@ test('a guard that has not activated yet blocks with 0 requests (fail-closed)', 
     claims: [],
     activated: false,
     disabled: false,
+    strikes: {},
+    loaded: true,
+    deniedEdits: 0,
   };
   const outcome = await runPipeline(
     { draft, gesture: 'send', position: 'managed' },

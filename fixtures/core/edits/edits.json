@@ -660,6 +660,10 @@
       "id": "interleaved-undo-order",
       "tags": ["undo"],
       "note": "Two plugins edit in a row; the undo key restores them newest first, each exactly (prototype fuzz.mjs).",
+      "grants": {
+        "first": ["draft:read:full"],
+        "second": ["draft:read:full"]
+      },
       "plugins": [
         {
           "id": "first",
@@ -826,6 +830,9 @@
       "id": "pending-merge-during-commit",
       "tags": ["pending-merge"],
       "note": "Two keys land while the correction commits: they are published after it as one change with both deltas, in order.",
+      "grants": {
+        "rec": ["draft:read:full"]
+      },
       "host": {
         "commitTiming": "race",
         "raceText": "xy"

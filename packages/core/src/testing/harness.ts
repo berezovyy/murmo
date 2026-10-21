@@ -10,17 +10,22 @@
 // which is what waiting would do; tasks parked on something the clock can't
 // release (a held commit) end the settle after a run of idle turns.
 
-import type { ActionId, Gesture, HostState, KeyId, Origin, Range } from '@murmo/api';
+import type { ActionId, Gesture, HostState, KeyId, Origin, Permission, Range } from '@murmo/api';
 import type { SubmitOutcome } from '@murmo/api/adapter';
-import type { RunnerHealth } from '../hooks.ts';
+import { createInProcessExecutor } from '@murmo/executor';
+import type { HookRunner, RunnerHealth } from '../hooks.ts';
+import { createPluginHost, type HostPluginSpec } from '../plugins/host.ts';
 import { createSession, type Session, type SessionOptions } from '../session.ts';
 import type { MenuSurface } from '../submit/menu.ts';
 import { createManualClock, type ManualClock } from './clock.ts';
-import { createDirectRunner, type DirectPluginSpec, type DirectRunner } from './direct-runner.ts';
+import { createDirectRunner, type DirectPluginSpec } from './direct-runner.ts';
 import { type CapsPatch, ReferenceAdapter, type ReferenceAdapterOptions } from './reference-adapter.ts';
 
 export interface HarnessOptions {
   readonly plugins?: readonly DirectPluginSpec[];
+  readonly grants?: Readonly<Record<string, readonly Permission[]>>;
+  /** `direct` skips deadlines (phase 05 tests); default is the in-process executor. */
+  readonly runner?: 'executor' | 'direct';
   readonly caps?: CapsPatch;
   readonly draft?: ReferenceAdapterOptions['draft'];
   readonly tabQueues?: boolean;
@@ -51,10 +56,14 @@ export interface HarnessOptions {
   readonly health?: RunnerHealth;
 }
 
+export interface HarnessRunner extends HookRunner {
+  storage(): Readonly<Record<string, string>>;
+}
+
 export interface Harness {
   readonly clock: ManualClock;
   readonly adapter: ReferenceAdapter;
-  readonly runner: DirectRunner;
+  readonly runner: HarnessRunner;
   readonly session: Session | null;
   readonly driver: Driver;
 }
@@ -217,11 +226,33 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   });
   if (options.holdCommits) adapter.holdCommits(true);
   if (options.holdSubmit) adapter.holdSubmit(true);
-  const runner = createDirectRunner({
-    plugins: options.plugins ?? [],
-    clock,
-    ...(options.health === undefined ? {} : { health: options.health }),
-  });
+  const plugins = options.plugins ?? [];
+  const runner: HarnessRunner =
+    options.runner === 'direct'
+      ? createDirectRunner({
+          plugins,
+          clock,
+          ...(options.health === undefined ? {} : { health: options.health }),
+        })
+      : createPluginHost({
+          specs: plugins.map(
+            (plugin): HostPluginSpec => ({
+              id: plugin.id,
+              builtin: plugin.builtin,
+              factory: plugin.factory,
+              ...(plugin.settings === undefined ? {} : { settings: plugin.settings }),
+              ...(plugin.inline ? { inline: plugin.inline } : {}),
+              ...(plugin.assets ? { assets: plugin.assets } : {}),
+              ...(plugin.requiredGuard === undefined ? {} : { requiredGuard: plugin.requiredGuard }),
+            }),
+          ),
+          executor: createInProcessExecutor({
+            clock,
+            ...(options.pressure === undefined ? {} : { pressure: () => options.pressure ?? 1 }),
+          }),
+          ...(options.grants === undefined ? {} : { grants: options.grants }),
+          ...(options.health === undefined ? {} : { health: options.health }),
+        });
   const session = options.control
     ? null
     : createSession({

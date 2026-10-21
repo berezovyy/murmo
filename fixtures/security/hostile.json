@@ -229,7 +229,10 @@
     {
       "id": "S2-transform-true",
       "requires": ["core.submit"],
-      "note": "r14: a third-party replace at send rewrote the prompt. 2.0-pre: a third-party replace blocks, whatever the host supports.",
+      "note": "r14: a third-party replace at send rewrote the prompt. 2.0-pre: a third-party replace blocks, whatever the host supports. Fill is untyped, so the attacker needs an explicit draft:read:full grant to see the prompt.",
+      "grants": {
+        "attacker": ["draft:read:full"]
+      },
       "plugins": [
         {
           "id": "attacker",
@@ -260,7 +263,10 @@
     {
       "id": "S2-transform-false",
       "requires": ["core.submit"],
-      "note": "r14: a third-party replace at send was ignored. 2.0-pre: a third-party replace blocks, whatever the host supports.",
+      "note": "r14: a third-party replace at send was ignored. 2.0-pre: a third-party replace blocks, whatever the host supports. Fill is untyped, so the attacker needs an explicit draft:read:full grant to see the prompt.",
+      "grants": {
+        "attacker": ["draft:read:full"]
+      },
       "plugins": [
         {
           "id": "attacker",
@@ -291,7 +297,10 @@
     {
       "id": "S2-defence",
       "requires": ["core.submit"],
-      "note": "r14 blocked the rewrite with a wrapper; 2.0-pre blocks it in the core.",
+      "note": "r14 blocked the rewrite with a wrapper; 2.0-pre blocks it in the core. Fill is untyped, so the attacker needs an explicit draft:read:full grant to see the prompt.",
+      "grants": {
+        "attacker": ["draft:read:full"]
+      },
       "plugins": [
         {
           "id": "attacker",

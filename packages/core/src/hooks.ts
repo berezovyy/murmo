@@ -11,6 +11,7 @@ import type {
   Draft,
   EffectType,
   HostState,
+  Negotiation,
   Permission,
   PluginAction,
   PluginHook,
@@ -19,10 +20,12 @@ import type {
 import {
   type ExecutorFault,
   type ExecutorFaultCode,
+  type HostCapabilities,
   type InlineRules,
   type PluginDescriptor,
   routesFor,
 } from '@murmo/api/adapter';
+import { codeOf } from '@murmo/executor';
 import type { ValidatedClaim } from './claims.ts';
 import type { Ticket } from './stale.ts';
 
@@ -36,6 +39,9 @@ export interface LoadedPlugin {
   /** Built-in inline rule sets; registered in phase 07. Absent on third-party specs. */
   readonly inline?: readonly InlineRules[];
   readonly assets?: Readonly<Record<string, ArrayBuffer>>;
+  /** Held permissions after defaults and the host grant map (phase 09). */
+  readonly granted?: readonly Permission[];
+  readonly negotiation?: Negotiation;
 }
 
 /** A plugin as the session tracks it, in plugin order. */
@@ -59,25 +65,33 @@ export interface PluginEntry {
   activated: boolean;
   disabled: boolean;
   reason?: string;
+  /** Consecutive budget strikes per hook. */
+  strikes: Record<string, number>;
+  loaded: boolean;
+  deniedEdits: number;
 }
 
-/** Phase 05 gates hooks and effects by the declared permissions, as the prototype did; phase 09 by grants. */
+/** Gates hooks and effects by granted permissions (declared if the loader did not substitute). */
 export function entryOf(plugin: LoadedPlugin): PluginEntry {
   const { descriptor } = plugin;
-  const routes = routesFor(descriptor.permissions);
+  const granted = plugin.granted ?? descriptor.permissions;
+  const routes = routesFor(granted);
   return {
     id: descriptor.id,
     name: descriptor.name,
     version: descriptor.version,
     builtin: plugin.builtin,
     guard: descriptor.guard,
-    permissions: descriptor.permissions,
+    permissions: granted,
     hooks: new Set(descriptor.hooks.filter((hook) => routes.hooks.includes(hook))),
     effects: new Set(routes.effects),
     actions: new Set(descriptor.actions),
     claims: [],
     activated: false,
     disabled: plugin.loadError !== undefined,
+    strikes: {},
+    loaded: plugin.loadError === undefined,
+    deniedEdits: 0,
     ...(plugin.loadError === undefined ? {} : { reason: `load failed: ${plugin.loadError}` }),
   };
 }
@@ -100,6 +114,8 @@ export interface HookCall {
   /** Cancelled once the result can no longer apply; the runner checks it before starting and after awaiting. */
   readonly signal: Cancellation;
   readonly snapshot: HookSnapshot;
+  /** Wall-clock budget for this call, before pressure scaling. Submit passes remaining time. */
+  readonly timeoutMs?: number;
 }
 
 export type RunnerHealth = 'ok' | 'degraded' | 'down';
@@ -108,8 +124,8 @@ export interface HookRunner {
   readonly runtime: RuntimeCapabilities;
   /** Spec IDs in the host's explicit list, before `load` (duplicate check happens here). */
   ids(): readonly string[];
-  /** Loads every plugin, in the session's order. */
-  load(): Promise<readonly LoadedPlugin[]>;
+  /** Loads every plugin, in the session's order. Caps are for manifest negotiation. */
+  load(caps?: Capabilities | HostCapabilities): Promise<readonly LoadedPlugin[]>;
   /** Runs one hook; rejects with an `ExecutorFault`-shaped error. */
   run(call: HookCall): Promise<unknown>;
   unload(pluginId: string): Promise<void>;
@@ -118,29 +134,24 @@ export interface HookRunner {
   dispose(): Promise<void>;
 }
 
-const faultCodes: ReadonlySet<string> = new Set<ExecutorFaultCode>([
-  'cpu',
-  'timeout',
-  'memory',
-  'cancelled',
-  'exception',
-  'output-limit',
-  'transport',
-]);
-
-/** A rejection from `run`, as the session classifies it; anything untyped is an `exception`. */
+/** A rejection from `run`, as the session classifies it; untyped errors keep no code. */
 export function faultOf(error: unknown, pluginId: string, hook: PluginHook): ExecutorFault {
-  const e = error as { code?: unknown; message?: unknown } | null;
-  const message = typeof e?.message === 'string' ? e.message : String(error);
-  const code = typeof e?.code === 'string' && faultCodes.has(e.code) ? (e.code as ExecutorFaultCode) : 'exception';
-  return { code, pluginId, hook, message };
+  const message = error instanceof Error ? error.message : String(error);
+  const code: ExecutorFaultCode = codeOf(error) ?? 'exception';
+  const generation = (error as { generation?: unknown } | null)?.generation;
+  return {
+    code,
+    pluginId,
+    hook,
+    message,
+    ...(typeof generation === 'number' ? { generation } : {}),
+  };
 }
 
 /**
- * What a fault does to the plugin. Phase 05's rule is the prototype's for
- * untyped exceptions: `cancelled` is no fault, anything else disables the
- * plugin at once. Phase 09 adds strikes for budget faults.
+ * Immediate disable? Budget faults strike instead; cancelled and untyped do not
+ * disable; transport degrades the executor (phase 09).
  */
 export function disablesPlugin(fault: ExecutorFault): boolean {
-  return fault.code !== 'cancelled';
+  return fault.code === 'memory' || fault.code === 'exception' || fault.code === 'output-limit';
 }

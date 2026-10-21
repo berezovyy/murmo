@@ -79,6 +79,9 @@ export interface PluginHealth {
   readonly builtin: boolean;
   readonly activated: boolean;
   readonly disabled: boolean;
+  readonly loaded: boolean;
+  readonly strikes: number;
+  readonly denied: number;
   /** Why it was disabled. */
   readonly reason?: string;
 }

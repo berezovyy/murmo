@@ -217,6 +217,7 @@ export class SubmitController implements CommitGate {
         },
       },
       snapshot: { host: deps.host(), draft: tx.draft, state: view.state() },
+      timeoutMs: remainingMs,
     };
     const work = deps.runner.run(call);
     const raced = await Promise.race([

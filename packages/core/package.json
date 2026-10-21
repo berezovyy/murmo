@@ -5,16 +5,21 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./node": "./src/node/index.ts"
   },
   "dependencies": {
     "@murmo/api": "workspace:*",
+    "@murmo/executor": "workspace:*",
     "@murmo/lang": "workspace:*",
     "@murmo/provenance": "workspace:*",
     "@murmo/text": "workspace:*"
   },
   "murmo": {
     "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
     "bundles": [
       {
         "name": "core",

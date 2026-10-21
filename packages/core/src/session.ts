@@ -7,12 +7,12 @@
 // (present.ts), and never throws into the host (guard.ts).
 //
 // The key path is the router in keys.ts (native → undo → menu → claims) plus
-// the inline evaluator (phase 07) on `onInlineEdit`. Commit gates add
-// permissions, edit rate and attribution (09); the runner becomes the real
-// executors (09).
+// the inline evaluator (phase 07) on `onInlineEdit`.
 //
 // Phase 08: `onBeforeSubmit` / `onSubmitCommitted` subscriptions, the submit
 // window gate, and `finalGuard`.
+// Phase 09: executor-backed runner, permission/rate/attribution gates next
+// to the submit window, typed fault strikes.
 
 import type {
   ActionId,
@@ -43,19 +43,21 @@ import { type CommitGate, Edits, editable } from './edits.ts';
 import { applyEffects, type EffectDeps } from './effects.ts';
 import { FAILURE_LIMIT, FailOpen } from './guard.ts';
 import {
-  disablesPlugin,
   entryOf,
-  faultOf,
   type HookCall,
   type HookRunner,
   type HookSnapshot,
   type LoadedPlugin,
   type PluginEntry,
+  type RunnerHealth,
 } from './hooks.ts';
 import { createInlineStage, type InlineStage, type RegisteredInline, registerRuleSet } from './inline/index.ts';
 import { KeyRouter } from './keys.ts';
 import { Menu } from './menu.ts';
 import { resolveOrder } from './order.ts';
+import { FaultBook } from './plugins/faults.ts';
+import { attributionGate, permissionGate } from './plugins/gates.ts';
+import { EditRate } from './plugins/rate.ts';
 import { Presentation } from './present.ts';
 import { isCurrent, issueTicket, type SessionView, type Ticket } from './stale.ts';
 import { Counters, type SessionStats } from './stats.ts';
@@ -133,6 +135,7 @@ class CoreSession implements Session {
   readonly #runner: HookRunner;
   readonly #options: SessionOptions;
   readonly #counters = new Counters();
+  readonly #faults = new FaultBook();
   readonly #guard: FailOpen;
   readonly #undo = new UndoLog();
   readonly #tasks = new Set<Promise<void>>();
@@ -193,7 +196,7 @@ class CoreSession implements Session {
     this.#caps = { ...hostCaps, runtime: this.#runner.runtime };
     // Duplicate / missing / unknown IDs refuse before any executor load (r14 K1).
     const orderedIds = resolveOrder(this.#runner.ids(), this.#options.order);
-    const loaded = await this.#runner.load();
+    const loaded = await this.#runner.load(this.#caps);
     if (this.#disposed) return;
     const loadedById = new Map(loaded.map((p) => [p.descriptor.id, p]));
     this.#plugins = orderedIds.map((id) => {
@@ -264,6 +267,8 @@ class CoreSession implements Session {
       },
     });
     this.#submit = submit;
+    // Phase 09: permission, rate and attribution gates next to 08's submit-in-progress.
+    const rate = new EditRate(submitOpts.clock);
     const edits = new Edits({
       adapter,
       caps: hostCaps,
@@ -271,9 +276,12 @@ class CoreSession implements Session {
       intake,
       undo: this.#undo,
       counters,
-      gates: [submit, ...(this.#options.gates ?? [])],
+      gates: [submit, permissionGate(), rate, attributionGate(() => hostCaps, notice), ...(this.#options.gates ?? [])],
       notice,
       publish: (accepted) => this.#publish(accepted),
+      noteApplied: (plugin) => {
+        rate.noteApplied(plugin.id, plugin.builtin);
+      },
     });
     this.#edits = edits;
     this.#effects = { view, edits, presentation, menu, counters, editable: isEditable, notice };
@@ -587,7 +595,16 @@ class CoreSession implements Session {
       this.#runner.run(call).then(
         (value) => {
           if (hook === 'activate') plugin.activated = true;
-          this.#enqueue(() => applyEffects(plugin, value, ticket, effects));
+          this.#faults.success(plugin, hook);
+          this.#enqueue(async () => {
+            try {
+              await applyEffects(plugin, value, ticket, effects);
+            } catch (error) {
+              // output-limit is a plugin fault; anything else is a core failure (a throwing gate).
+              if ((error as { code?: unknown } | null)?.code === 'output-limit') this.#fault(plugin, hook, error);
+              else this.#guard.record(error);
+            }
+          });
         },
         (error) => this.#fault(plugin, hook, error),
       ),
@@ -595,10 +612,26 @@ class CoreSession implements Session {
   }
 
   #fault(plugin: PluginEntry, hook: PluginHook, error: unknown): void {
-    const fault = faultOf(error, plugin.id, hook);
-    if (fault.code === 'cancelled') return;
+    const result = this.#faults.record(plugin, hook, error);
+    if (result.action === 'ignore') return;
     this.#counters.faults++;
-    if (disablesPlugin(fault)) this.#disable(plugin, `${hook} failed: ${fault.message}`);
+    if (result.action === 'strike') {
+      plugin.strikes[hook] = result.count;
+      this.#presentation?.notice(result.message);
+      if (result.disable) this.#disable(plugin, result.message);
+      return;
+    }
+    if (result.action === 'notice' || result.action === 'degrade') {
+      this.#presentation?.notice(result.message);
+      return;
+    }
+    this.#disable(plugin, result.message);
+  }
+
+  #executorHealth(): RunnerHealth {
+    const fromRunner = this.#runner.health();
+    if (fromRunner !== 'ok') return fromRunner;
+    return this.#faults.health();
   }
 
   #disable(plugin: PluginEntry, reason: string): void {
@@ -717,7 +750,7 @@ class CoreSession implements Session {
       ready: this.#subscribed,
       disposed: this.#disposed,
       killed: this.#killNotice !== undefined,
-      executor: this.#runner.health(),
+      executor: this.#executorHealth(),
       plugins: this.#plugins.map((p) => ({
         id: p.id,
         name: p.name,
@@ -725,6 +758,9 @@ class CoreSession implements Session {
         builtin: p.builtin,
         activated: p.activated,
         disabled: p.disabled,
+        loaded: p.loaded,
+        strikes: Object.values(p.strikes).reduce((n, c) => n + c, 0),
+        denied: p.deniedEdits,
         ...(p.reason === undefined ? {} : { reason: p.reason }),
       })),
       disabled: this.#plugins.filter((p) => p.disabled).map((p) => p.id),

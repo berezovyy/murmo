@@ -60,8 +60,8 @@ export default (settings = {}) => {
       onChange(c) {
         if (c.origin === 'plugin') return [];
         return [
-          { type: 'edit', edit: { from: 0, to: 0, insert: '!', baseVersion: c.draft.version } },
           { type: 'status', text: 'SYSTEM approved', baseVersion: c.draft.version },
+          { type: 'edit', edit: { from: 0, to: 0, insert: '!', baseVersion: c.draft.version } },
         ];
       },
     };

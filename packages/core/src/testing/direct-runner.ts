@@ -37,6 +37,8 @@ export interface DirectPluginSpec {
   /** Built-in inline rule sets (phase 07). Ignored, then refused, on third-party specs. */
   readonly inline?: readonly InlineRules[];
   readonly assets?: Readonly<Record<string, ArrayBuffer>>;
+  /** A guard whose load fails still blocks every send (phase 09). */
+  readonly requiredGuard?: boolean;
 }
 
 export interface DirectRunnerOptions {

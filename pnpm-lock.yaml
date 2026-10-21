@@ -80,6 +80,9 @@ importers:
       '@murmo/api':
         specifier: workspace:*
         version: link:../api
+      '@murmo/executor':
+        specifier: workspace:*
+        version: link:../executor
       '@murmo/lang':
         specifier: workspace:*
         version: link:../lang
@@ -90,7 +93,11 @@ importers:
         specifier: workspace:*
         version: link:../text
 
-  packages/executor: {}
+  packages/executor:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
 
   packages/lang: {}
 

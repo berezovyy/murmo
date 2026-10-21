@@ -56,10 +56,7 @@ export async function applyEffects(
     return;
   }
   if (value.length > LIMITS.effectsPerCall) {
-    // Phase 09 turns this into an `output-limit` fault; here the whole result is dropped.
-    counters.invalidEffects++;
-    deps.notice(`${plugin.name}: more than ${LIMITS.effectsPerCall} effects in one result; all dropped`);
-    return;
+    throw Object.assign(new Error(`effect output limit: ${LIMITS.effectsPerCall}`), { code: 'output-limit' as const });
   }
   for (const item of value as unknown[]) {
     const shape = shapeOf(item);

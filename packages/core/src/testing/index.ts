@@ -10,7 +10,14 @@ export {
   type DirectRunnerOptions,
   draftView,
 } from './direct-runner.ts';
-export { canonicalKey, createHarness, Driver, type Harness, type HarnessOptions } from './harness.ts';
+export {
+  canonicalKey,
+  createHarness,
+  Driver,
+  type Harness,
+  type HarnessOptions,
+  type HarnessRunner,
+} from './harness.ts';
 export {
   REVIEWED_PAIRS,
   testInlinePlugin,

@@ -95,6 +95,8 @@ export interface EditDeps {
   readonly notice: (text: string) => void;
   /** Publishes changes released after an own operation. */
   readonly publish: (accepted: readonly Accepted[]) => void;
+  /** Phase 09: count an applied third-party edit toward the rate window. */
+  readonly noteApplied?: (plugin: PluginEntry) => void;
 }
 
 const codes: ReadonlySet<string> = new Set<ResultCode>([
@@ -166,14 +168,12 @@ export class Edits {
       const reason = gate.check({ plugin, edit, draft: before, state });
       if (reason !== null) {
         this.#deps.counters.lastDeniedReason = reason;
+        plugin.deniedEdits++;
         return 'denied';
       }
     }
-    if (!plugin.builtin && !caps.edit.attributed) {
-      this.#deps.notice(`Plugin ${plugin.id}: this host cannot attribute plugin edits`);
-      return 'denied';
-    }
-    // 6. Commit at the host, comparing the version there.
+    // 6. Commit at the host, comparing the version there. Attribution is a
+    // phase 09 gate (`attribution`); missing support is denied there.
     const signal: Cancellation = {
       get cancelled() {
         return !isCurrent(ticket, view);
@@ -193,6 +193,7 @@ export class Edits {
             ),
       );
       if (result.status === 'applied') {
+        this.#deps.noteApplied?.(plugin);
         intake.adoptEdit(before, request, plugin.id, result.draft);
         // Undo is armed only if no key came in while the commit was in flight.
         if (edit.undoable && view.epoch === ticket.epoch) {

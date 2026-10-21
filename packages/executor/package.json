@@ -6,7 +6,23 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@murmo/api": "workspace:*"
+  },
   "murmo": {
-    "runtime": "portable"
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "executor",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoExecutor"
+      }
+    ]
   }
 }

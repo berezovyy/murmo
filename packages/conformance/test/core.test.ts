@@ -119,6 +119,36 @@ test('r14 follow-up order and native-Tab cases that need only core.keys pass (E3
   }
 });
 
+test('follow-up rule groups and the 28 hostile fake cases pass (phase 09, E3, E16)', async () => {
+  const { verdicts } = await runSuites(
+    [suite('security/followup-rules.json'), suite('security/hostile.json')],
+    createCoreSubject({ now: options.now }),
+    options,
+  );
+  const failed = verdicts.filter((v) => v.status === 'fail');
+  assert.deepEqual(
+    failed.map((v) => `${v.case} ${v.trust}: ${v.reason}`),
+    [],
+  );
+  const passed = verdicts.filter((v) => v.status === 'pass');
+  assert.ok(passed.some((v) => v.case === 'typed-only-read'));
+  assert.ok(passed.some((v) => v.case === 'S5-key-hijack-with-no-permissions'));
+  assert.ok(passed.some((v) => v.case === 'attribution-and-edit-rate'));
+  const s4 = byCase(verdicts, 'S4-grant-has-no-broker');
+  assert.ok(s4.every((v) => v.status === 'skip' && v.executor === 'in-process'));
+});
+
+test('C12 in-process remains a declared skip until the isolated executor (E7)', async () => {
+  const { verdicts } = await runSuites(
+    [suite('core/conformance/containment.json')],
+    createCoreSubject({ now: options.now }),
+    options,
+  );
+  const c12 = byCase(verdicts, 'V1-C12-memory');
+  assert.ok(c12.length > 0);
+  assert.ok(c12.every((v) => v.status === 'skip' && v.declared === true));
+});
+
 test('cases that need later phases skip with that reason, never pass', async () => {
   const { verdicts } = await runSuites(
     [suite('core/conformance/cases.json')],
