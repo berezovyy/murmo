@@ -28,11 +28,17 @@ export interface PluginTable {
 
 export const NAMES_LANGUAGES = ['rust', 'typescript', 'javascript', 'python', 'go'] as const;
 
+export interface NamesLspSettings {
+  readonly servers?: readonly string[];
+}
+
 export interface NamesSettings {
   readonly enabled?: boolean;
   readonly key?: string;
   readonly languages?: readonly string[];
   readonly maxFileBytes?: number;
+  /** Opt-in LSP servers; no defaults (phase 38). */
+  readonly lsp?: NamesLspSettings;
 }
 
 export interface ConfigFile {
@@ -353,6 +359,16 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
       );
       historyEnabled = undefined;
     }
+    if (names?.lsp?.servers && names.lsp.servers.length > 0) {
+      check.report(
+        'warning',
+        'project-only-reduces',
+        ['names', 'lsp'],
+        'a project file cannot enable LSP servers; [names.lsp] ignored',
+      );
+      const { lsp: _ignored, ...rest } = names;
+      names = Object.keys(rest).length ? rest : undefined;
+    }
     if (privacy === false) privacy = undefined;
     if (events === true) {
       check.report(
@@ -566,6 +582,7 @@ function checkNames(check: FileChecker, value: unknown): NamesSettings | undefin
   let key: string | undefined;
   let languages: string[] | undefined;
   let maxFileBytes: number | undefined;
+  let lsp: NamesLspSettings | undefined;
   for (const name of sortedKeys(value)) {
     const path = ['names', name];
     const entry = value[name];
@@ -602,11 +619,20 @@ function checkNames(check: FileChecker, value: unknown): NamesSettings | undefin
           check.report('warning', 'invalid-value', path, 'maxFileBytes must be an integer from 1 to 1048576');
         } else maxFileBytes = entry;
         break;
+      case 'lsp':
+        lsp = checkNamesLsp(check, entry);
+        break;
       default:
         check.unknown(path, `"${name}" in [names]`);
     }
   }
-  if (enabled === undefined && key === undefined && languages === undefined && maxFileBytes === undefined) {
+  if (
+    enabled === undefined &&
+    key === undefined &&
+    languages === undefined &&
+    maxFileBytes === undefined &&
+    lsp === undefined
+  ) {
     return undefined;
   }
   return {
@@ -614,7 +640,43 @@ function checkNames(check: FileChecker, value: unknown): NamesSettings | undefin
     ...(key === undefined ? {} : { key }),
     ...(languages === undefined ? {} : { languages }),
     ...(maxFileBytes === undefined ? {} : { maxFileBytes }),
+    ...(lsp === undefined ? {} : { lsp }),
   };
+}
+
+function lspServerOk(id: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id);
+}
+
+function checkNamesLsp(check: FileChecker, value: unknown): NamesLspSettings | undefined {
+  if (!isTable(value)) {
+    check.report('warning', 'invalid-type', ['names', 'lsp'], '[names.lsp] must be a table');
+    return undefined;
+  }
+  let servers: string[] | undefined;
+  for (const name of sortedKeys(value)) {
+    const path = ['names', 'lsp', name];
+    const entry = value[name];
+    if (name === 'servers') {
+      if (!Array.isArray(entry)) {
+        check.report('warning', 'invalid-type', path, 'servers must be a list of language-server names');
+        continue;
+      }
+      servers = [];
+      for (const item of entry) {
+        if (typeof item !== 'string' || !lspServerOk(item)) {
+          check.report(
+            'warning',
+            'invalid-value',
+            path,
+            'servers must list command names on PATH (no slashes); entry skipped',
+          );
+        } else if (!servers.includes(item)) servers.push(item);
+      }
+    } else check.unknown(path, `"${name}" in [names.lsp]`);
+  }
+  if (servers === undefined) return undefined;
+  return { servers };
 }
 
 function checkSwitch(check: FileChecker, value: unknown, table: string, name: string): boolean | undefined {

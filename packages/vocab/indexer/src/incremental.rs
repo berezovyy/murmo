@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 
 use crate::exclude::MAX_FILE_BYTES;
 use crate::extract::scan_file;
-use crate::record::NameRecord;
+use crate::record::{record_from_json, NameRecord};
 
 #[derive(Clone, Debug)]
 pub struct FileSig {
@@ -79,18 +79,6 @@ pub fn lstat_in_repo(root: &Path, rel: &str) -> Option<(PathBuf, fs::Metadata)> 
         return None;
     }
     Some((path, meta))
-}
-
-fn record_from_json(v: &Value) -> Option<NameRecord> {
-    let a = v.as_array()?;
-    Some(NameRecord {
-        name: a.first()?.as_str()?.to_string(),
-        kind: a.get(1)?.as_str()?.to_string(),
-        file: a.get(2)?.as_str()?.to_string(),
-        line: a.get(3)?.as_u64()? as u32,
-        refs: a.get(4)?.as_u64()? as u32,
-        owner: a.get(5)?.as_str()?.to_string(),
-    })
 }
 
 pub fn load_files_json(text: &str) -> HashMap<String, FileState> {

@@ -17,6 +17,11 @@ test('words list, data show, private status, trust --list run against a throwawa
     assert.equal(await main(['trust', '--list'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr }), 0);
     assert.equal(await main(['init', '--user'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr }), 0);
     assert.equal(await main(['names', 'status'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr }), 0);
+    assert.equal(await main(['vocab', 'show'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr }), 0);
+    assert.equal(
+      await main(['vocab', 'wipe', '--project'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr }),
+      0,
+    );
   } finally {
     t.remove();
   }

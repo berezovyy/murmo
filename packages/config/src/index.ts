@@ -15,6 +15,7 @@ export type {
   ConfigOrigin,
   ConfigSource,
   JsonValue,
+  NamesLspSettings,
   NamesSettings,
   PluginTable,
   ShortcutEntry,

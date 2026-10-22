@@ -8,7 +8,18 @@ import { pluginOf } from './helpers.ts';
 
 test('typing many words never inserts a project name without accept', async () => {
   const h = await createHarness({ plugins: [pluginOf()] });
-  const words = ['the', 'quick', 'OutboxWorkr', 'worker', 'config', 'HttpServer', 'please', 'review'];
+  const words = [
+    'the',
+    'quick',
+    'OutboxWorkr',
+    'worker',
+    'config',
+    'HttpServer',
+    'please',
+    'review',
+    'outbox',
+    'session',
+  ];
   let text = '';
   for (let i = 0; i < 250; i++) {
     const w = words[i % words.length] as string;

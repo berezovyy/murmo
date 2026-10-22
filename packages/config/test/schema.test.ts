@@ -185,6 +185,14 @@ test('events preview is off unless the user file enables it', () => {
   assert.ok(codes(named('events-project-on')).includes('project-only-reduces'));
 });
 
+test('[names.lsp] is opt-in with no default servers; slashes are refused', () => {
+  const file = parse('[names.lsp]\nservers = ["typescript-language-server", "pyright-langserver"]\n');
+  assert.deepEqual(file.names?.lsp?.servers, ['typescript-language-server', 'pyright-langserver']);
+  const bad = parse('[names.lsp]\nservers = ["/usr/bin/evil", "ok-server"]\n');
+  assert.deepEqual(bad.names?.lsp?.servers, ['ok-server']);
+  assert.ok(codes(bad).includes('invalid-value'));
+});
+
 test('a project file can only make Murmo do less', () => {
   // Catches an untrusted repository turning autocorrect, a plugin or the plugin order on.
   assert.equal(named('autocorrect-project').autocorrect, undefined);

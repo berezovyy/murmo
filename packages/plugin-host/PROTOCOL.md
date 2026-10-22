@@ -33,7 +33,7 @@ The client must refuse a binary whose `protocol` or `apiVersion` does not match.
 | `shutdown` | | process exits |
 | `fault` | `plugin` | worker exits 77; **test builds only** |
 | `names.load` | `path` (names.bin) | `{status:"ok", records, residentBytes}` |
-| `names.search` | `raw`, `key?`, `limit?`, `budgetUs?` | `{status, rows, ids, visits}` — 96 candidates, 300 µs |
+| `names.search` | `raw`, `key?`, `limit?`, `budgetUs?` | `{status, rows, ids, visits}` — 96 candidates, 300 µs; rows include `source` bits (phase 38) |
 | `names.unload` | | `{status:"ok"}` |
 
 Store protocol (Claude sessions, same socket): `storage.get/set/delete`, `private.get`, `generation.get`, `words.add`, `log.append`. Handled by `murmo-store::Store::handle`. Plugin `ctx.storage` does **not** use this path; it request/resumes to the coordinator.

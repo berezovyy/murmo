@@ -72,26 +72,14 @@ pub fn regex_names(path: &str, bytes: &[u8]) -> Vec<NameRecord> {
     let counts = count_identifiers(bytes);
     let mut rows: Vec<NameRecord> = counts
         .iter()
-        .map(|(name, refs)| NameRecord {
-            name: name.clone(),
-            kind: "identifier".into(),
-            file: path.to_string(),
-            line: 1,
-            refs: *refs,
-            owner: String::new(),
-        })
+        .map(|(name, refs)| NameRecord::new(name.clone(), "identifier", path, 1, *refs, ""))
         .collect();
     if let Some(base) = path.rsplit('/').next() {
         let stem = base.rsplit_once('.').map(|(s, _)| s).unwrap_or(base);
         if stem.len() >= 2 {
-            rows.push(NameRecord {
-                name: stem.to_string(),
-                kind: "path".into(),
-                file: path.to_string(),
-                line: 1,
-                refs: 1,
-                owner: String::new(),
-            });
+            let mut rec = NameRecord::new(stem, "path", path, 1, 1, "");
+            rec.source = crate::source::SOURCE_MANIFEST;
+            rows.push(rec);
         }
     }
     rows

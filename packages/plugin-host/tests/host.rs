@@ -407,14 +407,14 @@ fn malformed_lines_do_not_kill_the_supervisor() {
 
 #[test]
 fn names_search_returns_candidates_without_source_text() {
-    let recs = vec![murmo_indexer::NameRecord {
-        name: "OutboxWorker".into(),
-        kind: "class".into(),
-        file: "src/outbox/worker.rs".into(),
-        line: 12,
-        refs: 9,
-        owner: String::new(),
-    }];
+    let recs = vec![murmo_indexer::NameRecord::new(
+        "OutboxWorker",
+        "class",
+        "src/outbox/worker.rs",
+        12,
+        9,
+        "",
+    )];
     let bytes = murmo_indexer::build_packed(&recs);
     assert!(!bytes.windows(3).any(|w| w == b"fn "));
     let dir = std::env::temp_dir().join(format!("murmo-names-host-{}", std::process::id()));

@@ -12,7 +12,7 @@ export const NAMES_BIN = 'names.bin';
 export const NAMES_META = 'meta.json';
 export const NAMES_FILES = 'files.json';
 export const NAMES_CURRENT = 'CURRENT';
-export const INDEXER_VERSION = 1;
+export const INDEXER_VERSION = 3;
 
 export interface PackedEntry {
   readonly name: string;
@@ -23,6 +23,7 @@ export interface PackedEntry {
   readonly refs: number;
   readonly locations: number;
   readonly member: string;
+  readonly source: number;
 }
 
 export interface PackedIndex {
@@ -98,6 +99,12 @@ function memberOf(name: string): string {
   return wordKey(parts[parts.length - 1] ?? '');
 }
 
+export const SOURCE_USER = 1;
+export const SOURCE_MANIFEST = 2;
+export const SOURCE_TAGS = 4;
+export const SOURCE_LSP = 8;
+export const SOURCE_DOCS = 16;
+
 export interface BuildRecord {
   readonly name: string;
   readonly kind: string;
@@ -106,21 +113,24 @@ export interface BuildRecord {
   readonly refs: number;
   readonly locations?: number;
   readonly owner?: string;
+  readonly source?: number;
+  readonly key?: string;
 }
 
 /** Build a names.bin buffer from records. Does not store source text. */
 export function buildPacked(records: readonly BuildRecord[]): Uint8Array {
   const entries = records.map((r) => ({
     name: r.name,
-    key: wordKey(r.name),
+    key: r.key && r.key.length > 0 ? r.key : wordKey(r.name),
     kind: r.kind,
     file: r.file,
     line: r.line >>> 0,
     refs: r.refs >>> 0,
     locations: (r.locations ?? 1) >>> 0,
     member: r.owner ? wordKey(r.owner.split(/::|\./).pop() ?? r.owner) : memberOf(r.name),
+    source: (r.source ?? SOURCE_TAGS) >>> 0,
   }));
-  entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const bloom = bloomCreate(entries.map((e) => e.name));
   const parts: Uint8Array[] = [];
   const offsets = [0];
@@ -129,7 +139,7 @@ export function buildPacked(records: readonly BuildRecord[]): Uint8Array {
   const count: number[] = [];
   const grams = new Map<number, number[]>();
   entries.forEach((e, id) => {
-    const part = utf8Encode([e.name, e.key, e.kind, e.file, e.member].join('\0'));
+    const part = utf8Encode([e.name, e.key, e.kind, e.file, e.member, String(e.source)].join('\0'));
     parts.push(part);
     offsets.push((offsets[offsets.length - 1] ?? 0) + part.length);
     refs.push(e.refs);
@@ -211,6 +221,7 @@ export function loadPacked(buffer: Uint8Array): PackedIndex {
       kind: fields[2] ?? '',
       file: fields[3] ?? '',
       member: fields[4] ?? '',
+      source: Number.parseInt(fields[5] ?? '', 10) || SOURCE_TAGS,
       refs: refs[id] ?? 0,
       line: lines[id] ?? 0,
       locations: count[id] ?? 1,
@@ -269,6 +280,7 @@ export function candidatesFrom(index: PackedIndex, ids: readonly number[]): impo
       location: { kind: e.kind, file: e.file, line: e.line },
       locations: e.locations,
       member: e.member,
+      source: e.source,
     };
   });
 }

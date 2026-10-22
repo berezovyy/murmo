@@ -208,14 +208,14 @@ fn scan_tree(lang: &Lang, source: &[u8], path: &str) -> Vec<NameRecord> {
         if kind == "function" && !own.is_empty() {
             kind = "method".into();
         }
-        rows.push(NameRecord {
-            name: name.to_string(),
+        rows.push(NameRecord::new(
+            name.to_string(),
             kind,
-            file: path.to_string(),
-            line: nm.start_position().row as u32 + 1,
-            refs: 0,
-            owner: own,
-        });
+            path,
+            nm.start_position().row as u32 + 1,
+            0,
+            own,
+        ));
     }
     rows
 }
@@ -243,17 +243,9 @@ pub fn scan_file(path: &str, bytes: &[u8]) -> Option<(Vec<NameRecord>, HashMap<S
     for r in &mut rows {
         r.refs = counts.get(&r.name).copied().unwrap_or(0);
     }
-    rows.insert(
-        0,
-        NameRecord {
-            name: path.to_string(),
-            kind: "path".into(),
-            file: path.to_string(),
-            line: 1,
-            refs: 1,
-            owner: String::new(),
-        },
-    );
+    let mut path_rec = NameRecord::new(path, "path", path, 1, 1, "");
+    path_rec.source = crate::source::SOURCE_MANIFEST;
+    rows.insert(0, path_rec);
     Some((rows, counts))
 }
 

@@ -2,10 +2,39 @@
 // sources 1–2, and swap the object between keys. Adapters call `refresh`
 // while idle; a missing table means only [words] protect and the allowlist.
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { type RegisteredInline, registerRuleSet, type Session } from '@murmo/core';
 import { type EnglishPackAsset, englishInlineRules, resolveAutocorrectSettings } from '@murmo/plugin-autocorrect';
-import { IDLE_CHECK_MS, type ProtectionTable, protectedWords } from '../index.ts';
+import {
+  IDLE_CHECK_MS,
+  loadPacked,
+  NAMES_BIN,
+  NAMES_CURRENT,
+  NAMES_DIR,
+  type ProtectionTable,
+  protectedWords,
+} from '../index.ts';
 import { protectionMtime, tryReadProtection } from './load.ts';
+
+function namesVocabulary(cacheDir: string): string[] {
+  try {
+    const dir = join(cacheDir, NAMES_DIR);
+    const current = readFileSync(join(dir, NAMES_CURRENT), 'utf8').trim();
+    const path = join(dir, current, NAMES_BIN);
+    if (!existsSync(path)) return [];
+    const bytes = new Uint8Array(readFileSync(path));
+    const index = loadPacked(bytes);
+    const out: string[] = [];
+    for (let i = 0; i < index.n; i++) {
+      const e = index.entry(i);
+      out.push(e.name, e.key);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 export interface ProtectionLive {
   /** Collision keys ∪ sources 1–2, ready for InlineRules.vocabulary. */
@@ -24,7 +53,8 @@ export function createProtectionLive(options: {
 }): ProtectionLive {
   let table = tryReadProtection(options.cacheDir);
   let mtime = protectionMtime(options.cacheDir);
-  let words = protectedWords(table?.packed, options.extra);
+  const extra = [...options.extra, ...namesVocabulary(options.cacheDir)];
+  let words = protectedWords(table?.packed, extra);
   return {
     vocabulary: () => words,
     table: () => table,
@@ -34,7 +64,7 @@ export function createProtectionLive(options: {
       const next = tryReadProtection(options.cacheDir);
       mtime = nextMtime;
       table = next;
-      words = protectedWords(next?.packed, options.extra);
+      words = protectedWords(next?.packed, [...options.extra, ...namesVocabulary(options.cacheDir)]);
       return true;
     },
   };

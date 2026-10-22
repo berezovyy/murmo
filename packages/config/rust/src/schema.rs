@@ -99,11 +99,17 @@ pub struct ConfigFile {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct NamesLspSettings {
+    pub servers: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct NamesSettings {
     pub enabled: Option<bool>,
     pub key: Option<String>,
     pub languages: Option<Vec<String>>,
     pub max_file_bytes: Option<u64>,
+    pub lsp: Option<NamesLspSettings>,
 }
 
 impl NamesSettings {
@@ -120,6 +126,13 @@ impl NamesSettings {
         }
         if let Some(n) = self.max_file_bytes {
             v.insert("maxFileBytes".into(), json!(n));
+        }
+        if let Some(lsp) = &self.lsp {
+            let mut o = Map::new();
+            if let Some(s) = &lsp.servers {
+                o.insert("servers".into(), json!(s));
+            }
+            v.insert("lsp".into(), Json::Object(o));
         }
         Json::Object(v)
     }
@@ -526,6 +539,19 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
                 );
                 names.enabled = None;
             }
+            if names
+                .lsp
+                .as_ref()
+                .and_then(|l| l.servers.as_ref())
+                .is_some_and(|s| !s.is_empty())
+            {
+                check.warn(
+                    "project-only-reduces",
+                    &["names", "lsp"],
+                    "a project file cannot enable LSP servers; [names.lsp] ignored",
+                );
+                names.lsp = None;
+            }
         }
         if config.phrases_learn == Some(true) {
             check.warn(
@@ -740,6 +766,7 @@ fn check_names(check: &mut Checker, value: &Value) -> Option<NamesSettings> {
     let mut key = None;
     let mut languages: Option<Vec<String>> = None;
     let mut max_file_bytes = None;
+    let mut lsp = None;
     for (name, entry) in table {
         let path = ["names", name.as_str()];
         match name.as_str() {
@@ -785,10 +812,16 @@ fn check_names(check: &mut Checker, value: &Value) -> Option<NamesSettings> {
                     "maxFileBytes must be an integer from 1 to 1048576",
                 ),
             },
+            "lsp" => lsp = check_names_lsp(check, entry),
             _ => check.unknown(&path, &format!("\"{name}\" in [names]")),
         }
     }
-    if enabled.is_none() && key.is_none() && languages.is_none() && max_file_bytes.is_none() {
+    if enabled.is_none()
+        && key.is_none()
+        && languages.is_none()
+        && max_file_bytes.is_none()
+        && lsp.is_none()
+    {
         return None;
     }
     Some(NamesSettings {
@@ -796,6 +829,58 @@ fn check_names(check: &mut Checker, value: &Value) -> Option<NamesSettings> {
         key,
         languages,
         max_file_bytes,
+        lsp,
+    })
+}
+
+fn lsp_server_ok(s: &str) -> bool {
+    let mut chars = s.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && s.len() <= 64
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+}
+
+fn check_names_lsp(check: &mut Checker, value: &Value) -> Option<NamesLspSettings> {
+    let Value::Table(table) = value else {
+        check.warn(
+            "invalid-type",
+            &["names", "lsp"],
+            "[names.lsp] must be a table",
+        );
+        return None;
+    };
+    let mut servers = None;
+    for (name, entry) in table {
+        let path = ["names", "lsp", name.as_str()];
+        match name.as_str() {
+            "servers" => match entry {
+                Value::Array(list) => {
+                    let mut out = Vec::new();
+                    for item in list {
+                        match item {
+                            Value::String(s) if lsp_server_ok(s) && !out.contains(s) => {
+                                out.push(s.clone())
+                            }
+                            _ => check.warn(
+                                "invalid-value",
+                                &path,
+                                "servers must list command names on PATH (no slashes); entry skipped",
+                            ),
+                        }
+                    }
+                    servers = Some(out);
+                }
+                _ => check.warn(
+                    "invalid-type",
+                    &path,
+                    "servers must be a list of language-server names",
+                ),
+            },
+            _ => check.unknown(&path, &format!("\"{name}\" in [names.lsp]")),
+        }
+    }
+    servers.map(|servers| NamesLspSettings {
+        servers: Some(servers),
     })
 }
 

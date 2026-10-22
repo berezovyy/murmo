@@ -11,6 +11,7 @@ export {
   namesFactory,
   namesFromPacked,
   namesPlugin,
+  PROJECT_REF_ID,
   packedBackend,
   STALE_MS,
 } from './plugin.ts';

@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::record::NameRecord;
+use crate::source::SOURCE_TAGS;
 use crate::split::word_key;
 
 pub const NAMES_MAGIC: u32 = 0x4d55_524d;
@@ -11,7 +12,7 @@ pub const NAMES_BIN: &str = "names.bin";
 pub const NAMES_META: &str = "meta.json";
 pub const NAMES_FILES: &str = "files.json";
 pub const NAMES_CURRENT: &str = "CURRENT";
-pub const INDEXER_VERSION: u32 = 1;
+pub const INDEXER_VERSION: u32 = 3;
 
 fn u32_at(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(b[at..at + 4].try_into().unwrap())
@@ -86,28 +87,47 @@ fn member_of(name: &str) -> String {
     }
 }
 
+struct PackedRow {
+    name: String,
+    key: String,
+    kind: String,
+    file: String,
+    line: u32,
+    refs: u32,
+    member: String,
+    source: u8,
+}
+
 /// Build names.bin. Records are sorted by name. Source text is never stored.
+/// String blob is name, key, kind, file, member, source (decimal). A sixth
+/// field is a compatible extension of the r13 layout (old readers ignore it).
 pub fn build_packed(records: &[NameRecord]) -> Vec<u8> {
-    let mut entries: Vec<(String, String, String, String, u32, u32, String)> = records
+    let mut entries: Vec<PackedRow> = records
         .iter()
         .map(|r| {
-            (
-                r.name.clone(),
-                word_key(&r.name),
-                r.kind.clone(),
-                r.file.clone(),
-                r.line,
-                r.refs,
-                if r.owner.is_empty() {
+            let key = if r.key.is_empty() {
+                word_key(&r.name)
+            } else {
+                r.key.clone()
+            };
+            PackedRow {
+                name: r.name.clone(),
+                key,
+                kind: r.kind.clone(),
+                file: r.file.clone(),
+                line: r.line,
+                refs: r.refs,
+                member: if r.owner.is_empty() {
                     member_of(&r.name)
                 } else {
                     word_key(r.owner.rsplit([':', '.']).next().unwrap_or(&r.owner))
                 },
-            )
+                source: if r.source == 0 { SOURCE_TAGS } else { r.source },
+            }
         })
         .collect();
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    let names: Vec<String> = entries.iter().map(|e| e.0.clone()).collect();
+    entries.sort_by(|a, b| a.name.cmp(&b.name).then(a.key.cmp(&b.key)));
+    let names: Vec<String> = entries.iter().map(|e| e.name.clone()).collect();
     let bloom = bloom_create(&names);
 
     let mut parts: Vec<Vec<u8>> = Vec::with_capacity(entries.len());
@@ -117,22 +137,24 @@ pub fn build_packed(records: &[NameRecord]) -> Vec<u8> {
     let mut count = Vec::with_capacity(entries.len());
     let mut grams: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
     for (id, e) in entries.iter().enumerate() {
+        let src = e.source.to_string();
         let blob = [
-            e.0.as_str(),
-            e.1.as_str(),
-            e.2.as_str(),
-            e.3.as_str(),
-            e.6.as_str(),
+            e.name.as_str(),
+            e.key.as_str(),
+            e.kind.as_str(),
+            e.file.as_str(),
+            e.member.as_str(),
+            src.as_str(),
         ]
         .join("\0");
         let bytes = blob.into_bytes();
         let next = offsets[id] + bytes.len() as u32;
         offsets.push(next);
         parts.push(bytes);
-        refs.push(e.5);
-        lines.push(e.4);
+        refs.push(e.refs);
+        lines.push(e.line);
         count.push(1u32);
-        for g in gram_codes(&e.1) {
+        for g in gram_codes(&e.key) {
             grams.entry(g).or_default().push(id as u32);
         }
     }
@@ -183,6 +205,7 @@ pub struct PackedEntry {
     pub refs: u32,
     pub line: u32,
     pub locations: u32,
+    pub source: u8,
 }
 
 pub struct PackedIndex {
@@ -275,15 +298,25 @@ impl PackedIndex {
         let end = self.strings + u32_at(&self.b, self.offsets + 4 * (id + 1)) as usize;
         let text = std::str::from_utf8(&self.b[start..end]).unwrap_or("");
         let mut fields = text.split('\0');
+        let name = fields.next().unwrap_or("").to_string();
+        let key = fields.next().unwrap_or("").to_string();
+        let kind = fields.next().unwrap_or("").to_string();
+        let file = fields.next().unwrap_or("").to_string();
+        let member = fields.next().unwrap_or("").to_string();
+        let source = fields
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(SOURCE_TAGS);
         PackedEntry {
-            name: fields.next().unwrap_or("").to_string(),
-            key: fields.next().unwrap_or("").to_string(),
-            kind: fields.next().unwrap_or("").to_string(),
-            file: fields.next().unwrap_or("").to_string(),
-            member: fields.next().unwrap_or("").to_string(),
+            name,
+            key,
+            kind,
+            file,
+            member,
             refs: u32_at(&self.b, self.refs + 4 * id),
             line: u32_at(&self.b, self.lines + 4 * id),
             locations: u32_at(&self.b, self.duplicates + 4 * id),
+            source,
         }
     }
 
@@ -379,22 +412,15 @@ mod tests {
     #[test]
     fn packed_round_trip_keeps_name_kind_location_not_source() {
         let recs = vec![
-            NameRecord {
-                name: "OutboxWorker".into(),
-                kind: "class".into(),
-                file: "src/outbox/worker.rs".into(),
-                line: 12,
-                refs: 9,
-                owner: "".into(),
-            },
-            NameRecord {
-                name: "drain_queue".into(),
-                kind: "method".into(),
-                file: "src/outbox/worker.rs".into(),
-                line: 40,
-                refs: 3,
-                owner: "OutboxWorker".into(),
-            },
+            NameRecord::new("OutboxWorker", "class", "src/outbox/worker.rs", 12, 9, ""),
+            NameRecord::new(
+                "drain_queue",
+                "method",
+                "src/outbox/worker.rs",
+                40,
+                3,
+                "OutboxWorker",
+            ),
         ];
         let bytes = build_packed(&recs);
         assert!(

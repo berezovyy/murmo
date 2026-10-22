@@ -114,14 +114,9 @@ fn new_untracked_and_deleted_files_show_on_next_pass() {
 #[test]
 fn one_fd_read_does_not_mix_generations() {
     let dir = temp();
-    let recs = vec![murmo_indexer::NameRecord {
-        name: "Alpha".into(),
-        kind: "class".into(),
-        file: "a.rs".into(),
-        line: 1,
-        refs: 1,
-        owner: "".into(),
-    }];
+    let recs = vec![murmo_indexer::NameRecord::new(
+        "Alpha", "class", "a.rs", 1, 1, "",
+    )];
     let a = build_packed(&recs);
     commit_snapshot(&dir, &a, "{}", "{}").unwrap();
     let snap = read_current(&dir).unwrap();
@@ -130,14 +125,7 @@ fn one_fd_read_does_not_mix_generations() {
 
     let recs2 = vec![
         recs[0].clone(),
-        murmo_indexer::NameRecord {
-            name: "Beta".into(),
-            kind: "class".into(),
-            file: "b.rs".into(),
-            line: 1,
-            refs: 1,
-            owner: "".into(),
-        },
+        murmo_indexer::NameRecord::new("Beta", "class", "b.rs", 1, 1, ""),
     ];
     let b = build_packed(&recs2);
     let path = snap.dir.join("names.bin");

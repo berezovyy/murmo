@@ -1,24 +1,35 @@
 // Built-in names plugin: on-request menu of real project names. Never edits
-// without an explicit accept (lesson 29). Native popups still win.
+// without an explicit accept (lesson 29). Native popups still win. Prose
+// aliases (`outbox worker` → OutboxWorker) are on request only.
 
 import type { Capabilities, Draft, Effect, HostState, KeyClaim, MenuItem, Plugin, PluginFactory } from '@murmo/api';
 import { atCodeLikeWord, wordAtCursor } from '@murmo/core';
 import {
   candidatesFrom,
+  editDistance,
   formatNameRow,
+  formatPathInsert,
   loadPacked,
   MENU_ROWS,
   type NameCandidate,
   type PackedIndex,
+  type ProseSpan,
+  proseSpan,
   type RankedName,
+  rankAliases,
   rankNames,
   wordKey,
 } from '@murmo/vocab';
 import { resolveNamesSettings } from './settings.ts';
 
+function edit1(a: string, b: string): boolean {
+  return editDistance(a, b, 1) <= 1;
+}
+
 export const NAMES_ID = 'names';
-export const NAMES_VERSION = '1.0.0';
+export const NAMES_VERSION = '1.1.0';
 export const STALE_MS = 10 * 60 * 1000;
+export const PROJECT_REF_ID = 'insert-project-ref';
 
 export interface NamesMetrics {
   accepted: number;
@@ -41,7 +52,10 @@ export interface NamesState {
 }
 
 function claimsFor(key: string): readonly KeyClaim[] {
-  return [{ key, when: ['editable', 'at-code-like-word'], action: 'dispatch', consume: true }];
+  if (key === 'Tab') {
+    return [{ key, when: ['editable', 'at-code-like-word'], action: 'dispatch', consume: true }];
+  }
+  return [{ key, when: ['editable'], action: 'dispatch', consume: true }];
 }
 
 function blocked(state: HostState): boolean {
@@ -57,11 +71,29 @@ function lookup(token: string, backend: NamesBackend): RankedName[] {
   });
 }
 
-function itemsOf(ranked: readonly RankedName[], draft: Draft, start: number, caps: Capabilities): MenuItem[] {
+function lookupProse(span: ProseSpan, backend: NamesBackend, singleWord: boolean): RankedName[] {
+  const words = singleWord ? span.words.slice(-1) : span.words;
+  if (!words.length) return [];
+  const seen = new Map<string, RankedName>();
+  for (let n = words.length; n >= 1; n--) {
+    const slice = words.slice(-n);
+    const key = slice.join(' ');
+    const ranked = rankAliases(slice, backend.retrieve(key, key));
+    for (const row of ranked) {
+      const prev = seen.get(row.name);
+      if (!prev || row.score < prev.score) seen.set(row.name, row);
+    }
+  }
+  return [...seen.values()]
+    .sort((a, b) => a.score - b.score || b.refs - a.refs || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .slice(0, MENU_ROWS);
+}
+
+function nameItems(ranked: readonly RankedName[], draft: Draft, start: number, caps: Capabilities): MenuItem[] {
   const native = caps.inline.nativeCompletion;
   const items: MenuItem[] = [];
   for (const row of ranked.slice(0, MENU_ROWS)) {
-    const item: MenuItem = { id: row.name, label: formatNameRow(row), detail: row.location.kind };
+    const item: MenuItem = { id: `n:${row.name}`, label: formatNameRow(row), detail: row.location.kind };
     if (native) {
       items.push({
         ...item,
@@ -78,24 +110,79 @@ function itemsOf(ranked: readonly RankedName[], draft: Draft, start: number, cap
   return items;
 }
 
+function aliasItems(
+  ranked: readonly RankedName[],
+  draft: Draft,
+  start: number,
+  caps: Capabilities,
+  twoActions: boolean,
+): MenuItem[] {
+  const native = caps.inline.nativeCompletion;
+  const items: MenuItem[] = [];
+  const room = MENU_ROWS;
+  const pairs = twoActions ? Math.min(ranked.length, Math.floor(room / 2)) : Math.min(ranked.length, room);
+  const take = twoActions ? ranked.slice(0, pairs) : ranked.slice(0, room);
+  for (const row of take) {
+    const nameItem: MenuItem = { id: `n:${row.name}`, label: formatNameRow(row), detail: row.location.kind };
+    if (native) {
+      items.push({
+        ...nameItem,
+        inlineEdit: {
+          baseVersion: draft.version,
+          from: start,
+          to: draft.cursor,
+          insert: row.name,
+          undoable: true,
+        },
+      });
+    } else items.push(nameItem);
+    if (twoActions) {
+      const insert = formatPathInsert(row.name, row.location.file);
+      const pathItem: MenuItem = {
+        id: `p:${row.name}`,
+        label: insert,
+        detail: 'with path',
+      };
+      if (native) {
+        items.push({
+          ...pathItem,
+          inlineEdit: {
+            baseVersion: draft.version,
+            from: start,
+            to: draft.cursor,
+            insert,
+            undoable: true,
+          },
+        });
+      } else items.push(pathItem);
+    }
+  }
+  return items.slice(0, MENU_ROWS);
+}
+
+function semicolonTrigger(text: string, cursor: number): { start: number; query: string } | null {
+  const { start, word } = wordAtCursor(text, cursor);
+  if (!word.startsWith(';')) return null;
+  if (start > 0 && !/\s/.test(text[start - 1] ?? '')) return null;
+  return { start, query: word.slice(1) };
+}
+
 function createPlugin(state: NamesState): Plugin {
   let start = -1;
   let shownVersion = -1;
   let typed = '';
   let pendingRevert: { typed: string } | null = null;
+  let awaitingAliases = false;
 
   const close = (version: number): Effect[] => {
     start = -1;
     shownVersion = -1;
     typed = '';
+    awaitingAliases = false;
     return [{ type: 'menu', items: null, baseVersion: version }];
   };
 
-  const open = (draft: Draft, hostState: HostState, caps: Capabilities, force: boolean): Effect[] => {
-    if (!state.enabled || blocked(hostState)) return close(draft.version);
-    if (!force && !caps.inline.nativeCompletion) return close(draft.version);
-    if (!atCodeLikeWord(draft.text, draft.cursor)) return close(draft.version);
-    const { start: from, word } = wordAtCursor(draft.text, draft.cursor);
+  const openNames = (draft: Draft, caps: Capabilities, from: number, word: string): Effect[] => {
     const ranked = lookup(word, state.backend);
     if (!ranked.length) {
       const status: Effect[] = caps.status
@@ -106,7 +193,7 @@ function createPlugin(state: NamesState): Plugin {
     start = from;
     shownVersion = draft.version;
     typed = word;
-    const items = itemsOf(ranked, draft, from, caps);
+    const items = nameItems(ranked, draft, from, caps);
     const effects: Effect[] = [{ type: 'menu', items, baseVersion: draft.version }];
     const age = state.backend.indexAgeMs;
     if (caps.status && age !== undefined && age > STALE_MS) {
@@ -118,6 +205,56 @@ function createPlugin(state: NamesState): Plugin {
       });
     }
     return effects;
+  };
+
+  const openAliases = (
+    draft: Draft,
+    caps: Capabilities,
+    span: ProseSpan,
+    singleWord: boolean,
+    twoActions: boolean,
+  ): Effect[] => {
+    const ranked = lookupProse(span, state.backend, singleWord);
+    if (!ranked.length) {
+      const status: Effect[] = caps.status
+        ? [{ type: 'status', text: 'no project name matches', baseVersion: draft.version }]
+        : [];
+      return [...close(draft.version), ...status];
+    }
+    const from = singleWord ? wordAtCursor(draft.text, draft.cursor).start : span.start;
+    start = from;
+    shownVersion = draft.version;
+    typed = draft.text.slice(from, draft.cursor);
+    awaitingAliases = false;
+    return [{ type: 'menu', items: aliasItems(ranked, draft, from, caps, twoActions), baseVersion: draft.version }];
+  };
+
+  const open = (draft: Draft, hostState: HostState, caps: Capabilities, force: boolean): Effect[] => {
+    if (!state.enabled || blocked(hostState)) return close(draft.version);
+    const semi = semicolonTrigger(draft.text, draft.cursor);
+    if (semi) {
+      start = semi.start;
+      shownVersion = draft.version;
+      typed = draft.text.slice(semi.start, draft.cursor);
+      if (awaitingAliases) {
+        const before = proseSpan(draft.text.slice(0, semi.start).replace(/\s+$/, ''), semi.start);
+        if (before)
+          return openAliases(draft, caps, { ...before, end: draft.cursor }, caps.inline.nativeCompletion, true);
+      }
+      const row: MenuItem = { id: PROJECT_REF_ID, label: 'Insert project reference', detail: 'project name' };
+      return [{ type: 'menu', items: [row], baseVersion: draft.version }];
+    }
+    if (!force && !caps.inline.nativeCompletion) return close(draft.version);
+    if (atCodeLikeWord(draft.text, draft.cursor)) {
+      const { start: from, word } = wordAtCursor(draft.text, draft.cursor);
+      return openNames(draft, caps, from, word);
+    }
+    if (force) {
+      const span = proseSpan(draft.text, draft.cursor);
+      if (!span) return close(draft.version);
+      return openAliases(draft, caps, span, caps.inline.nativeCompletion, !caps.inline.nativeCompletion);
+    }
+    return close(draft.version);
   };
 
   return {
@@ -143,9 +280,25 @@ function createPlugin(state: NamesState): Plugin {
       return open(ctx.draft, ctx.state, ctx.host.caps, true);
     },
     onMenuSelect(item, ctx) {
+      if (item.id === PROJECT_REF_ID) {
+        awaitingAliases = true;
+        const semi = semicolonTrigger(ctx.draft.text, ctx.draft.cursor);
+        const before = proseSpan(
+          ctx.draft.text.slice(0, semi?.start ?? ctx.draft.cursor).replace(/\s+$/, ''),
+          semi?.start ?? ctx.draft.cursor,
+        );
+        if (!before) return close(ctx.draft.version);
+        return openAliases(
+          ctx.draft,
+          ctx.host.caps,
+          { ...before, end: ctx.draft.cursor },
+          ctx.host.caps.inline.nativeCompletion,
+          true,
+        );
+      }
       if (ctx.host.caps.inline.nativeCompletion) return [];
       if (start < 0 || ctx.draft.version !== shownVersion) return [];
-      const insert = item.id;
+      const insert = item.id.startsWith('p:') ? item.label : item.id.startsWith('n:') ? item.id.slice(2) : item.id;
       pendingRevert = { typed };
       return [
         {
@@ -181,8 +334,15 @@ export function memoryBackend(
   const exact = new Set(entries.map((e) => e.name));
   const english = new Set((options.english ?? []).map((s) => s.toLowerCase()));
   return {
-    retrieve() {
-      return entries;
+    retrieve(key) {
+      if (!key) return entries;
+      const q = key.split(' ').filter(Boolean);
+      if (!q.length) return entries;
+      const hits = entries.filter((e) => {
+        const words = e.key.split(' ').filter(Boolean);
+        return q.some((w) => words.some((c) => c === w || c.startsWith(w) || w.startsWith(c) || edit1(w, c)));
+      });
+      return hits.length ? hits : entries;
     },
     exactName: (name) => exact.has(name),
     isEnglish: (w) => english.has(w),

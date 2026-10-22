@@ -1,0 +1,57 @@
+{
+  "reason": "30 markdown cases: headings, backticks, emphasis, fences skipped (phase 38 E5).",
+  "cases": [
+    { "id": "h1", "markdown": "# Outbox Worker\n", "expect": ["Outbox Worker"] },
+    { "id": "h2", "markdown": "## Http Server Config\n", "expect": ["Http Server Config"] },
+    { "id": "h3", "markdown": "### drain queue\n", "expect": ["drain queue"] },
+    { "id": "h4-ignored", "markdown": "#### Too Deep\n", "expect": [] },
+    { "id": "backtick", "markdown": "See `OutboxWorker` in code.\n", "expect": ["OutboxWorker"] },
+    { "id": "backticks-two", "markdown": "`Alpha` and `Beta`.\n", "expect": ["Alpha", "Beta"] },
+    { "id": "bold", "markdown": "Use **Session Manager** here.\n", "expect": ["Session Manager"] },
+    { "id": "italic", "markdown": "The *retry policy* matters.\n", "expect": ["retry policy"] },
+    { "id": "underscore-bold", "markdown": "__Cache Entry__ lives here.\n", "expect": ["Cache Entry"] },
+    { "id": "underscore-italic", "markdown": "_Event Bus_ dispatches.\n", "expect": ["Event Bus"] },
+    {
+      "id": "fence-skipped",
+      "markdown": "```\n# not a heading\n`secret_token`\n```\n# Real Heading\n",
+      "expect": ["Real Heading"],
+      "not": ["not a heading", "secret_token"]
+    },
+    { "id": "tilde-fence", "markdown": "~~~\n# fenced\n~~~\n## Open\n", "expect": ["Open"], "not": ["fenced"] },
+    { "id": "short-emphasis", "markdown": "**ab** is too short.\n", "not": ["ab"] },
+    {
+      "id": "long-emphasis",
+      "markdown": "**this emphasis span is longer than sixty characters in total xx**\n",
+      "not": ["this emphasis span is longer than sixty characters in total xx"]
+    },
+    {
+      "id": "heading-and-code",
+      "markdown": "# Auth Service\n\nCall `AuthService`.\n",
+      "expect": ["Auth Service", "AuthService"]
+    },
+    { "id": "readme-style", "markdown": "# murmo\n\nProject docs live in `docs/`.\n", "expect": ["murmo", "docs/"] },
+    { "id": "agents", "markdown": "# Agents\n\nFollow **AGENTS.md** rules.\n", "expect": ["Agents", "AGENTS.md"] },
+    { "id": "claude", "markdown": "# Claude\n\nSee `CLAUDE.md`.\n", "expect": ["Claude", "CLAUDE.md"] },
+    { "id": "inline-code-empty", "markdown": "empty `` ticks.\n", "expect": [] },
+    { "id": "list-heading", "markdown": "- item\n## Payment Client\n", "expect": ["Payment Client"] },
+    { "id": "bold-in-heading", "markdown": "# **Task Runner**\n", "expect": ["**Task Runner**", "Task Runner"] },
+    { "id": "link-like", "markdown": "See `IndexReader` in ./index.md.\n", "expect": ["IndexReader"] },
+    { "id": "multiple-headings", "markdown": "# One\n## Two\n### Three\n", "expect": ["One", "Two", "Three"] },
+    {
+      "id": "fence-then-backtick",
+      "markdown": "```rs\nfn foo() {}\n```\nUse `foo`.\n",
+      "expect": ["foo"],
+      "not": ["fn foo() {}"]
+    },
+    { "id": "blockquote", "markdown": "> **Message Store**\n", "expect": ["Message Store"] },
+    { "id": "table-ish", "markdown": "| `ConnectionPool` | pool |\n", "expect": ["ConnectionPool"] },
+    { "id": "html-comment", "markdown": "<!-- **hidden term** -->\n# Visible\n", "expect": ["Visible"] },
+    { "id": "code-span-path", "markdown": "Open `src/outbox/worker.rs`.\n", "expect": ["src/outbox/worker.rs"] },
+    {
+      "id": "mixed",
+      "markdown": "# Outbox\n\nThe **outbox worker** drains `drain_queue`.\n",
+      "expect": ["Outbox", "outbox worker", "drain_queue"]
+    },
+    { "id": "no-heading-hash", "markdown": "#NoSpace\n", "expect": [] }
+  ]
+}

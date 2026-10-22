@@ -54,6 +54,35 @@ test('legacy-api vocabulary keeps teh recieve wich; app still corrects them (r4)
   await app.session?.dispose();
 });
 
+test('docs and LSP names from the packed index are protected from autocorrect (E11)', async () => {
+  const { writeFileSync, mkdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { buildPacked, NAMES_BIN, NAMES_CURRENT, NAMES_DIR, NAMES_META, SOURCE_DOCS, SOURCE_LSP } = await import(
+    '../src/index.ts'
+  );
+  const { createProtectionLive } = await import('../src/node/session.ts');
+  const t = (await import('./helpers.ts')).tempDir('murmo-protect-names-');
+  const dir = join(t.dir, NAMES_DIR, 'snap-1');
+  mkdirSync(dir, { recursive: true });
+  const bytes = buildPacked([
+    { name: 'teh', kind: 'term', file: 'README.md', line: 1, refs: 1, source: SOURCE_DOCS },
+    { name: 'adn', kind: 'class', file: 'src/lsp.ts', line: 2, refs: 1, source: SOURCE_LSP },
+  ]);
+  writeFileSync(join(dir, NAMES_BIN), bytes);
+  writeFileSync(join(dir, NAMES_META), '{"records":2}\n');
+  writeFileSync(join(t.dir, NAMES_DIR, NAMES_CURRENT), 'snap-1\n');
+  const live = createProtectionLive({ cacheDir: t.dir, extra: [] });
+  assert.ok(live.vocabulary().includes('teh'));
+  assert.ok(live.vocabulary().includes('adn'));
+  const h = await createHarness({
+    plugins: [autocorrectSpec('autocorrect', { enabled: true }, live.vocabulary())],
+  });
+  await h.driver.type('teh adn ');
+  assert.equal(h.adapter.getDraft().text, 'teh adn ');
+  await h.session?.dispose();
+  t.remove();
+});
+
 test('[words] protect and allowlist are always included even if not typo keys', () => {
   const words = protectedWords(undefined, ['teh', 'OutboxWorker']);
   assert.ok(words.includes('teh'));

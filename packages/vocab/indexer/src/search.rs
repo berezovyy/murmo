@@ -93,6 +93,7 @@ pub fn search(
                         "refs": e.refs,
                         "locations": e.locations,
                         "member": e.member,
+                        "source": e.source,
                         "location": { "kind": e.kind, "file": e.file, "line": e.line },
                     })
                 })

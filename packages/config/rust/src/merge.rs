@@ -254,6 +254,7 @@ pub fn merge_config(
                     key: None,
                     languages: None,
                     max_file_bytes: None,
+                    lsp: None,
                 });
                 n.enabled = Some(false);
                 names = Some(n);

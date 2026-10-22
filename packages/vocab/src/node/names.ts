@@ -54,7 +54,13 @@ async function namesDir(context: NamesContext, rootArg?: string): Promise<{ root
   return { root, dir: join(cacheDir, NAMES_DIR) };
 }
 
-function readMeta(dir: string): { records?: number; files?: number; builtAtMs?: number; lastError?: string } | null {
+function readMeta(dir: string): {
+  records?: number;
+  files?: number;
+  builtAtMs?: number;
+  lastError?: string;
+  sources?: Record<string, { records?: number; error?: string }>;
+} | null {
   try {
     const current = readFileSync(join(dir, NAMES_CURRENT), 'utf8').trim();
     const raw = JSON.parse(readFileSync(join(dir, current, NAMES_META), 'utf8')) as {
@@ -62,12 +68,14 @@ function readMeta(dir: string): { records?: number; files?: number; builtAtMs?: 
       files?: number;
       builtAtMs?: number;
       lastError?: string | null;
+      sources?: Record<string, { records?: number; error?: string }>;
     };
     return {
       ...(typeof raw.records === 'number' ? { records: raw.records } : {}),
       ...(typeof raw.files === 'number' ? { files: raw.files } : {}),
       ...(typeof raw.builtAtMs === 'number' ? { builtAtMs: raw.builtAtMs } : {}),
       ...(typeof raw.lastError === 'string' ? { lastError: raw.lastError } : {}),
+      ...(raw.sources ? { sources: raw.sources } : {}),
     };
   } catch {
     return null;
@@ -80,9 +88,10 @@ export function namesDoctorLine(cacheDir: string): { ok: boolean; detail: string
   if (!meta) return { ok: true, detail: 'no name index' };
   const ageSec = meta.builtAtMs ? Math.floor((Date.now() - meta.builtAtMs) / 1000) : 0;
   const err = meta.lastError && meta.lastError !== 'none' ? meta.lastError : 'none';
+  const lsp = meta.sources?.lsp?.error ? ` lsp=${meta.sources.lsp.error}` : '';
   return {
     ok: err === 'none',
-    detail: `records=${meta.records ?? 0} files=${meta.files ?? 0} ageSec=${ageSec} error=${err} indexer=${INDEXER_VERSION}`,
+    detail: `records=${meta.records ?? 0} files=${meta.files ?? 0} ageSec=${ageSec} error=${err} indexer=${INDEXER_VERSION}${lsp}`,
   };
 }
 
@@ -121,9 +130,17 @@ async function runNames(verb: string, rootArg: string | undefined, context: Name
       context.err('murmo names: indexer binary not found (build murmo-index)');
       return 1;
     }
-    const run = spawnSync(bin, [verb === 'rebuild' ? 'rebuild' : 'build', '--root', root, '--cache', dirname(dir)], {
-      encoding: 'utf8',
-    });
+    const extra: string[] = [];
+    if (context.env?.MURMO_PRIVATE === '1') extra.push('--private');
+    const servers = context.env?.MURMO_LSP_SERVERS;
+    if (servers) {
+      for (const s of servers.split(',').filter(Boolean)) extra.push('--lsp-server', s);
+    }
+    const run = spawnSync(
+      bin,
+      [verb === 'rebuild' ? 'rebuild' : 'build', '--root', root, '--cache', dirname(dir), ...extra],
+      { encoding: 'utf8' },
+    );
     if (run.stdout) context.out(run.stdout.trimEnd());
     if (run.status !== 0) {
       context.err(run.stderr.trim() || 'murmo names: indexer failed');
