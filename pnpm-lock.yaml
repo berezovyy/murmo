@@ -161,6 +161,12 @@ importers:
 
   packages/api: {}
 
+  packages/cli:
+    dependencies:
+      '@murmo/integrity':
+        specifier: workspace:*
+        version: link:../integrity
+
   packages/config:
     dependencies:
       '@murmo/api':
@@ -286,6 +292,8 @@ importers:
         specifier: workspace:*
         version: link:../text
 
+  packages/integrity: {}
+
   packages/lang: {}
 
   packages/lang-en:
@@ -293,6 +301,18 @@ importers:
       '@murmo/lang':
         specifier: workspace:*
         version: link:../lang
+
+  packages/pack:
+    dependencies:
+      '@murmo/integrity':
+        specifier: workspace:*
+        version: link:../integrity
+      '@murmo/lang':
+        specifier: workspace:*
+        version: link:../lang
+      '@murmo/lang-en':
+        specifier: workspace:*
+        version: link:../lang-en
 
   packages/plugin-autocorrect:
     dependencies:

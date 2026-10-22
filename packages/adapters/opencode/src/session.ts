@@ -6,7 +6,7 @@ import type { EffectiveConfig } from '@murmo/config';
 import { createMemoryStorage, createPluginHost, createSession, type HostPluginSpec, type Session } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
-import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
+import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
@@ -36,7 +36,8 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
   if (options.plugins) return [...options.plugins];
   if (options.loadLanguagePack !== false) {
     try {
-      loadEnglishPack();
+      const dir = findShippedEnglishDir();
+      if (dir) loadBuiltPack(dir);
     } catch {
       // Pack missing in unit tests; autocorrectSpec then ships without a table.
     }

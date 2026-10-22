@@ -1,0 +1,12 @@
+# Link linux-arm64 helpers on Bookworm so they need glibc 2.36, not 2.39 (E12).
+# The compiler may come from a newer rust image; the final link uses this libc.
+FROM rust:1.99.0-slim AS rust
+FROM debian:bookworm-slim
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+ENV CARGO_TERM_COLOR=never

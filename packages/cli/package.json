@@ -1,0 +1,27 @@
+{
+  "name": "@murmo/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "murmo": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@murmo/integrity": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "node",
+    "bundles": [
+      {
+        "name": "cli",
+        "entry": "src/cli.ts",
+        "targets": [
+          "node"
+        ]
+      }
+    ]
+  }
+}

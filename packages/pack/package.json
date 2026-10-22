@@ -1,0 +1,17 @@
+{
+  "name": "@murmo/pack",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@murmo/integrity": "workspace:*",
+    "@murmo/lang": "workspace:*",
+    "@murmo/lang-en": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "node"
+  }
+}

@@ -17,6 +17,7 @@
     "test:conformance": "tools/offline/run.sh node tools/test-conformance.mjs",
     "test:harness": "python3 -I harness/tests/run.py",
     "harness": "python3 -I harness/harness.py",
+    "pack": "node tools/pack.mjs",
     "check:licenses": "node tools/licenses.mjs",
     "api:report": "node tools/api-report.mjs --write",
     "check:api": "node tools/api-report.mjs --check",

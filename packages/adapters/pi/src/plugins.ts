@@ -5,7 +5,7 @@
 import type { EffectiveConfig } from '@murmo/config';
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
-import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
+import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, SAMPLE_SHORTCUTS, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import type { DraftIdentity, Drafts } from '@murmo/store';
@@ -54,7 +54,8 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
 
   if (ids.has('autocorrect')) {
     try {
-      loadEnglishPack();
+      const dir = findShippedEnglishDir();
+      if (dir) loadBuiltPack(dir);
     } catch (error) {
       notices.push(`English pack: ${error instanceof Error ? error.message : String(error)}`);
     }

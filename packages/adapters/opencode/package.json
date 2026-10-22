@@ -20,6 +20,18 @@
     "@murmo/text": "workspace:*"
   },
   "murmo": {
-    "runtime": "node"
+    "runtime": "node",
+    "bundles": [
+      {
+        "name": "tui",
+        "entry": "src/tui.ts",
+        "targets": [
+          "node"
+        ],
+        "external": [
+          "@opentui/core"
+        ]
+      }
+    ]
   }
 }

@@ -65,10 +65,10 @@ export function payloadFiles(pairs?: readonly (readonly [string, string])[]): Re
   return {
     '/data/murmo/package/integrity.json': JSON.stringify({
       version: PLUGIN_VERSION,
-      files: { 'plugins/murmo/data/english.bin': { sha256: 'test', bytes: table.byteLength } },
+      files: [{ path: 'data/en/english.bin', sha256: 'test', size: table.byteLength, mode: 420 }],
     }),
-    '/data/murmo/package/plugins/murmo/data/english.bin': table,
-    '/data/murmo/package/plugins/murmo/data/case-policy.json': JSON.stringify({ lowercaseOnly: [] }),
+    '/data/murmo/package/data/en/english.bin': table,
+    '/data/murmo/package/data/en/case-policy.json': JSON.stringify({ lowercaseOnly: [] }),
   };
 }
 

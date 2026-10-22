@@ -7,13 +7,17 @@ import { bytesOf, textOf } from './decode.ts';
 import { type ClaudeRuntime, FS_MAX_BYTES, PLUGIN_VERSION } from './types.ts';
 
 export const TABLE_ASSET = 'english.bin';
-const TABLE_PATH = `plugins/murmo/data/${TABLE_ASSET}`;
+/** Packed layout from phase 26. Keep in sync with @murmo/integrity TABLE_FILE. */
+const TABLE_PATH = `data/en/${TABLE_ASSET}`;
+const CASE_POLICY_PATH = 'data/en/case-policy.json';
 const HELPER_DARWIN = 'bin/darwin-arm64/murmo-plugin-host';
 const HELPER_LINUX = 'bin/linux-arm64/murmo-plugin-host';
 
 export interface IntegrityFile {
   readonly version: string;
-  readonly files?: Readonly<Record<string, string | { readonly sha256: string; readonly bytes?: number }>>;
+  readonly files?:
+    | Readonly<Record<string, string | { readonly sha256: string; readonly bytes?: number }>>
+    | readonly { readonly path: string; readonly sha256: string; readonly size?: number }[];
 }
 
 export interface PayloadTable {
@@ -36,7 +40,13 @@ function join(base: string, path: string): string {
   return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 }
 
-function hashOf(entry: string | { readonly sha256: string } | undefined): string | undefined {
+function hashOf(files: IntegrityFile['files'], path: string): string | undefined {
+  if (!files) return undefined;
+  if (Array.isArray(files)) {
+    const entry = files.find((f) => f.path === path);
+    return entry?.sha256;
+  }
+  const entry = (files as Readonly<Record<string, string | { readonly sha256: string }>>)[path];
   if (!entry) return undefined;
   return typeof entry === 'string' ? entry : entry.sha256;
 }
@@ -95,9 +105,9 @@ export async function loadTable($: ClaudeRuntime, payload: LocatedPayload): Prom
           return copy;
         })();
   const mapped = mapTable(aligned);
-  const sha256 = hashOf(payload.integrity.files?.[TABLE_PATH]) ?? '';
+  const sha256 = hashOf(payload.integrity.files, TABLE_PATH) ?? '';
   let lowercaseOnly: string[] = [];
-  const casePath = join(payload.root, 'plugins/murmo/data/case-policy.json');
+  const casePath = join(payload.root, CASE_POLICY_PATH);
   if (await $.fs.exists(casePath)) {
     try {
       const json = (await readJson($, casePath)) as { lowercaseOnly?: unknown };
