@@ -82,6 +82,8 @@ export function capabilitiesFromProbes(
       normalization: probe.normalization ? 'preserve' : 'unknown',
       opaqueParts: probe.opaqueParts,
       namespace: 'murmo',
+      review: true,
+      highlightDiagnostics: true,
     },
     coexistence: coexistenceFor('opencode'),
   };

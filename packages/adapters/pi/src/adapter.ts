@@ -12,6 +12,7 @@ import type {
   DraftDelta,
   Edit,
   EditResult,
+  HighlightMark,
   HostState,
   KeyId,
   Origin,
@@ -30,6 +31,7 @@ import type {
   InlineSnapshot,
   MenuSelection,
   PresentedMenuItem,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -269,6 +271,28 @@ export class PiAdapter implements Adapter {
 
   showStatus(text: string | null, baseVersion: number): ActionResult {
     return this.#present(this.caps.status, baseVersion, () => this.backend.showStatus(text));
+  }
+
+  showHighlightMarks(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult {
+    const ranges = marks?.map((m) => m.range) ?? null;
+    const result = this.showHighlight(ranges, baseVersion);
+    if (result.status === 'applied' && marks?.some((m) => m.message)) {
+      this.backend.showStatus(
+        marks
+          .map((m) => m.message)
+          .filter(Boolean)
+          .join(' | '),
+      );
+    }
+    return result;
+  }
+
+  showReview(panel: ReviewPanel | null, baseVersion: number): ActionResult {
+    return this.#present(this.caps.ui.review, baseVersion, () => {
+      if (!panel) return this.backend.showStatus(null);
+      const lines = panel.edits.map((e) => `[plugin ${e.pluginId}] ${e.flags.join(',') || 'edit'} ${e.after}`);
+      this.backend.showStatus(`Review: ${lines.join(' | ')} (Enter send, Esc)`);
+    });
   }
 
   onDraftChange(callback: (change: Change) => void): Unsubscribe {
@@ -1036,6 +1060,8 @@ export class PiAdapter implements Adapter {
         statusMaxLength: 512,
         normalization: 'preserve',
         opaqueParts: true,
+        review: true,
+        highlightDiagnostics: true,
       },
       coexistence,
     });

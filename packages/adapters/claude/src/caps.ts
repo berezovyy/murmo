@@ -51,6 +51,8 @@ export function claudeCaps(): HostCapabilities {
       statusMaxLength: 80,
       normalization: 'NFC',
       opaqueParts: false,
+      review: true,
+      highlightDiagnostics: true,
     },
     coexistence: coexistenceFor('claude'),
   };

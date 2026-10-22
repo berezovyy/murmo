@@ -426,10 +426,19 @@ export class EventBroker {
         get: async () => ({ status: 'ok' as const }),
         set: async () => ({ status: 'ok' as const }),
         delete: async () => ({ status: 'ok' as const }),
+        cas: async () => ({ status: 'ok' as const }),
       },
       project: this.#options.project ?? {
         read: async () => ({ status: 'denied' as const, reason: 'events plugins have no implicit filesystem' }),
+        list: async () => ({ status: 'denied' as const, reason: 'events plugins have no implicit filesystem' }),
       },
+      network: {
+        request: async () => ({ status: 'denied' as const, reason: 'events plugins have no implicit network' }),
+      },
+      git: {
+        query: async () => ({ status: 'denied' as const, reason: 'events plugins have no implicit git' }),
+      },
+      session: { id: this.#sessionId },
       agent: this.agentApi(plugin.id),
     };
   }

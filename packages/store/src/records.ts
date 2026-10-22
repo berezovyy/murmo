@@ -43,6 +43,8 @@ export interface PluginRecord {
   /** The plugin ID, kept so `murmo data show` can name the namespace. */
   readonly plugin: string;
   readonly data: Readonly<Record<string, unknown>>;
+  /** Per-key compare-and-set revisions (phase 32). Absent on records written before 32. */
+  readonly revisions?: Readonly<Record<string, number>>;
 }
 
 /**

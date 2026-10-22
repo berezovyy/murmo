@@ -1,6 +1,6 @@
 # Writing a Murmo plugin
 
-> **Preview, draft `2.0-pre.0`.** The API can break before Murmo v1; [CHANGELOG.md](CHANGELOG.md) lists every change. Murmo v1 ships its own plugins only.
+> **Preview, draft `2.0-pre.1`.** The API can break before Murmo v1; [CHANGELOG.md](CHANGELOG.md) lists every change. Third-party installs are on with an independently supplied publisher key.
 
 A plugin is two files: a manifest (`murmo.plugin.json`) and one ES module whose default export is a factory. Every recipe below is a compiled example under [`../examples/`](../examples/); the rules behind them are in [api.md](api.md).
 
@@ -103,9 +103,8 @@ Tested peers, versions and remedies: [docs/plan/25-coexistence.md](../../../docs
 
 These are out of the preview; don't work around them with guesses:
 
-- File listing, search, git and network services (`network` is declaration-only).
-- A stable session identity.
-- Highlight severity and messages (highlights are ranges only).
-- A review screen for third-party edits before send.
+- Search of project files (listing is `ctx.project.list`; content is `ctx.project.read`).
+- Agent events (phase 39).
 - Rewriting the prompt at send (built-ins only).
 - Settings that change while the plugin runs: a settings change reloads the plugin.
+- An `onChange` subscription that copies less than the full draft (the 50 KiB isolated copy is still the full text).

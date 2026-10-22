@@ -1,7 +1,14 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { API_VERSION } from '@murmo/api';
-import { assertApiCompatible, type InspectedPlugin } from '@murmo/integrity';
+import {
+  assertApiCompatible,
+  type InspectedPlugin,
+  type SignedRevocation,
+  type SignedRotation,
+  verifyRevocation,
+  verifyRotation,
+} from '@murmo/integrity';
 import { extensionsDir, pluginCacheFile, pluginRecordPath, type StoreRoots, storeLayout } from '@murmo/store';
 import {
   BUILTIN_IDS,
@@ -27,7 +34,7 @@ import {
 import { inspectArchive } from './archive.ts';
 import { flagString, parsePluginArgs } from './args.ts';
 import { fail } from './errors.ts';
-import { grantReview, parseGrantList, requireGrants } from './grants.ts';
+import { grantReview, HIGH_TRUST, parseGrantList, requireGrants } from './grants.ts';
 import { migrateStorage, preflightActivate } from './preflight.ts';
 import { reviewProjectFile } from './project.ts';
 import { type ResolveOptions, resolveSource } from './sources.ts';
@@ -36,6 +43,8 @@ import {
   assertPublisherGate,
   assertTrust,
   FIRST_PARTY_PUBLISHER,
+  fingerprintFromKeyFile,
+  isRevoked,
   nextIdentity,
   type TrustGate,
 } from './trust.ts';
@@ -44,9 +53,10 @@ import { verifyInstalled } from './verify.ts';
 export const PLUGIN_USAGE = `murmo plugin
   murmo plugin list [--json]
   murmo plugin inspect <source> [--registry URL] [--json]
-  murmo plugin add <source> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL]
-  murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL]
+  murmo plugin add <source> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL] [--rotate-statement FILE]
+  murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL] [--rotate-statement FILE]
   murmo plugin disable|enable|remove|rollback|reinstall <id>
+  murmo plugin revoke --statement FILE --trust-key PUBLIC.pem
   murmo plugin doctor [--json]
   murmo plugin project-review <file>
   murmo plugin project-apply <file> --approve-project HEX
@@ -66,11 +76,10 @@ export interface PluginCommandContext {
 }
 
 function gateOf(ctx: PluginCommandContext): TrustGate {
-  const packed = ctx.packed;
-  const envOpen = process.env.MURMO_PLUGIN_TEST === '1';
   return {
     firstPartyFingerprint: ctx.firstPartyFingerprint ?? FIRST_PARTY_PUBLISHER,
-    allowThirdParty: ctx.allowThirdParty ?? (!packed && envOpen),
+    // Phase 32: packed trees accept independently supplied publisher keys.
+    allowThirdParty: ctx.allowThirdParty ?? true,
   };
 }
 
@@ -219,6 +228,7 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
         digest: plugin?.distribution?.digest,
         publisher: plugin?.distribution?.publisher,
         grants: plugin?.grants ?? [],
+        highTrust: (plugin?.grants ?? []).filter((g) => (HIGH_TRUST as readonly string[]).includes(g)),
       };
     });
     return print(
@@ -226,9 +236,10 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
       json,
       { revision: manifest.revision, plugins: rows },
       rows
-        .map(
-          (r) => `${r.enabled ? 'on ' : 'off'} ${r.id}${r.builtin ? ' (builtin)' : r.version ? ` ${r.version}` : ''}`,
-        )
+        .map((r) => {
+          const extra = r.highTrust.length ? ` high-trust:${r.highTrust.join(',')}` : '';
+          return `${r.enabled ? 'on ' : 'off'} ${r.id}${r.builtin ? ' (builtin)' : r.version ? ` ${r.version}` : ''}${extra}`;
+        })
         .join('\n') || 'no plugins',
     );
   }
@@ -255,7 +266,27 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
       }
     });
     const last = await readLastRollback(ctx.roots);
-    const payload = { core: { apiVersion: API_VERSION }, plugins, lastRollback: last ?? null };
+    const ledger = await readLedger(ctx.roots);
+    const revoked = plugins.filter((p) => {
+      if (!p.ok || !p.publisher || typeof p.publisher !== 'string') return false;
+      return isRevoked(ledger.revocations, p.id, p.publisher, typeof p.version === 'string' ? p.version : undefined);
+    });
+    for (const row of revoked) {
+      const plugin = manifest.plugins[row.id];
+      if (plugin?.previous?.distribution) {
+        (row as { ok: boolean; error?: string }).ok = false;
+        (row as { error?: string }).error = 'revoked; roll back to last good generation';
+      } else {
+        (row as { ok: boolean; error?: string }).ok = false;
+        (row as { error?: string }).error = 'revoked';
+      }
+    }
+    const payload = {
+      core: { apiVersion: API_VERSION },
+      plugins,
+      lastRollback: last ?? null,
+      revocations: ledger.revocations ?? [],
+    };
     const failed = plugins.filter((p) => !p.ok);
     const text = [`core ${API_VERSION}`, ...plugins.map((p) => (p.ok ? `ok ${p.id}` : `FAIL ${p.id} ${p.error}`))].join(
       '\n',
@@ -266,6 +297,33 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
 
   if (command === 'add' || command === 'update') {
     return install(ctx, command, rest, parsed.flags, json);
+  }
+
+  if (command === 'revoke') {
+    const statementPath = flagString(parsed.flags, '--statement');
+    const keyPath = flagString(parsed.flags, '--trust-key');
+    if (!statementPath || !keyPath) {
+      ctx.err('usage: murmo plugin revoke --statement FILE --trust-key PUBLIC.pem\n');
+      return 2;
+    }
+    const signed = JSON.parse(readFileSync(statementPath, 'utf8')) as SignedRevocation;
+    const publisher = verifyRevocation(signed, readFileSync(keyPath));
+    const ledger = await readLedger(ctx.roots);
+    const record = {
+      publisher,
+      reason: signed.reason,
+      issuedAt: signed.issuedAt,
+      signature: signed.signature,
+      ...(signed.plugin ? { plugin: signed.plugin } : {}),
+      ...(signed.version ? { version: signed.version } : {}),
+    };
+    await writeLedger(ctx.roots, { ...ledger, revocations: [...(ledger.revocations ?? []), record] });
+    return print(
+      ctx,
+      json,
+      { status: 'revoked', ...record },
+      `revoked ${publisher}${signed.version ? ` ${signed.version}` : ''}`,
+    );
   }
 
   if (['remove', 'enable', 'disable', 'rollback', 'reinstall'].includes(command)) {
@@ -388,7 +446,25 @@ async function install(
     fail('digest-pin-mismatch', { expected: digestPin, actual: inspected.digest });
   assertPublisherGate(inspected, gateOf(ctx));
   const identity = ledger.identities[id];
-  assertTrust(inspected, identity, flagString(flags, '--trust-key'));
+  if (isRevoked(ledger.revocations, id, inspected.publisher, inspected.envelope.version)) {
+    fail('revoked', { id, publisher: inspected.publisher, version: inspected.envelope.version });
+  }
+  let rotationTo: string | undefined;
+  const rotatePath = flagString(flags, '--rotate-statement');
+  const trustKey = flagString(flags, '--trust-key');
+  if (rotatePath) {
+    if (!identity || !trustKey) fail('publisher-approval-required', { id, publisher: inspected.publisher });
+    const signed = JSON.parse(readFileSync(rotatePath, 'utf8')) as SignedRotation;
+    rotationTo = verifyRotation(signed, readFileSync(trustKey));
+    if (signed.plugin !== id) fail('publisher-key-changed', { expected: id, actual: signed.plugin });
+    if (fingerprintFromKeyFile(trustKey) !== identity.publisher) {
+      fail('publisher-key-not-approved', { expected: identity.publisher, actual: fingerprintFromKeyFile(trustKey) });
+    }
+    if (rotationTo !== inspected.publisher) {
+      fail('publisher-key-changed', { expected: rotationTo, actual: inspected.publisher });
+    }
+  }
+  assertTrust(inspected, identity, trustKey, rotationTo);
   assertPins(inspected, identity, old?.distribution?.digest);
   if (old?.distribution?.digest === inspected.digest) {
     return print(

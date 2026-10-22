@@ -1,6 +1,6 @@
 # Plugin manifest v1
 
-> **Preview, draft `2.0-pre.0`.** The API can break before Murmo v1; [CHANGELOG.md](CHANGELOG.md) lists every change.
+> **Preview, draft `2.0-pre.1`.** The API can break before Murmo v1; [CHANGELOG.md](CHANGELOG.md) lists every change.
 
 Every plugin package has a `murmo.plugin.json` (`MANIFEST_FILE`) of at most `LIMITS.manifestBytes` (64 KiB, counted in UTF-8). Every loader (devkit, `murmo plugin`, the core, the helper) runs the same preflight before any plugin code: `parseManifest`, `validateManifest`, `negotiate`, `resolveSettings` from `@murmo/api`. A refusal is a `ManifestError` with a `code` and the manifest `path` it is about. The preflight gives the same verdict on Node, Bun and both QuickJS engines.
 
@@ -31,6 +31,7 @@ The first seven fields are required; `resources` and `events` are optional. Any 
 - **`entry`:** a relative `.mjs` path inside the package: no leading `/`, no drive letter, no backslash, no `.` or `..` segment, no control characters.
 - **`permissions`:** `{name, reason}` pairs from the API permissions ([api.md § Permissions](api.md#permissions)). The reason is shown to the user and must not be blank; a permission may appear once. `Plugin.permissions` must be a subset. A declaration is never a grant. Event permissions (`events:read`, `tools:guard`, …) require an `events` range.
 - **`events`:** range of the events API (`^0.4.0`). This core implements events 0.4.0 (label 0.4 preview). Absent unless the plugin declares an event permission.
+- **`permissions`:** `{name, reason}` pairs from the API permissions ([api.md § Permissions](api.md#permissions)), with `origin` required when `name` is `network` (exact `https://host` or `https://host:port`). The reason is shown to the user and must not be blank; a permission may appear once. `Plugin.permissions` must be a subset. A declaration is never a grant. `draft:read:full`, `network` and `project:git` need an explicit confirmation at add.
 - **`capabilities`:** `required` and `optional` maps from a capability path to a requirement; a path may not be in both. See below.
 - **`settingsSchema`:** the settings subset below.
 - **`resources.memoryMiB`:** a requested guest memory ceiling, an integer from 1 to `LIMITS.maxMemoryMiB` (128). Above `LIMITS.defaultMemoryMiB` (8 MiB) the host must review and admit it; the request alone grants nothing.

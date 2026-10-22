@@ -24,6 +24,7 @@ export interface PackPluginOptions {
   readonly entry?: string;
   readonly permissions?: readonly Permission[];
   readonly reasons?: Readonly<Record<string, string>>;
+  readonly origins?: Readonly<Record<string, string>>;
   readonly storageVersion?: number;
   readonly migration?: EnvelopeMigration;
   readonly source?: string;
@@ -72,6 +73,10 @@ export function packPlugin(options: PackPluginOptions = {}): PackedPlugin {
   const api = options.api ?? '^2.0.0';
   const permissions = [...(options.permissions ?? ['draft:read'])];
   const reasons = Object.fromEntries(permissions.map((name) => [name, options.reasons?.[name] ?? defaultReason(name)]));
+  const origins = {
+    ...(permissions.includes('network') ? { network: options.origins?.network ?? 'https://example.test' } : {}),
+    ...options.origins,
+  };
   const descriptorPermissions = options.descriptorPermissions ?? permissions;
   const storageVersion = options.storageVersion ?? 1;
   const source =
@@ -92,7 +97,11 @@ export function packPlugin(options: PackPluginOptions = {}): PackedPlugin {
     version,
     api,
     entry,
-    permissions: permissions.map((name) => ({ name, reason: reasons[name] as string })),
+    permissions: permissions.map((name) => ({
+      name,
+      reason: reasons[name] as string,
+      ...(Object.hasOwn(origins, name) ? { origin: origins[name as keyof typeof origins] } : {}),
+    })),
     capabilities: { required: {}, optional: {} },
     settingsSchema: { type: 'object', properties: {}, additionalProperties: false },
   };
@@ -127,6 +136,7 @@ export function packPlugin(options: PackPluginOptions = {}): PackedPlugin {
     api,
     permissions,
     reasons,
+    ...(Object.keys(origins).length ? { origins } : {}),
     storageVersion,
     files: hashed,
     ...(options.migration ? { migration: options.migration } : {}),

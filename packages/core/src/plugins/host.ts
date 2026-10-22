@@ -4,7 +4,9 @@
 
 import type {
   Capabilities,
+  GitAccess,
   Negotiation,
+  NetworkAccess,
   Permission,
   PluginContext,
   PluginFactory,
@@ -23,6 +25,9 @@ import type {
 } from '@murmo/api/adapter';
 import { DEADLINES, HOOKS, negotiate, resolveSettings, routesFor, SERVICES } from '@murmo/api/adapter';
 import { executorFault } from '@murmo/executor';
+import { denyGit } from '../brokers/git.ts';
+import { denyList, type ProjectListAccess } from '../brokers/list.ts';
+import { denyNetwork } from '../brokers/network.ts';
 import { createStorageBroker, type StorageBroker } from '../brokers/storage.ts';
 import type { HookCall, HookRunner, LoadedPlugin, RunnerHealth } from '../hooks.ts';
 import { uniquePluginIds } from '../order.ts';
@@ -57,6 +62,10 @@ export interface PluginHostOptions {
   readonly grants?: GrantMap;
   readonly storage?: StorageBackend;
   readonly projectFiles?: ProjectFiles;
+  readonly list?: ProjectListAccess;
+  readonly network?: NetworkAccess;
+  readonly git?: GitAccess;
+  readonly sessionId?: string;
   readonly admission?: AdmissionLimits;
   /** Override reported health (lesson 76: a dead executor must not look healthy). */
   readonly health?: RunnerHealth;
@@ -82,8 +91,8 @@ function asPluginSpec(spec: HostPluginSpec): PluginSpec {
     ...(spec.manifest ? { manifest: spec.manifest } : {}),
   };
   return spec.builtin
-    ? { ...base, builtin: true as const }
-    : { ...base, builtin: false as const, manifest: spec.manifest as PluginManifest };
+    ? { ...base, builtin: true as const, sandbox: false }
+    : { ...base, builtin: false as const, manifest: spec.manifest as PluginManifest, sandbox: true };
 }
 
 function emptyDescriptor(spec: HostPluginSpec): PluginDescriptor {
@@ -122,9 +131,13 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   const specs = [...options.specs];
   let disposed = false;
   let health: RunnerHealth = 'ok';
-  const services: RuntimeCapabilities['services'] = options.projectFiles
-    ? [...SERVICES]
-    : SERVICES.filter((service) => service !== 'project.read');
+  const services: RuntimeCapabilities['services'] = SERVICES.filter((service) => {
+    if (service === 'project.read') return Boolean(options.projectFiles);
+    if (service === 'project.list') return Boolean(options.list);
+    if (service === 'network.request') return Boolean(options.network);
+    if (service === 'git.query') return Boolean(options.git);
+    return true;
+  });
 
   const runtime: RuntimeCapabilities = {
     executor: options.executor.kind,
@@ -132,11 +145,19 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     services,
   };
 
+  const sessionId = options.sessionId ?? 'session';
+  const networkBroker = options.network ?? denyNetwork();
+  const gitBroker = options.git ?? denyGit();
+  const listBroker = options.list ?? denyList();
+
   const context = (call: HookCall, entry: Loaded): PluginContext => {
     const evidence = call.snapshot.host.caps.inputOriginEvidence;
     const draft = projectDraft(call.snapshot.draft, entry.granted, evidence);
     const project = options.projectFiles;
     const allowed = entry.granted.includes('fs:project-read');
+    const canList = entry.granted.includes('project:list');
+    const canNet = entry.granted.includes('network');
+    const canGit = entry.granted.includes('project:git');
     return {
       ...(entry.negotiation ? { negotiation: clone(entry.negotiation) } : {}),
       host: clone(call.snapshot.host) as PluginContext['host'],
@@ -154,7 +175,24 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
           }
           return project.read(entry.spec.id, path, call.signal);
         },
+        list: async (query) => {
+          if (!canList) return { status: 'denied', reason: 'project:list must be declared, granted and brokered' };
+          return listBroker.list(entry.spec.id, query);
+        },
       },
+      network: {
+        request: async (spec) => {
+          if (!canNet) return { status: 'denied', reason: 'network must be declared, granted and brokered' };
+          return networkBroker.request(spec);
+        },
+      },
+      git: {
+        query: async (spec) => {
+          if (!canGit) return { status: 'denied', reason: 'project:git must be declared, granted and brokered' };
+          return gitBroker.query(spec);
+        },
+      },
+      session: { id: sessionId },
     };
   };
 
@@ -301,7 +339,11 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     },
 
     health(): RunnerHealth {
-      return options.health ?? (disposed ? 'down' : health);
+      if (options.health) return options.health;
+      if (disposed) return 'down';
+      const stats = options.executor.stats() as { down?: boolean } | undefined;
+      if (stats?.down === true) return 'down';
+      return health;
     },
 
     async dispose(): Promise<void> {

@@ -16,6 +16,7 @@ export type {
   ProjectApproval,
   ProjectPluginRequest,
   PublisherIdentity,
+  RevocationRecord,
   SessionAck,
   UpdateJournal,
 } from './distribution.ts';

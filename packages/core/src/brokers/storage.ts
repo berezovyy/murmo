@@ -52,6 +52,29 @@ export function createMemoryStorage(): StorageBackend {
   };
 }
 
+interface NamespaceDoc {
+  readonly data: Record<string, unknown>;
+  readonly revisions: Record<string, number>;
+}
+
+function asDoc(parsed: unknown): NamespaceDoc {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { data: {}, revisions: {} };
+  const rec = parsed as Record<string, unknown>;
+  if (
+    rec.data &&
+    typeof rec.data === 'object' &&
+    !Array.isArray(rec.data) &&
+    rec.revisions &&
+    typeof rec.revisions === 'object'
+  ) {
+    return {
+      data: { ...(rec.data as Record<string, unknown>) },
+      revisions: { ...(rec.revisions as Record<string, number>) },
+    };
+  }
+  return { data: { ...rec }, revisions: {} };
+}
+
 export function createStorageBroker(backend: StorageBackend = createMemoryStorage()): StorageBroker {
   const queues = new Map<string, Promise<unknown>>();
   const cache = new Map<string, string>();
@@ -69,12 +92,31 @@ export function createStorageBroker(backend: StorageBackend = createMemoryStorag
     return next;
   };
 
-  const parse = async (id: string): Promise<Record<string, unknown>> => {
+  const parse = async (id: string): Promise<NamespaceDoc> => {
     const raw = await backend.load(id);
     cache.set(id, raw === '' ? '{}' : raw);
     const parsed: unknown = JSON.parse(raw === '' ? '{}' : raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return { ...(parsed as Record<string, unknown>) };
+    return asDoc(parsed);
+  };
+
+  const write = async (id: string, doc: NamespaceDoc): Promise<void> => {
+    const json = JSON.stringify({ data: doc.data, revisions: doc.revisions });
+    await backend.save(id, json);
+    cache.set(id, json);
+  };
+
+  const put = async (id: string, key: string, copy: unknown, expected?: number): Promise<StorageResult> => {
+    const doc = await parse(id);
+    const current = Object.hasOwn(doc.revisions, key) ? (doc.revisions[key] ?? 0) : 0;
+    if (expected !== undefined && current !== expected) {
+      return { status: 'conflict', revision: current, reason: 'revision mismatch' };
+    }
+    const data = { ...doc.data, [key]: copy };
+    const quota = quotaProblem(data);
+    if (quota) return { status: 'quota', reason: quota };
+    const revision = current + 1;
+    await write(id, { data, revisions: { ...doc.revisions, [key]: revision } });
+    return { status: 'ok', revision };
   };
 
   return {
@@ -86,8 +128,9 @@ export function createStorageBroker(backend: StorageBackend = createMemoryStorag
             const problem = keyProblem(key);
             if (problem) return { status: 'denied', reason: problem };
             try {
-              const data = await parse(id);
-              return Object.hasOwn(data, key) ? { status: 'ok', value: cloneJson(data[key]) } : { status: 'ok' };
+              const doc = await parse(id);
+              if (!Object.hasOwn(doc.data, key)) return { status: 'ok', revision: 0 };
+              return { status: 'ok', value: cloneJson(doc.data[key]), revision: doc.revisions[key] ?? 1 };
             } catch (error) {
               return { status: 'error', reason: error instanceof Error ? error.message : String(error) };
             }
@@ -100,14 +143,20 @@ export function createStorageBroker(backend: StorageBackend = createMemoryStorag
             const copy = cloneJson(value);
             if (copy === undefined) return { status: 'denied', reason: 'storage values must be JSON' };
             try {
-              const data = await parse(id);
-              const next = { ...data, [key]: copy };
-              const quota = quotaProblem(next);
-              if (quota) return { status: 'quota', reason: quota };
-              const json = JSON.stringify(next);
-              await backend.save(id, json);
-              cache.set(id, json);
-              return { status: 'ok' };
+              return await put(id, key, copy);
+            } catch (error) {
+              return { status: 'error', reason: error instanceof Error ? error.message : String(error) };
+            }
+          });
+        },
+        cas(key, expected, value) {
+          return run(id, async (): Promise<StorageResult> => {
+            const problem = keyProblem(key);
+            if (problem) return { status: 'denied', reason: problem };
+            const copy = cloneJson(value);
+            if (copy === undefined) return { status: 'denied', reason: 'storage values must be JSON' };
+            try {
+              return await put(id, key, copy, expected);
             } catch (error) {
               return { status: 'error', reason: error instanceof Error ? error.message : String(error) };
             }
@@ -118,14 +167,14 @@ export function createStorageBroker(backend: StorageBackend = createMemoryStorag
             const problem = keyProblem(key);
             if (problem) return { status: 'denied', reason: problem };
             try {
-              const data = await parse(id);
-              if (!Object.hasOwn(data, key)) return { status: 'ok' };
-              const next = { ...data };
-              delete next[key];
-              const json = JSON.stringify(next);
-              await backend.save(id, json);
-              cache.set(id, json);
-              return { status: 'ok' };
+              const doc = await parse(id);
+              if (!Object.hasOwn(doc.data, key)) return { status: 'ok', revision: 0 };
+              const data = { ...doc.data };
+              delete data[key];
+              const revisions = { ...doc.revisions };
+              delete revisions[key];
+              await write(id, { data, revisions });
+              return { status: 'ok', revision: 0 };
             } catch (error) {
               return { status: 'error', reason: error instanceof Error ? error.message : String(error) };
             }
@@ -134,7 +183,15 @@ export function createStorageBroker(backend: StorageBackend = createMemoryStorag
       };
     },
     snapshot(): Readonly<Record<string, string>> {
-      return Object.fromEntries(cache);
+      const out: Record<string, string> = {};
+      for (const [id, json] of cache) {
+        try {
+          out[id] = JSON.stringify(asDoc(JSON.parse(json === '' ? '{}' : json)).data);
+        } catch {
+          out[id] = json;
+        }
+      }
+      return out;
     },
   };
 }

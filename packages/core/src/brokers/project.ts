@@ -12,6 +12,7 @@ const denied = (reason: string): ProjectReadResult => ({ status: 'denied', reaso
 export function denyProject(reason = 'fs:project-read must be declared, granted and brokered'): ProjectAccess {
   return {
     read: async () => denied(reason),
+    list: async () => ({ status: 'denied', reason: 'project:list must be declared, granted and brokered' }),
   };
 }
 

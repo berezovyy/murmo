@@ -479,4 +479,8 @@ ORACLES = {
     'outbound-connect': outbound,
     'parity-helper': parity,
     'older-probe': functional,
+    'third-party-load': many_plugins,
+    'third-party-slow-cpu': slow_cpu,
+    'third-party-security': security,
+    'third-party-gate-off': install_home,
 }

@@ -33,6 +33,9 @@ export async function handleStoreRequest(store: Store, message: unknown): Promis
       case 'storage.get':
         return await store.plugins.forPlugin(request.plugin).get(request.key);
       case 'storage.set':
+        if (typeof request.expected === 'number') {
+          return await store.plugins.forPlugin(request.plugin).cas(request.key, request.expected, request.value);
+        }
         return await store.plugins.forPlugin(request.plugin).set(request.key, request.value);
       case 'storage.delete':
         return await store.plugins.forPlugin(request.plugin).delete(request.key);

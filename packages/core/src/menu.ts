@@ -86,6 +86,9 @@ export class Menu {
     const out: MenuChoice[] = [];
     for (const plugin of this.#deps.plugins()) {
       if (plugin.disabled) continue;
+      // Phase 32: OpenCode fallback — third-party menu stays off when status
+      // cannot cover an approval dialog (condition 5).
+      if (!plugin.builtin && !this.#deps.caps.ui.dialogSafe) continue;
       const stored = this.#stored.get(plugin.id);
       if (stored && stored.version === version) {
         for (const item of stored.items) out.push({ plugin, item });

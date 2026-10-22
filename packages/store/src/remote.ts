@@ -58,7 +58,9 @@ export function createRemoteStore(transport: StoreTransport): RemoteStore {
   const asWrite = (reply: StoreReply | undefined): RemoteWrite => {
     if (!reply) return { status: 'error', reason: UNAVAILABLE };
     if (reply.status === 'ok') return { status: 'ok' };
-    return { status: reply.status === 'quota' ? 'error' : reply.status, reason: reply.reason ?? reply.status };
+    if (reply.status === 'quota') return { status: 'error', reason: reply.reason ?? reply.status };
+    if (reply.status === 'conflict') return { status: 'error', reason: reply.reason ?? reply.status };
+    return { status: reply.status, reason: reply.reason ?? reply.status };
   };
 
   return {
@@ -85,6 +87,8 @@ export function createRemoteStore(transport: StoreTransport): RemoteStore {
         },
         set: (key, value) =>
           change({ op: 'storage.set', plugin: pluginId, key, value }, (data) => storageSet(data, key, value)),
+        cas: (key, expected, value) =>
+          change({ op: 'storage.set', plugin: pluginId, key, value, expected }, (data) => storageSet(data, key, value)),
         delete: (key) => change({ op: 'storage.delete', plugin: pluginId, key }, (data) => storageDelete(data, key)),
       };
     },

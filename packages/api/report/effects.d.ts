@@ -51,6 +51,13 @@ export interface MenuItem {
     readonly detail?: string;
     readonly inlineEdit?: InlineMenuEdit;
 }
+export type HighlightSeverity = 'info' | 'warning' | 'error';
+/** One highlight with optional severity and message. Adapters that cannot show both advertise `ui.highlightDiagnostics: false`. */
+export interface HighlightMark {
+    readonly range: Range;
+    readonly severity?: HighlightSeverity;
+    readonly message?: string;
+}
 export type Effect = {
     readonly type: 'edit';
     readonly edit: Edit;
@@ -72,6 +79,7 @@ export type Effect = {
     readonly type: 'highlight';
     readonly ranges: readonly Range[] | null;
     readonly baseVersion: number;
+    readonly marks?: readonly HighlightMark[];
 } | {
     readonly type: 'status';
     readonly text: string | null;

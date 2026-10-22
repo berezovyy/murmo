@@ -40,16 +40,24 @@ export function createPluginStorageBroker(
       const path = pluginRecordPath(layout, pluginId);
       const dataOf = (record: PluginRecord | undefined): NamespaceData =>
         record && record.plugin === pluginId ? { ...record.data } : {};
+      const revisionsOf = (record: PluginRecord | undefined): Record<string, number> =>
+        record && record.plugin === pluginId ? { ...(record.revisions ?? {}) } : {};
 
-      const change = async (apply: (data: NamespaceData) => NamespaceChange): Promise<StorageResult> => {
+      const change = async (
+        apply: (data: NamespaceData, revisions: Record<string, number>) => NamespaceChange,
+      ): Promise<StorageResult> => {
         if (await privacy.isPrivate()) return { status: 'denied', reason: PRIVATE_MODE_REASON };
         const outcome = await updateRecord(
           'plugin',
           path,
           (current) => {
-            const { result, next } = apply(dataOf(current));
+            const revisions = revisionsOf(current);
+            const { result, next, nextRevisions } = apply(dataOf(current), revisions);
             if (!next) return { unchanged: result };
-            return { record: { schema: 1, plugin: pluginId, data: next }, result };
+            return {
+              record: { schema: 1, plugin: pluginId, data: next, revisions: nextRevisions ?? revisions },
+              result,
+            };
           },
           { base: layout.roots.data, maxBytes: RECORD_BYTES, ...(repairs ? { repairs } : {}) },
         );
@@ -62,10 +70,43 @@ export function createPluginStorageBroker(
         async get(key) {
           const read = await readRecord('plugin', path, repairs, RECORD_BYTES);
           if (read.status === 'unreadable') return { status: 'error', reason: `storage ${read.reason}` };
-          return storageGet(dataOf(read.status === 'ok' ? read.record : undefined), key);
+          const record = read.status === 'ok' ? read.record : undefined;
+          return storageGet(dataOf(record), key, revisionsOf(record)[key] ?? (record && key in record.data ? 1 : 0));
         },
-        set: (key, value) => change((data) => storageSet(data, key, value)),
-        delete: (key) => change((data) => storageDelete(data, key)),
+        set: (key, value) =>
+          change((data, revisions) => {
+            const result = storageSet(data, key, value);
+            if (!result.next) return result;
+            const revision = (revisions[key] ?? 0) + 1;
+            return {
+              ...result,
+              result: { ...result.result, revision },
+              nextRevisions: { ...revisions, [key]: revision },
+            };
+          }),
+        cas: (key, expected, value) =>
+          change((data, revisions) => {
+            const current = revisions[key] ?? 0;
+            if (current !== expected) {
+              return { result: { status: 'conflict', revision: current, reason: 'revision mismatch' } };
+            }
+            const result = storageSet(data, key, value);
+            if (!result.next) return result;
+            const revision = current + 1;
+            return {
+              ...result,
+              result: { ...result.result, revision },
+              nextRevisions: { ...revisions, [key]: revision },
+            };
+          }),
+        delete: (key) =>
+          change((data, revisions) => {
+            const result = storageDelete(data, key);
+            if (!result.next) return { result: { status: 'ok', revision: 0 } };
+            const nextRevisions = { ...revisions };
+            delete nextRevisions[key];
+            return { ...result, result: { ...result.result, revision: 0 }, nextRevisions };
+          }),
       };
     },
   };

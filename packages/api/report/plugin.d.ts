@@ -1,4 +1,4 @@
-import type { PluginStorage, ProjectAccess, ProjectChange } from './brokers.ts';
+import type { GitAccess, NetworkAccess, PluginStorage, ProjectAccess, ProjectChange } from './brokers.ts';
 import type { Capabilities } from './caps.ts';
 import type { Change, Draft, HostName, HostState, Range, SubmitGesture } from './draft.ts';
 import type { Effect, MenuItem } from './effects.ts';
@@ -39,6 +39,17 @@ export interface PluginContext {
     readonly storage: PluginStorage;
     /** Returns `denied` unless `fs:project-read` is declared, granted and approved. */
     readonly project: ProjectAccess;
+    /** Brokered HTTP; `denied` unless `network` is granted for that origin. */
+    readonly network: NetworkAccess;
+    /** Read-only git queries; `denied` unless `project:git` is granted. */
+    readonly git: GitAccess;
+    /**
+     * Stable for this agent session, including plugin reload. A new session
+     * gets a different id (r14 meter, E28).
+     */
+    readonly session: {
+        readonly id: string;
+    };
 }
 /** A plugin's answer to a submit attempt. `newline` never reaches this hook. */
 export type SubmitDecision = {

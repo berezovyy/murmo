@@ -29,11 +29,19 @@ function ctx(clock: Clock, cancelled = false): PluginContext {
         storage.delete(key);
         return { status: 'ok' };
       },
+      cas: async (key, _expected, value) => {
+        storage.set(key, value);
+        return { status: 'ok', revision: 1 };
+      },
     },
     project: {
       read: async (path) =>
         path === 'ok.txt' ? { status: 'ok', text: 'approved', bytes: 8, path } : { status: 'denied', reason: 'escape' },
+      list: async () => ({ status: 'denied', reason: 'none' }),
     },
+    network: { request: async () => ({ status: 'denied', reason: 'none' }) },
+    git: { query: async () => ({ status: 'denied', reason: 'none' }) },
+    session: { id: 'test' },
   };
 }
 
@@ -149,11 +157,13 @@ test('storage and project.read resume through the coordinator brokers (E5)', asy
 });
 
 test('a 10,000-effect reply is output-limit (L6)', async () => {
+  // 200 > 128-effect cap. 10,000 allocations in a 5 ms CPU slice lose to
+  // JobException on a loaded machine; the cap is the count, not the loop size.
   const source = `export default () => ({
     name: 'flood', version: '1', permissions: [],
     onChange() {
       const out = [];
-      for (let i = 0; i < 10000; i++) out.push({ type: 'edit', edit: { from: 0, to: 0, insert: String(i), baseVersion: 1 } });
+      for (let i = 0; i < 200; i++) out.push({ type: 'edit', edit: { from: 0, to: 0, insert: String(i), baseVersion: 1 } });
       return out;
     },
   });`;

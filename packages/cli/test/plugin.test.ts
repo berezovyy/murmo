@@ -373,25 +373,17 @@ test('remove deletes code, storage and cache and keeps the trust ledger (E7)', a
   }
 });
 
-test('a packed CLI refuses a non-first-party publisher (v1 gate)', async () => {
+test('a packed CLI accepts a third-party publisher with an independent --trust-key (phase 32 gate off)', async () => {
   const home = await preparedHome();
   try {
-    home.ctx.packed;
     const packedCtx = { ...home.ctx, packed: true, allowThirdParty: false, firstPartyFingerprint: 'a'.repeat(64) };
     const packed = packPlugin();
     const tgz = join(home.dir, 'v1.tgz');
     writeFileSync(tgz, packed.bytes);
     const key = writeKey(home.dir, packed.publicPem);
     const { pluginCommand } = await import('../src/plugin/commands.ts');
-    let code = 0;
-    try {
-      code = await pluginCommand(packedCtx, ['add', tgz, '--trust-key', key, '--grant', 'draft:read']);
-    } catch (error) {
-      code = 1;
-      home.stderr.push(error instanceof Error ? error.message : String(error));
-    }
-    assert.equal(code, 1);
-    assert.match(home.stderr.join('') + String(code), /third-party|1/);
+    const code = await pluginCommand(packedCtx, ['add', tgz, '--trust-key', key, '--grant', 'draft:read']);
+    assert.equal(code, 0);
   } finally {
     home.remove();
   }
@@ -416,6 +408,85 @@ test('an interrupted update journal is finished or undone (E4 journal)', async (
     const manifest = await readPluginsManifest(home.roots);
     assert.equal(manifest?.plugins['dist-demo']?.distribution?.digest, packed.digest);
     assert.equal(existsSync(join(home.roots.data, 'extensions', 'dist-demo', 'b'.repeat(64))), false);
+  } finally {
+    home.remove();
+  }
+});
+
+test('a rotated key is accepted only with the old key statement (C4, E15)', async () => {
+  const home = await preparedHome();
+  try {
+    const old = generatePublisher();
+    const { packed, code } = await addFixture(home, { privateKey: old.privateKey, publisherPem: old.publicPem });
+    assert.equal(code, 0);
+    const next = generatePublisher();
+    const { signRotation } = await import('@murmo/integrity');
+    const statement = signRotation(
+      {
+        format: 'murmo-publisher-rotation-v1',
+        plugin: 'dist-demo',
+        from: packed.publisher,
+        to: next.fingerprint,
+        toPublisher: next.publicPem,
+        issuedAt: 1,
+      },
+      old.privateKey,
+    );
+    const stmt = join(home.dir, 'rotate.json');
+    writeFileSync(stmt, JSON.stringify(statement));
+    const v2 = packPlugin({
+      privateKey: next.privateKey,
+      publisherPem: next.publicPem,
+      version: '1.0.1',
+      sequence: 2,
+    });
+    const tgz = join(home.dir, 'v2.tgz');
+    writeFileSync(tgz, v2.bytes);
+    const oldKey = writeKey(home.dir, old.publicPem);
+    assert.equal(
+      await runPlugin(home, [
+        'update',
+        tgz,
+        '--trust-key',
+        oldKey,
+        '--grant',
+        'draft:read',
+        '--rotate-statement',
+        stmt,
+      ]),
+      0,
+    );
+    const ledger = await readLedger(home.roots);
+    assert.equal(ledger.identities['dist-demo']?.publisher, next.fingerprint);
+    assert.ok((ledger.identities['dist-demo']?.chain ?? []).includes(packed.publisher));
+  } finally {
+    home.remove();
+  }
+});
+
+test('a revoked version is refused at add and named by doctor (C4)', async () => {
+  const home = await preparedHome();
+  try {
+    const { packed, code } = await addFixture(home, {});
+    assert.equal(code, 0);
+    const { signRevocation } = await import('@murmo/integrity');
+    const statement = signRevocation(
+      {
+        format: 'murmo-publisher-revocation-v1',
+        publisher: packed.publisher,
+        plugin: 'dist-demo',
+        version: '1.0.0',
+        reason: 'bad',
+        issuedAt: 1,
+      },
+      packed.privateKey,
+    );
+    const stmt = join(home.dir, 'revoke.json');
+    writeFileSync(stmt, JSON.stringify(statement));
+    const key = writeKey(home.dir, packed.publicPem);
+    assert.equal(await runPlugin(home, ['revoke', '--statement', stmt, '--trust-key', key]), 0);
+    assert.equal(await runPlugin(home, ['doctor', '--json']), 1);
+    assert.match(home.stdout.join(''), /revoked/);
   } finally {
     home.remove();
   }

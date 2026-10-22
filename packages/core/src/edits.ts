@@ -95,8 +95,8 @@ export interface EditDeps {
   readonly notice: (text: string) => void;
   /** Publishes changes released after an own operation. */
   readonly publish: (accepted: readonly Accepted[]) => void;
-  /** Phase 09: count an applied third-party edit toward the rate window. */
-  readonly noteApplied?: (plugin: PluginEntry) => void;
+  /** Phase 09: count an applied third-party edit toward the rate window. Phase 32: review log. */
+  readonly noteApplied?: (plugin: PluginEntry, edit: Edit, draft: Draft) => void;
 }
 
 const codes: ReadonlySet<string> = new Set<ResultCode>([
@@ -193,7 +193,7 @@ export class Edits {
             ),
       );
       if (result.status === 'applied') {
-        this.#deps.noteApplied?.(plugin);
+        this.#deps.noteApplied?.(plugin, request, before);
         intake.adoptEdit(before, request, plugin.id, result.draft);
         // Undo is armed only if no key came in while the commit was in flight.
         if (edit.undoable && view.epoch === ticket.epoch) {

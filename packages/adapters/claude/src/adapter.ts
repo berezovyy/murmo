@@ -10,6 +10,7 @@ import type {
   DraftDelta,
   Edit,
   EditResult,
+  HighlightMark,
   HostState,
   KeyId,
   Origin,
@@ -29,6 +30,7 @@ import type {
   InlineSnapshot,
   MenuSelection,
   PresentedMenuItem,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -261,6 +263,16 @@ export class ClaudeAdapter implements Adapter {
     return this.#present(baseVersion, this.caps.status, () => {
       this.#status = text;
     });
+  }
+
+  showHighlightMarks(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult {
+    return this.showHighlight(marks?.map((m) => m.range) ?? null, baseVersion);
+  }
+
+  showReview(panel: ReviewPanel | null, baseVersion: number): ActionResult {
+    if (!panel) return this.showStatus(null, baseVersion);
+    const body = panel.edits.map((e) => `[plugin ${e.pluginId}] ${e.after}`).join(' | ');
+    return this.showStatus(`Review: ${body}`, baseVersion);
   }
 
   onDraftChange(callback: (change: Change) => void): Unsubscribe {

@@ -65,6 +65,8 @@ export interface HarnessOptions {
   readonly adapter?: ReferenceAdapter;
   /** Immediate Backspace/undo of a typo (phase 19 learning). */
   readonly onRejectedWord?: (word: string) => void;
+  readonly reviewThirdPartyEdits?: SessionOptions['reviewThirdPartyEdits'];
+  readonly sessionId?: string;
 }
 
 export interface HarnessRunner extends HookRunner {
@@ -234,6 +236,7 @@ export class Driver {
 
 export async function createHarness(options: HarnessOptions = {}): Promise<Harness> {
   const clock = createManualClock();
+  const sessionId = options.sessionId ?? `harness-${clock.now()}`;
   const adapter =
     options.adapter ??
     new ReferenceAdapter({
@@ -251,6 +254,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
       ? createDirectRunner({
           plugins,
           clock,
+          sessionId,
           ...(options.health === undefined ? {} : { health: options.health }),
         })
       : createPluginHost({
@@ -276,6 +280,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
             }),
           ...(options.grants === undefined ? {} : { grants: options.grants }),
           ...(options.health === undefined ? {} : { health: options.health }),
+          sessionId,
         });
   const session = options.control
     ? null
@@ -294,6 +299,8 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
         ...(options.commitWindowMs === undefined ? {} : { commitWindowMs: options.commitWindowMs }),
         ...(options.menu ? { menu: options.menu } : {}),
         ...(options.onRejectedWord ? { onRejectedWord: options.onRejectedWord } : {}),
+        ...(options.reviewThirdPartyEdits ? { reviewThirdPartyEdits: options.reviewThirdPartyEdits } : {}),
+        sessionId,
       });
   let harness: Harness | undefined;
   const driver = new Driver(

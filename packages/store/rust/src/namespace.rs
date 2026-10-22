@@ -55,7 +55,7 @@ pub fn quota_problem(data: &Map<String, Value>) -> Option<String> {
     None
 }
 
-fn data_of(record: Option<Map<String, Value>>, plugin: &str) -> Map<String, Value> {
+fn data_of(record: Option<&Map<String, Value>>, plugin: &str) -> Map<String, Value> {
     match record {
         Some(r) if r.get("plugin").and_then(Value::as_str) == Some(plugin) => r
             .get("data")
@@ -66,9 +66,31 @@ fn data_of(record: Option<Map<String, Value>>, plugin: &str) -> Map<String, Valu
     }
 }
 
+fn revisions_of(record: Option<&Map<String, Value>>, plugin: &str) -> Map<String, Value> {
+    match record {
+        Some(r) if r.get("plugin").and_then(Value::as_str) == Some(plugin) => r
+            .get("revisions")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default(),
+        _ => Map::new(),
+    }
+}
+
+fn revision_of(revisions: &Map<String, Value>, data: &Map<String, Value>, key: &str) -> u64 {
+    if let Some(n) = revisions.get(key).and_then(Value::as_u64) {
+        return n;
+    }
+    if data.contains_key(key) {
+        1
+    } else {
+        0
+    }
+}
+
 pub fn get(layout: &StoreLayout, plugin: &str, key: &str, repairs: &mut ModeRepairs) -> Value {
     // Same order as the JS backend: an unreadable namespace wins over a bad key.
-    let data = match read_record(
+    let record = match read_record(
         RecordKind::Plugin,
         &layout.plugin_record(plugin),
         RECORD_BYTES,
@@ -77,25 +99,29 @@ pub fn get(layout: &StoreLayout, plugin: &str, key: &str, repairs: &mut ModeRepa
         RecordRead::Unreadable(reason) => {
             return result("error", Some(&format!("storage {reason}")))
         }
-        RecordRead::Missing => Map::new(),
-        RecordRead::Ok(r) => data_of(Some(r), plugin),
+        RecordRead::Missing => None,
+        RecordRead::Ok(r) => Some(r),
     };
+    let data = data_of(record.as_ref(), plugin);
+    let revisions = revisions_of(record.as_ref(), plugin);
     if let Some(problem) = storage_key_problem(key) {
         return result("denied", Some(&problem));
     }
+    let revision = revision_of(&revisions, &data, key);
     match data.get(key) {
-        Some(value) => json!({ "status": "ok", "value": value }),
-        None => result("ok", None),
+        Some(value) => json!({ "status": "ok", "value": value, "revision": revision }),
+        None => json!({ "status": "ok", "revision": 0 }),
     }
 }
 
-/// `Some(value)`: set the key; `None`: delete it.
+/// `Some(value)`: set the key; `None`: delete it. `expected` is compare-and-set.
 pub fn change(
     layout: &StoreLayout,
     private: bool,
     plugin: &str,
     key: &str,
     value: Option<Value>,
+    expected: Option<u64>,
     repairs: &mut ModeRepairs,
 ) -> Value {
     if private {
@@ -114,25 +140,46 @@ pub fn change(
         &options,
         repairs,
         |current| {
-            let mut data = data_of(current, plugin);
+            let mut data = data_of(current.as_ref(), plugin);
+            let mut revisions = revisions_of(current.as_ref(), plugin);
+            let current_rev = revision_of(&revisions, &data, key);
+            if let Some(want) = expected {
+                if current_rev != want {
+                    return Change::Unchanged(json!({
+                        "status": "conflict",
+                        "revision": current_rev,
+                        "reason": "revision mismatch"
+                    }));
+                }
+            }
             match value {
                 None => {
                     if data.remove(key).is_none() {
-                        return Change::Unchanged(result("ok", None));
+                        return Change::Unchanged(json!({ "status": "ok", "revision": 0 }));
                     }
+                    revisions.remove(key);
+                    let mut record = Map::new();
+                    record.insert("schema".into(), json!(1));
+                    record.insert("plugin".into(), json!(plugin));
+                    record.insert("data".into(), Value::Object(data));
+                    record.insert("revisions".into(), Value::Object(revisions));
+                    Change::Write(record, json!({ "status": "ok", "revision": 0 }))
                 }
                 Some(v) => {
                     data.insert(key.to_string(), v);
                     if let Some(quota) = quota_problem(&data) {
                         return Change::Unchanged(result("quota", Some(&quota)));
                     }
+                    let revision = current_rev + 1;
+                    revisions.insert(key.to_string(), json!(revision));
+                    let mut record = Map::new();
+                    record.insert("schema".into(), json!(1));
+                    record.insert("plugin".into(), json!(plugin));
+                    record.insert("data".into(), Value::Object(data));
+                    record.insert("revisions".into(), Value::Object(revisions));
+                    Change::Write(record, json!({ "status": "ok", "revision": revision }))
                 }
             }
-            let mut record = Map::new();
-            record.insert("schema".into(), json!(1));
-            record.insert("plugin".into(), json!(plugin));
-            record.insert("data".into(), Value::Object(data));
-            Change::Write(record, result("ok", None))
         },
     );
     match outcome {

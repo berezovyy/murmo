@@ -6,7 +6,13 @@ import { LOG_KINDS, type LogKind } from './layout.ts';
 
 export type StoreRequest =
   | { readonly op: 'storage.get'; readonly plugin: string; readonly key: string }
-  | { readonly op: 'storage.set'; readonly plugin: string; readonly key: string; readonly value: unknown }
+  | {
+      readonly op: 'storage.set';
+      readonly plugin: string;
+      readonly key: string;
+      readonly value: unknown;
+      readonly expected?: number;
+    }
   | { readonly op: 'storage.delete'; readonly plugin: string; readonly key: string }
   | { readonly op: 'private.get' }
   | { readonly op: 'generation.get' }
@@ -14,8 +20,12 @@ export type StoreRequest =
   | { readonly op: 'log.append'; readonly kind: LogKind; readonly session: string; readonly lines: readonly string[] };
 
 export type StoreReply =
-  | { readonly status: 'ok'; readonly value?: unknown }
-  | { readonly status: 'quota' | 'denied' | 'busy' | 'error'; readonly reason?: string };
+  | { readonly status: 'ok'; readonly value?: unknown; readonly revision?: number }
+  | {
+      readonly status: 'quota' | 'denied' | 'busy' | 'error' | 'conflict';
+      readonly reason?: string;
+      readonly revision?: number;
+    };
 
 const isString = (v: unknown): v is string => typeof v === 'string';
 
@@ -28,9 +38,14 @@ export function parseStoreRequest(value: unknown): StoreRequest | undefined {
     case 'storage.delete':
       return isString(r.plugin) && isString(r.key) ? { op: r.op, plugin: r.plugin, key: r.key } : undefined;
     case 'storage.set':
-      return isString(r.plugin) && isString(r.key) && Object.hasOwn(r, 'value')
-        ? { op: r.op, plugin: r.plugin, key: r.key, value: r.value }
-        : undefined;
+      if (!isString(r.plugin) || !isString(r.key) || !Object.hasOwn(r, 'value')) return undefined;
+      return {
+        op: r.op,
+        plugin: r.plugin,
+        key: r.key,
+        value: r.value,
+        ...(typeof r.expected === 'number' ? { expected: r.expected } : {}),
+      };
     case 'private.get':
     case 'generation.get':
       return { op: r.op };

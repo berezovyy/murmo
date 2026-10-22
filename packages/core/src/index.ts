@@ -9,12 +9,25 @@
 // re-exported from `@murmo/core/testing` with a direct hook runner and driver.
 
 export {
+  type AddressKind,
+  classifyAddress,
+  createMemoryGit,
+  createMemoryList,
+  createMemoryNetwork,
   createMemoryProjectFiles,
   createMemoryStorage,
   createStorageBroker,
+  denyGit,
+  denyList,
+  denyNetwork,
   denyProject,
+  type MemoryGitState,
+  type MemoryListFile,
+  type MemoryNetworkOptions,
   type MemoryProjectFile,
+  originAllowed,
   type PluginStorageBroker,
+  type ProjectListAccess,
   type StorageBroker,
 } from './brokers/index.ts';
 export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
@@ -118,19 +131,35 @@ export {
   grantAccess,
   grantedPermissions,
   type HostPluginSpec,
+  inspectDisplayName,
   isGranted,
+  nameNotice,
   type PluginHost,
   type PluginHostOptions,
   permissionGate,
+  reviewCapabilityGate,
 } from './plugins/index.ts';
 export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type VisibleGhost } from './present.ts';
 export {
+  onScreenRange,
+  REVIEW_BLOCK,
+  REVIEW_COOLDOWN,
+  REVIEW_COOLDOWN_MS,
+  REVIEW_STALE,
+  ReviewLog,
+  type ReviewLogEntry,
+  type ReviewMode,
+  visibleText,
+} from './review.ts';
+export {
   createSession,
   KILL_NOTICE,
+  newSessionId,
   type PluginActivation,
   type PluginChange,
   type Session,
   type SessionOptions,
+  TRANSPORT_UNAVAILABLE,
 } from './session.ts';
 export { isCurrent, issueTicket, type SessionView, type StaleReason, staleReason, type Ticket } from './stale.ts';
 export { Counters, type DecisionBy, type PluginHealth, type SessionStats, type Surface } from './stats.ts';

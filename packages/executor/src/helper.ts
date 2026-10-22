@@ -56,6 +56,7 @@ export interface IsolatedExecutorOptions extends BudgetPolicyOptions {
   /** Restart the supervisor at most this many times per 60 s, then stay down. */
   readonly restartLimit?: number;
   readonly connect: () => HelperTransport | Promise<HelperTransport>;
+  readonly projectRoot?: string;
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -96,6 +97,7 @@ function wireContext(context: PluginContext): Record<string, unknown> {
     state: clone(context.state),
     ...(context.change ? { change: clone(context.change) } : {}),
     settings: clone(context.settings),
+    session: clone(context.session),
   };
 }
 
@@ -251,6 +253,9 @@ export function createIsolatedExecutor(options: IsolatedExecutorOptions): Isolat
         settings: spec.settings ?? {},
         memoryMiB: memory,
         sliceMs: 5,
+        sandbox: spec.sandbox === true,
+        ...(spec.networkOrigins ? { networkOrigins: spec.networkOrigins } : {}),
+        ...(options.projectRoot ? { projectRoot: options.projectRoot } : {}),
         ...(assets ? { assets } : {}),
       });
     }
@@ -324,11 +329,23 @@ export function createIsolatedExecutor(options: IsolatedExecutorOptions): Isolat
           replies = [];
           for (const call of (row.requests as { id: number; method: string; args: unknown[] }[] | undefined) ?? []) {
             const [scope, name] = String(call.method).split('.');
-            const target = scope === 'storage' ? context.storage : scope === 'project' ? context.project : undefined;
+            const target =
+              scope === 'storage'
+                ? context.storage
+                : scope === 'project'
+                  ? context.project
+                  : scope === 'network'
+                    ? context.network
+                    : scope === 'git'
+                      ? context.git
+                      : undefined;
             const table = target as Record<string, (...args: unknown[]) => unknown> | undefined;
             const fn = name === 'readFile' ? (table?.readFile ?? table?.read) : table?.[name ?? ''];
             try {
-              if (!fn || !['get', 'set', 'delete', 'read', 'readFile'].includes(name ?? '')) {
+              if (
+                !fn ||
+                !['get', 'set', 'delete', 'cas', 'read', 'readFile', 'list', 'request', 'query'].includes(name ?? '')
+              ) {
                 throw new Error('broker denied');
               }
               let value = await fn.apply(target, call.args);

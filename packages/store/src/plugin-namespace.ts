@@ -32,16 +32,17 @@ function own(data: NamespaceData, key: string): boolean {
   return Object.hasOwn(data, key);
 }
 
-export function storageGet(data: NamespaceData, key: string): StorageResult {
+export function storageGet(data: NamespaceData, key: string, revision = 0): StorageResult {
   const problem = storageKeyProblem(key);
   if (problem) return { status: 'denied', reason: problem };
-  return own(data, key) ? { status: 'ok', value: jsonCopy(data[key]) } : { status: 'ok' };
+  return own(data, key) ? { status: 'ok', value: jsonCopy(data[key]), revision } : { status: 'ok', revision: 0 };
 }
 
 export interface NamespaceChange {
   readonly result: StorageResult;
   /** The namespace to write, absent when nothing changes. */
   readonly next?: NamespaceData;
+  readonly nextRevisions?: Record<string, number>;
 }
 
 /** Sets one key on a copy of `data`, or refuses with the reason the plugin sees. */

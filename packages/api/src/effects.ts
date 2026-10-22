@@ -59,6 +59,15 @@ export interface MenuItem {
   readonly inlineEdit?: InlineMenuEdit;
 }
 
+export type HighlightSeverity = 'info' | 'warning' | 'error';
+
+/** One highlight with optional severity and message. Adapters that cannot show both advertise `ui.highlightDiagnostics: false`. */
+export interface HighlightMark {
+  readonly range: Range;
+  readonly severity?: HighlightSeverity;
+  readonly message?: string;
+}
+
 export type Effect =
   | { readonly type: 'edit'; readonly edit: Edit }
   /** Suggested text after the cursor; `null` clears this plugin's ghost. */
@@ -66,7 +75,12 @@ export type Effect =
   /** `null` or `[]` closes this plugin's rows of the merged menu. */
   | { readonly type: 'menu'; readonly items: readonly MenuItem[] | null; readonly baseVersion: number }
   /** Ranges compose per plugin: clearing yours keeps every other plugin's. */
-  | { readonly type: 'highlight'; readonly ranges: readonly Range[] | null; readonly baseVersion: number }
+  | {
+      readonly type: 'highlight';
+      readonly ranges: readonly Range[] | null;
+      readonly baseVersion: number;
+      readonly marks?: readonly HighlightMark[];
+    }
   | { readonly type: 'status'; readonly text: string | null; readonly baseVersion: number };
 
 export type EffectType = Effect['type'];

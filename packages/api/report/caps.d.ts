@@ -99,6 +99,16 @@ export interface UiCapabilities {
     readonly opaqueParts: boolean;
     /** Host-side namespace of Murmo's UI slots, when the host has one. */
     readonly namespace?: string;
+    /**
+     * The adapter can show the third-party edit review panel. Without it the
+     * core drops third-party `draft:write`.
+     */
+    readonly review: boolean;
+    /**
+     * Highlight severity and message are shown, not only ranges. False: adapters
+     * keep ranges and drop severity/message.
+     */
+    readonly highlightDiagnostics: boolean;
 }
 /**
  * Coexistence with other plugins of the same host (phase 25 measures it per
@@ -157,4 +167,4 @@ export type CapabilityPath = LeafPath<Capabilities>;
  * newer API's path ("unknown") from a capability this host lacks ("unavailable").
  * A type test keeps it equal to `CapabilityPath`.
  */
-export declare const CAPABILITY_PATHS: readonly ["inputOriginEvidence", "semanticMenuSelection", "actions", "inlineRewrite", "inline.attributed", "inline.middle", "inline.multiline", "inline.observedKeys", "inline.allKeysObserved", "inline.nativeCompletion", "inline.commitReceipt", "inline.maxBytes", "readDraft", "edit.atomic", "edit.end", "edit.middle", "edit.multiline", "edit.selection", "edit.exactRestore", "edit.certainties", "edit.attributed", "ghost", "menu", "highlight", "status", "keys", "undoKeys", "keyPriority", "submit.transform", "submit.block", "submit.gestures", "submit.guardPosition", "submit.committed", "ui.dialogSafe", "ui.anchor", "ui.statusMaxLength", "ui.normalization", "ui.opaqueParts", "ui.namespace", "coexistence.editorComposition", "coexistence.keyArbitration", "coexistence.peerUiObservable", "runtime.executor", "runtime.hooks", "runtime.services"];
+export declare const CAPABILITY_PATHS: readonly ["inputOriginEvidence", "semanticMenuSelection", "actions", "inlineRewrite", "inline.attributed", "inline.middle", "inline.multiline", "inline.observedKeys", "inline.allKeysObserved", "inline.nativeCompletion", "inline.commitReceipt", "inline.maxBytes", "readDraft", "edit.atomic", "edit.end", "edit.middle", "edit.multiline", "edit.selection", "edit.exactRestore", "edit.certainties", "edit.attributed", "ghost", "menu", "highlight", "status", "keys", "undoKeys", "keyPriority", "submit.transform", "submit.block", "submit.gestures", "submit.guardPosition", "submit.committed", "ui.dialogSafe", "ui.anchor", "ui.statusMaxLength", "ui.normalization", "ui.opaqueParts", "ui.namespace", "ui.review", "ui.highlightDiagnostics", "coexistence.editorComposition", "coexistence.keyArbitration", "coexistence.peerUiObservable", "runtime.executor", "runtime.hooks", "runtime.services"];

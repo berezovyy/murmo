@@ -70,6 +70,8 @@ export interface PluginEnvelope {
   readonly api: string;
   readonly permissions: readonly Permission[];
   readonly reasons: Readonly<Record<string, string>>;
+  /** Exact origins for `network` (scheme, host, port). */
+  readonly origins?: Readonly<Record<string, string>>;
   readonly storageVersion: number;
   readonly files: Readonly<Record<string, string>>;
   readonly migration?: EnvelopeMigration;
@@ -214,6 +216,13 @@ export function parseEnvelope(value: unknown): SignedEnvelope {
     }
     files[rel] = hash;
   }
+  const originsIn =
+    own(body, 'origins') && isPlainObject(body.origins) ? (body.origins as Record<string, unknown>) : {};
+  const origins: Record<string, string> = {};
+  for (const name of permissions) {
+    const origin = originsIn[name];
+    if (typeof origin === 'string') origins[name] = origin;
+  }
   const envelope: PluginEnvelope = {
     format: ENVELOPE_FORMAT,
     id: body.id,
@@ -224,6 +233,7 @@ export function parseEnvelope(value: unknown): SignedEnvelope {
     api: body.api,
     permissions,
     reasons: Object.fromEntries(permissions.map((name) => [name, reasonsIn[name] as string])),
+    ...(Object.keys(origins).length ? { origins } : {}),
     storageVersion: body.storageVersion as number,
     files,
     ...(own(body, 'migration') ? { migration: parseMigration(body.migration) } : {}),
@@ -291,7 +301,11 @@ export function inspectPluginFiles(
   } catch (error) {
     fail('portable-manifest-mismatch', error instanceof Error ? error.message : 'invalid murmo.plugin.json');
   }
-  const declared = envelope.permissions.map((name) => ({ name, reason: envelope.reasons[name] as string }));
+  const declared = envelope.permissions.map((name) => ({
+    name,
+    reason: envelope.reasons[name] as string,
+    ...(envelope.origins?.[name] ? { origin: envelope.origins[name] } : {}),
+  }));
   if (
     portable.name !== envelope.id ||
     portable.version !== envelope.version ||

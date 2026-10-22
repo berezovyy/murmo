@@ -531,4 +531,8 @@ DRIVERS = {
     'outbound-connect': drive_outbound,
     'parity-helper': drive_parity,
     'older-probe': drive_functional,
+    'third-party-load': drive_many,
+    'third-party-slow-cpu': drive_slow_cpu,
+    'third-party-security': drive_security,
+    'third-party-gate-off': drive_install,
 }

@@ -16,7 +16,7 @@
 // Transient UI never enters host undo (lesson 41): all of it goes through the
 // adapter's presentation calls, never through draft edits.
 
-import type { ActionResult, Draft, HostState, Range, ResultCode } from '@murmo/api';
+import type { ActionResult, Draft, HighlightMark, HostState, Range, ResultCode } from '@murmo/api';
 import type { Adapter, HostCapabilities } from '@murmo/api/adapter';
 import { codePointUnits, displayText, isHighSurrogate, unsafeText } from '@murmo/text';
 import type { PluginEntry } from './hooks.ts';
@@ -72,7 +72,7 @@ function cut(text: string, max: number): string {
 export class Presentation {
   readonly #deps: PresentationDeps;
   readonly #ghosts = new Map<string, Versioned<string>>();
-  readonly #highlights = new Map<string, Versioned<readonly Range[]>>();
+  readonly #highlights = new Map<string, Versioned<{ ranges: readonly Range[]; marks: readonly HighlightMark[] }>>();
   readonly #statuses = new Map<string, string>();
   #notices: string[] = [];
   /** What the adapter was last asked to show; the host starts with nothing of Murmo's on screen. */
@@ -109,12 +109,21 @@ export class Presentation {
     return 'applied';
   }
 
-  setHighlight(plugin: PluginEntry, ranges: readonly Range[] | null, version: number): ResultCode {
+  setHighlight(
+    plugin: PluginEntry,
+    ranges: readonly Range[] | null,
+    version: number,
+    marks?: readonly HighlightMark[],
+  ): ResultCode {
     if (this.#deps.caps.highlight === 'none') return 'unsupported';
     if (ranges === null || ranges.length === 0) this.#highlights.delete(plugin.id);
     else {
       if (!Array.isArray(ranges) || !validRanges(ranges, this.#deps.draft().text.length)) return 'invalid-range';
-      this.#highlights.set(plugin.id, { value: ranges.map((r) => [r[0], r[1]] as const), version });
+      const normalized = ranges.map((r) => [r[0], r[1]] as const);
+      const nextMarks = marks?.length
+        ? marks.map((m) => ({ range: [m.range[0], m.range[1]] as const, severity: m.severity, message: m.message }))
+        : normalized.map((range) => ({ range }));
+      this.#highlights.set(plugin.id, { value: { ranges: normalized, marks: nextMarks }, version });
     }
     this.render();
     return 'applied';
@@ -187,6 +196,9 @@ export class Presentation {
     let text: string | undefined;
     if (placeable) {
       for (const plugin of this.#deps.plugins()) {
+        // Phase 32: OpenCode fallback — third-party ghosts stay off when status
+        // cannot cover an approval dialog (condition 5).
+        if (!plugin.builtin && !caps.ui.dialogSafe) continue;
         const ghost = this.#ghosts.get(plugin.id);
         if (ghost && ghost.version === draft.version) {
           owner = plugin;
@@ -216,15 +228,26 @@ export class Presentation {
     if (caps.highlight === 'none') return;
     const draft = this.#deps.draft();
     const ranges: Range[] = [];
+    const marks: HighlightMark[] = [];
     for (const plugin of this.#deps.plugins()) {
       const entry = this.#highlights.get(plugin.id);
-      if (entry && entry.version === draft.version) ranges.push(...entry.value);
+      if (entry && entry.version === draft.version) {
+        ranges.push(...entry.value.ranges);
+        marks.push(...entry.value.marks);
+      }
     }
     ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    const key = ranges.length ? JSON.stringify(ranges) : null;
+    const key = marks.length ? JSON.stringify(marks) : ranges.length ? JSON.stringify(ranges) : null;
     if (key === this.#highlightKey) return;
     this.#highlightKey = key;
-    this.#call('highlight', () => adapter.showHighlight(ranges.length ? ranges : null, draft.version));
+    if (caps.ui.highlightDiagnostics && adapter.showHighlightMarks) {
+      this.#call(
+        'highlight',
+        () => adapter.showHighlightMarks?.(marks.length ? marks : null, draft.version) ?? { status: 'unsupported' },
+      );
+    } else {
+      this.#call('highlight', () => adapter.showHighlight(ranges.length ? ranges : null, draft.version));
+    }
   }
 
   #renderStatus(): void {

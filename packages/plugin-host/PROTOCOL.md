@@ -23,7 +23,7 @@ The client must refuse a binary whose `protocol` or `apiVersion` does not match.
 | Op | Body | Reply |
 |---|---|---|
 | `hello` | `protocol`, `apiVersion` | `{status:"ok", protocol, apiVersion}` or `kind:"transport"` |
-| `load` | `plugin`, `source`, `format:"esm"`, `settings`, **`memoryMiB` (required)**, `sliceMs`, `assets`, `members?` | `{status:"ok", metadata, members}` |
+| `load` | `plugin`, `source`, `format:"esm"`, `settings`, **`memoryMiB` (required)**, `sliceMs`, `assets`, `members?`, `sandbox?`, `networkOrigins?`, `projectRoot?` | `{status:"ok", metadata, members}` |
 | `join` | `plugin` (first-party group), `member:{id,source,settings,assets}` | `{status:"ok", metadata}` |
 | `call` | `plugin`, `hook`, `input`, `context`, `deadlineMs`, `callToken`, `member?`, `resume?`, `replies?` | `{status, value/requests, kind?, timings, generation, restarts, stateReset}` |
 | `cancel` | `plugin`, `callToken` | `{status:"ok", cancelled}` — replaces the worker even if a reply raced |
@@ -46,7 +46,7 @@ Once at `load`/`join`, never per change. Each asset is `{encoding:"base64", data
 
 QuickJS (`rquickjs` 0.12.2). No `std`, `os`, `process`, `fetch`, `require`, or module loader. Supplied: monotonic `__hostNow`, `setTimeout`/`setTimer`/`sleep`, wall clock, UTF-8 decoder, settings JSON, `__murmoAssets` as `ArrayBuffer`. **The worker reads no files.** Project reads go through the coordinator broker (`status:"broker"` then `resume` with `replies`).
 
-Workers start with an empty environment and a neutral working directory.
+Workers start with an empty environment and a neutral working directory. Third-party workers (`sandbox: true` on `load`) run under an OS sandbox: macOS `sandbox-exec` (deny network, exec, fork); Linux landlock for files plus seccomp denying `execve`/`connect`. Built-ins share a guest without it. If the sandbox cannot be applied, third-party `load` fails.
 
 ## Limits
 
@@ -69,7 +69,7 @@ One worker, several `members` with separate descriptors and settings, shared fai
 
 ## Service resume
 
-A guest `storage.*` or `project.read`/`readFile` call yields:
+A guest `storage.*`, `project.read`/`readFile`/`list`, `network.request`, or `git.query` call yields:
 
 ```json
 {"status":"broker","requests":[{"id":1,"method":"storage.get","args":["k"]}]}

@@ -11,6 +11,17 @@ Additive preview companion, not a prompt-API break:
 
 - **`@murmo/api/events`:** events API 0.4-preview (rebased draft 0.3). Own manifest `events` range; preflight refuses a mismatch. `onAgentEvent` hook, `DEADLINES.agentEventMs` (2000 ms).
 - **Event permissions:** `events:read`, `tools:guard`, `tools:rewrite`, `context:write`, `agent:send`, `agent:control`, `messages:rewrite`. Independent of `draft:read`. `tools:rewrite` / `messages:rewrite` / `agent:send` stay explicit and unadvertised in the preview.
+## 2.0-pre.1 (2026-10-22)
+
+Third-party plugins. Breaking relative to `2.0-pre.0`:
+
+- **`API_DRAFT`** is `2.0-pre.1`.
+- **Permissions:** `project:list` and `project:git` added. `network` is now a brokered HTTP grant to one exact origin (`PermissionDeclaration.origin` required when `name` is `network`). `HIGH_TRUST_PERMISSIONS` is `draft:read:full`, `network`, `project:git`.
+- **Context:** `ctx.session.id` (stable across plugin reload), `ctx.network`, `ctx.git`, `ctx.project.list`. `ctx.storage.cas` is a per-key compare-and-set; `StorageResult.revision` and `conflict`.
+- **Services:** `project.list`, `network.request`, `git.query` in `SERVICES` / `SERVICE_ROUTES`.
+- **Highlights:** optional `marks` (`severity`, `message`) on the highlight effect; `HighlightMark`. Adapters advertise `ui.highlightDiagnostics`.
+- **Review:** `ui.review` capability; adapter `showReview` / `ReviewPanel`. Hosts that cannot show review drop third-party `draft:write`.
+- **Limits:** `networkRequestBytes` 64 KiB, `networkResponseBytes` 256 KiB, `networkRequestsPerMinute` 10, `projectListBytes` 1 MiB, `projectListEntries` 10_000, `projectListPage` 256.
 
 ## 2.0-pre.0 (2026-10-21)
 

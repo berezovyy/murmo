@@ -62,6 +62,8 @@ export function codexCaps(options: { readonly menu?: boolean; readonly ghost?: b
       statusMaxLength: 99,
       normalization: 'preserve',
       opaqueParts: true,
+      review: true,
+      highlightDiagnostics: false,
     },
     coexistence: coexistenceFor('codex'),
   };

@@ -92,7 +92,12 @@ function present(plugin: PluginEntry, effect: Exclude<Effect, { type: 'edit' }>,
       return presentation.setGhost(plugin, effect.text, effect.baseVersion);
     case 'highlight':
       if (effect.ranges?.length && !deps.editable()) return 'denied';
-      return presentation.setHighlight(plugin, effect.ranges as readonly Range[] | null, effect.baseVersion);
+      return presentation.setHighlight(
+        plugin,
+        effect.ranges as readonly Range[] | null,
+        effect.baseVersion,
+        effect.marks,
+      );
     case 'menu':
       if (effect.items !== null && effect.items.length > 0 && !deps.editable()) return 'denied';
       return deps.menu.setItems(plugin, effect.items, effect.baseVersion);

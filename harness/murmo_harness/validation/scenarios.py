@@ -133,6 +133,30 @@ def catalog() -> tuple[Scenario, ...]:
             extras={'probes': ('S1', 'S1-last-moment', 'S2', 'S3', 'S4', 'S5', 'S6')},
         ),
         Scenario(
+            'third-party-load', 'many-plugins',
+            'C1: 29 load rows with third-party fixtures through the gate-open build (lesson 76)',
+            'e', LIVE | frozenset({'helper'}), '32',
+            extras={'thirdParty': True, 'configured': 10},
+        ),
+        Scenario(
+            'third-party-slow-cpu', 'slow-cpu',
+            'C1: 29 slow-CPU rows with third-party fixtures (round 14 frame misses on 0.5–1 CPU)',
+            'e', LIVE | frozenset({'cpu-quota', 'helper'}), '32',
+            extras={'thirdParty': True, 'cpus': 0.5},
+        ),
+        Scenario(
+            'third-party-security', 'security',
+            'C1: 29 security rows plus review/cooldown with third-party fixtures (E2, E5)',
+            'd', LIVE | frozenset({'helper'}), '32',
+            extras={'thirdParty': True, 'probes': ('S1', 'S1-last-moment', 'review-cooldown')},
+        ),
+        Scenario(
+            'third-party-gate-off', 'install',
+            'Gate off: a third-party plugin installs, runs and is removed with exact HOME (D7)',
+            'b', HOST_PACKED, '32',
+            extras={'thirdPartyInstall': True},
+        ),
+        Scenario(
             'coexistence-peers', 'coexistence',
             'real peers: Pi crash, tmux Tab, editprompt raw keys (E15)',
             'b', LIVE | frozenset({'linux-container', 'peer'}), '25',

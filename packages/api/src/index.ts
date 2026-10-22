@@ -5,15 +5,28 @@
 // `API_DRAFT` and is listed in docs/CHANGELOG.md.
 
 export type {
+  GitAccess,
+  GitQuery,
+  GitResult,
+  GitStatus,
+  NetworkAccess,
+  NetworkOrigin,
+  NetworkRequest,
+  NetworkResult,
+  NetworkStatus,
   PluginService,
   PluginStorage,
   ProjectAccess,
   ProjectChange,
+  ProjectListEntry,
+  ProjectListQuery,
+  ProjectListResult,
+  ProjectListStatus,
   ProjectReadResult,
   ProjectReadStatus,
   StorageResult,
 } from './brokers.ts';
-export { SERVICES } from './brokers.ts';
+export { isExactOrigin, parseOrigin, SERVICES } from './brokers.ts';
 export type {
   Capabilities,
   CapabilityPath,
@@ -47,6 +60,8 @@ export type {
   EditResult,
   Effect,
   EffectType,
+  HighlightMark,
+  HighlightSeverity,
   InlineMenuEdit,
   MenuItem,
   ResultCode,
@@ -54,7 +69,15 @@ export type {
 export type { ActionId, KeyClaim, KeyCondition, KeyId, NamedKey, PluginAction } from './keys.ts';
 export { ACTIONS, isCanonicalKey, KEY_CONDITIONS, KEY_MODIFIERS, NAMED_KEYS, SHARED_KEYS } from './keys.ts';
 export type { Permission } from './limits.ts';
-export { API_DRAFT, API_VERSION, DEADLINES, EVENT_PERMISSIONS, LIMITS, PERMISSIONS } from './limits.ts';
+export {
+  API_DRAFT,
+  API_VERSION,
+  DEADLINES,
+  EVENT_PERMISSIONS,
+  HIGH_TRUST_PERMISSIONS,
+  LIMITS,
+  PERMISSIONS,
+} from './limits.ts';
 export type {
   CapabilityRequirement,
   ManifestErrorCode,

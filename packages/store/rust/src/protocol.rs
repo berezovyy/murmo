@@ -114,6 +114,7 @@ impl Store {
                             plugin,
                             key,
                             None,
+                            None,
                             &mut self.repairs,
                         )
                     }
@@ -121,6 +122,7 @@ impl Store {
                         let Some(value) = r.get("value") else {
                             return malformed();
                         };
+                        let expected = r.get("expected").and_then(Value::as_u64);
                         let private = self.is_private();
                         namespace::change(
                             &self.layout,
@@ -128,6 +130,7 @@ impl Store {
                             plugin,
                             key,
                             Some(value.clone()),
+                            expected,
                             &mut self.repairs,
                         )
                     }

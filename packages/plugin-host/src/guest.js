@@ -102,11 +102,20 @@ function contextOf(q) {
     get: (k) => rpc('storage.get', [k]),
     set: (k, v) => rpc('storage.set', [k, v]),
     delete: (k) => rpc('storage.delete', [k]),
+    cas: (k, expected, v) => rpc('storage.cas', [k, expected, v]),
   };
   ctx.project = {
     read: (p) => rpc('project.read', [p]),
     readFile: (p) => rpc('project.readFile', [p]),
+    list: (query) => rpc('project.list', [query || {}]),
   };
+  ctx.network = {
+    request: (spec) => rpc('network.request', [spec]),
+  };
+  ctx.git = {
+    query: (spec) => rpc('git.query', [spec]),
+  };
+  if (!ctx.session || typeof ctx.session !== 'object') ctx.session = { id: String(q.sessionId || '') };
   return ctx;
 }
 

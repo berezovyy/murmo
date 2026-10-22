@@ -12,6 +12,19 @@ export function permissionGate(): CommitGate {
   };
 }
 
+/** Third-party writes need a host that can show the review panel (phase 32). */
+export function reviewCapabilityGate(caps: () => HostCapabilities, notice: (text: string) => void): CommitGate {
+  return {
+    name: 'review-capability',
+    check(request: CommitRequest): string | null {
+      if (request.plugin.builtin) return null;
+      if (caps().ui.review) return null;
+      notice(`Plugin ${request.plugin.id}: this host cannot show a review of plugin edits`);
+      return 'review';
+    },
+  };
+}
+
 export function attributionGate(caps: () => HostCapabilities, notice: (text: string) => void): CommitGate {
   return {
     name: 'attribution',

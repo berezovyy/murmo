@@ -1,7 +1,7 @@
 export { type Admission, type AdmissionLimits, admit } from './admission.ts';
 export { ChangeCoalescer } from './coalesce.ts';
 export { type FaultAction, FaultBook } from './faults.ts';
-export { attributionGate, permissionGate } from './gates.ts';
+export { attributionGate, permissionGate, reviewCapabilityGate } from './gates.ts';
 export {
   createPluginHost,
   deadlineFor,
@@ -9,6 +9,7 @@ export {
   type PluginHost,
   type PluginHostOptions,
 } from './host.ts';
+export { inspectDisplayName, nameNotice } from './names.ts';
 export {
   type GrantMap,
   type GrantSubject,

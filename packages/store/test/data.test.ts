@@ -154,7 +154,7 @@ test('private mode changes 0 bytes of learned data across a scripted session', a
       reason: 'private mode',
     });
     // Reads still work.
-    assert.deepEqual(await store.plugins.forPlugin('p').get('k'), { status: 'ok', value: 1 });
+    assert.deepEqual(await store.plugins.forPlugin('p').get('k'), { status: 'ok', value: 1, revision: 1 });
   }
   assert.deepEqual(tree(t.dir), before, 'no file was created or changed');
 
@@ -285,15 +285,19 @@ test('a Claude session keeps working in memory when the helper is down', async (
   assert.deepEqual(await storage.set('k', 1), { status: 'ok' });
   assert.deepEqual(
     await store.plugins.forPlugin('p').get('k'),
-    { status: 'ok', value: 1 },
+    { status: 'ok', value: 1, revision: 1 },
     'written through the helper',
   );
   assert.equal(remote.degraded, false);
   up = false;
   assert.deepEqual(await storage.set('k', 2), { status: 'ok' });
-  assert.deepEqual(await storage.get('k'), { status: 'ok', value: 2 });
+  assert.deepEqual(await storage.get('k'), { status: 'ok', value: 2, revision: 0 });
   assert.equal(remote.degraded, true);
   assert.equal(await remote.isPrivate(), true, 'nothing is learned while degraded');
   assert.equal((await remote.addWord('w', { learned: true })).status, 'error');
-  assert.deepEqual(await store.plugins.forPlugin('p').get('k'), { status: 'ok', value: 1 }, 'the disk is untouched');
+  assert.deepEqual(
+    await store.plugins.forPlugin('p').get('k'),
+    { status: 'ok', value: 1, revision: 1 },
+    'the disk is untouched',
+  );
 });

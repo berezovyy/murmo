@@ -10,6 +10,7 @@ import type {
   DraftDelta,
   Edit,
   EditResult,
+  HighlightMark,
   HostState,
   KeyId,
   Origin,
@@ -27,6 +28,7 @@ import type {
   InlineSnapshot,
   MenuSelection,
   PresentedMenuItem,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -284,6 +286,16 @@ export class OpenCodeAdapter implements Adapter {
       const body = displayText(`${prefix}${text ?? ''}`).slice(0, 512) || null;
       this.#status.set(body);
     });
+  }
+
+  showHighlightMarks(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult {
+    return this.showHighlight(marks?.map((m) => m.range) ?? null, baseVersion);
+  }
+
+  showReview(panel: ReviewPanel | null, baseVersion: number): ActionResult {
+    if (!panel) return this.showStatus(null, baseVersion);
+    const body = panel.edits.map((e) => `[plugin ${e.pluginId}] ${e.after}`).join(' | ');
+    return this.showStatus(`Review: ${body}`, baseVersion);
   }
 
   onDraftChange(callback: (change: Change) => void): Unsubscribe {

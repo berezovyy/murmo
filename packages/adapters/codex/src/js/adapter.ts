@@ -8,6 +8,7 @@ import type {
   InlineAnswer,
   InlineCommit,
   InlineSnapshot,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -235,6 +236,11 @@ export function createAdapter(
     },
     showHighlight: () => ({ status: 'unsupported' }),
     showStatus: (text, version) => self.render('status', text, version),
+    showReview: (panel: ReviewPanel | null, version) => {
+      if (!panel) return self.render('status', null, version);
+      const body = panel.edits.map((e) => `[plugin ${e.pluginId}] ${e.after}`).join(' | ');
+      return self.render('status', `Review: ${body}`, version);
+    },
     onDraftChange: (cb) => {
       change = cb;
       return () => {

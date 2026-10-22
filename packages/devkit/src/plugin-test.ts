@@ -232,6 +232,18 @@ export async function pluginTest(directory: string, options: PluginTestOptions =
       ran.push(name);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (
+        name === 'helper' &&
+        process.env.MURMO_OFFLINE === '1' &&
+        /plugin disabled|sandbox|Operation not permitted|sandbox-exec/.test(message)
+      ) {
+        skipped.push({
+          executor: 'helper',
+          reason:
+            'sandbox-unavailable: nested sandbox-exec is refused inside the offline harness; third-party workers fail closed',
+        });
+        continue;
+      }
       throw new Error(`${name}: ${message}`);
     }
   }

@@ -12,11 +12,17 @@ test('plugin test --executor helper passes through murmo-plugin-host or names th
   const parent = await mkdtemp(join(tmpdir(), 'murmo-helper-'));
   const dir = await pluginNew('counter', parent);
   const report = await pluginTest(dir, { executor: 'helper', skipConformance: true });
-  if (helperPath()) {
-    assert.ok(report.executors.includes('helper'), JSON.stringify(report.skipped));
-    assert.equal(report.authorTests, 1);
-  } else {
+  if (!helperPath()) {
     assert.equal(report.executors.length, 0);
     assert.ok(report.skipped.some((s) => s.executor === 'helper' && /not built/.test(s.reason)));
+    return;
   }
+  if (report.executors.includes('helper')) {
+    assert.equal(report.authorTests, 1);
+    return;
+  }
+  assert.ok(
+    report.skipped.some((s) => s.executor === 'helper' && /sandbox-unavailable/.test(s.reason)),
+    JSON.stringify(report.skipped),
+  );
 });

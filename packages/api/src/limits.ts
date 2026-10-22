@@ -14,7 +14,7 @@ export const API_VERSION = '2.0.0';
  * counter (`2.0-pre.1`, ...); scaffolds record it and `murmo plugin dev` warns
  * when it differs.
  */
-export const API_DRAFT = '2.0-pre.0';
+export const API_DRAFT = '2.0-pre.1';
 
 /**
  * Every permission a plugin can declare. A declaration is never a grant: the host
@@ -25,8 +25,7 @@ export const API_DRAFT = '2.0-pre.0';
  * - `submit:observe`: committed and unresolved send events, read-only.
  * - `draft:write`: versioned edits, ghosts, menus with edits.
  * - `submit`: warn or block a send; only host-installed built-ins may rewrite it.
- * - `network`: declaration only. No executor routes a network request yet
- *   (phase 32 adds the broker); declaring it grants nothing.
+ * - `network`: brokered HTTP to one exact origin disclosed in the manifest.
  * - `fs:project-read`: bounded UTF-8 reads inside the approved project root.
  * Event grants (preview, `@murmo/api/events`) are independent of draft grants:
  * - `events:read`: observe agent-loop events; never implies `draft:read`.
@@ -36,6 +35,8 @@ export const API_DRAFT = '2.0-pre.0';
  * - `agent:send`: send a new prompt (off in the preview).
  * - `agent:control`: compaction / Stop continuation.
  * - `messages:rewrite`: stored or model-visible message text (types only).
+ * - `project:list`: paged paths under the project root (gitignore, no symlink escape).
+ * - `project:git`: read-only git queries served by the helper, never the guest.
  */
 export const EVENT_PERMISSIONS = [
   'events:read',
@@ -56,6 +57,8 @@ export const PERMISSIONS = [
   'network',
   'fs:project-read',
   ...EVENT_PERMISSIONS,
+  'project:list',
+  'project:git',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -113,4 +116,22 @@ export const LIMITS = {
   projectSessionBytes: 1_048_576,
   /** Project read attempts of one plugin per session. */
   projectReads: 128,
+  /** One brokered network request body. */
+  networkRequestBytes: 65_536,
+  /** One brokered network response body. */
+  networkResponseBytes: 262_144,
+  /** Brokered network requests per plugin per rolling minute. */
+  networkRequestsPerMinute: 10,
+  /** Metadata bytes of one project listing snapshot. */
+  projectListBytes: 1_048_576,
+  /** Paths in one project listing snapshot. */
+  projectListEntries: 10_000,
+  /** Paths returned on one listing page. */
+  projectListPage: 256,
 } as const;
+
+/**
+ * Permissions that need an explicit per-permission confirmation at add, even
+ * when they also appear in `--grant`. Shown in `murmo plugin list`.
+ */
+export const HIGH_TRUST_PERMISSIONS = ['draft:read:full', 'network', 'project:git'] as const;

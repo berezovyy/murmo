@@ -13,6 +13,7 @@
 // window gate, and `finalGuard`.
 // Phase 09: executor-backed runner, permission/rate/attribution gates next
 // to the submit window, typed fault strikes.
+// Phase 32: review/cooldown for third-party edits; session.id; helper-down send block.
 
 import type {
   ActionId,
@@ -34,6 +35,7 @@ import type {
   InlineRejection,
   InlineSnapshot,
   MenuSelection,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -63,9 +65,11 @@ import { KeyRouter } from './keys.ts';
 import { Menu } from './menu.ts';
 import { resolveOrder } from './order.ts';
 import { FaultBook } from './plugins/faults.ts';
-import { attributionGate, permissionGate } from './plugins/gates.ts';
+import { attributionGate, permissionGate, reviewCapabilityGate } from './plugins/gates.ts';
+import { nameNotice } from './plugins/names.ts';
 import { EditRate } from './plugins/rate.ts';
 import { Presentation } from './present.ts';
+import { ReviewLog, type ReviewMode } from './review.ts';
 import { isCurrent, issueTicket, type SessionView, type Ticket } from './stale.ts';
 import { Counters, type SessionStats } from './stats.ts';
 import { type MenuSurface, SubmitController, submitOptions } from './submit/index.ts';
@@ -108,11 +112,20 @@ export interface SessionOptions {
   readonly menu?: MenuSurface;
   /** Immediate Backspace/undo of a typo (phase 19 learning). */
   readonly onRejectedWord?: (word: string) => void;
+  /**
+   * Phase 32: `always` (default) stops send for every unreviewed third-party
+   * edit; `flagged` only for zero-width, bidi, homoglyph or off-screen edits.
+   */
+  readonly reviewThirdPartyEdits?: ReviewMode;
+  /** Phase 32: stable `ctx.session.id`. Generated when omitted. */
+  readonly sessionId?: string;
 }
 
 export interface Session {
   /** Probes the host, publishes capabilities, loads plugins, subscribes, activates. */
   readonly ready: Promise<void>;
+  /** Phase 32: stable across plugin reload in this session. */
+  readonly sessionId: string;
   /** The measured capabilities plus the runner's routes, once `ready` resolved. */
   caps(): Capabilities | undefined;
   /** The session's draft: the adapter's text with the typed spans the core verified. */
@@ -149,6 +162,25 @@ export type PluginChange =
   | { readonly action: 'replace'; readonly plugin: LoadedPlugin };
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
+
+export const TRANSPORT_UNAVAILABLE = 'transport unavailable';
+
+/** Opaque session id: stable across plugin reload, unique per CoreSession. */
+export function newSessionId(clock?: Clock): string {
+  const bytes = new Uint8Array(16);
+  const cryptoObj = (globalThis as { crypto?: { getRandomValues?: (b: Uint8Array) => Uint8Array } }).crypto;
+  if (cryptoObj?.getRandomValues) cryptoObj.getRandomValues(bytes);
+  else {
+    let n = (clock?.now() ?? 0) ^ (clock?.wallTimeMs() ?? 0) ^ 0x9e3779b9;
+    for (let i = 0; i < 16; i++) {
+      n = (Math.imul(n, 1664525) + 1013904223) >>> 0;
+      bytes[i] = n & 255;
+    }
+  }
+  let out = '';
+  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  return out;
+}
 
 const noop = (): void => {};
 
@@ -211,13 +243,22 @@ class CoreSession implements Session {
   #killNotice: string | undefined;
   /** Phase 25: one notice per boundary; doctor reads the records. */
   #book = new BoundaryBook();
+  /** Phase 32. */
+  #review: ReviewLog | undefined;
+  readonly #sessionId: string;
 
   constructor(options: SessionOptions) {
     this.#options = options;
     this.#adapter = options.adapter;
     this.#runner = options.runner;
+    this.#sessionId = options.sessionId ?? newSessionId(options.clock);
     this.#guard = new FailOpen(() => this.#kill(), options.failureLimit ?? FAILURE_LIMIT);
     this.ready = this.#start();
+  }
+
+  /** Phase 32: stable across applyPlugin; a new Session gets a new id. */
+  get sessionId(): string {
+    return this.#sessionId;
   }
 
   caps(): Capabilities | undefined {
@@ -305,6 +346,18 @@ class CoreSession implements Session {
       ...this.#options,
       guardPolicy: this.#options.guardPolicy ?? (coverage.block ? 'final-boundary' : 'managed'),
     });
+    // Phase 32: review panel for third-party edits. Hosts without ui.review
+    // drop third-party draft:write (reviewCapabilityGate).
+    this.#review = new ReviewLog({
+      clock: submitOpts.clock,
+      mode: this.#options.reviewThirdPartyEdits ?? 'always',
+      notice,
+      show: (panel: ReviewPanel | null, version: number) => {
+        const show = this.#adapter.showReview;
+        if (show) show.call(this.#adapter, panel, version);
+        else if (panel) notice(panel.edits.map((e) => `[plugin ${e.pluginId}] ${e.after}`).join(' | '));
+      },
+    });
     // Phase 08: submit window is a live commit-path gate (r14 S1 last-moment).
     const submit = new SubmitController({
       host: () => ({
@@ -344,12 +397,21 @@ class CoreSession implements Session {
       intake,
       undo: this.#undo,
       counters,
-      gates: [submit, permissionGate(), rate, attributionGate(() => hostCaps, notice), ...(this.#options.gates ?? [])],
+      gates: [
+        submit,
+        permissionGate(),
+        rate,
+        attributionGate(() => hostCaps, notice),
+        reviewCapabilityGate(() => hostCaps, notice),
+        ...(this.#options.gates ?? []),
+      ],
       notice,
       publish: (accepted) => this.#publish(accepted),
-      noteApplied: (plugin) => {
+      noteApplied: (plugin, edit, draft) => {
         rate.noteApplied(plugin.id, plugin.builtin);
         if (plugin.id === 'names' || plugin.name === 'names') counters.nameAccepted++;
+        // Phase 32
+        this.#review?.noteApplied(plugin, edit, draft);
       },
     });
     this.#edits = edits;
@@ -364,6 +426,9 @@ class CoreSession implements Session {
       const { claims, notices } = validateClaims(plugin, source.descriptor.keys, hostCaps);
       plugin.claims = claims;
       for (const text of notices) notice(text);
+      // Phase 32: reserved/mixed-script names are flagged; the id prefix remains.
+      const flagged = nameNotice(plugin.id, plugin.name);
+      if (flagged) notice(flagged);
     }
 
     this.#router = new KeyRouter({
@@ -473,6 +538,14 @@ class CoreSession implements Session {
    */
   #key(key: KeyId): 'consume' | 'pass' {
     this.#submit?.noteKey();
+    // Phase 32: review panel owns Enter/Escape while open.
+    const version = this.#intake?.draft.version ?? 0;
+    const reviewKey = this.#review?.onKey(key, version);
+    if (reviewKey === 'consume') return 'consume';
+    if (reviewKey === 'approve') {
+      void this.#adapter.requestSubmit?.('send');
+      return 'consume';
+    }
     const state = this.#adapter.getState();
     if (nativeUiOpen(state)) {
       const text = this.#book.record({
@@ -767,6 +840,13 @@ class CoreSession implements Session {
     const submit = this.#submit;
     if (!this.#live || !submit) return { action: 'block', reason: 'session is not ready' };
     try {
+      // Phase 32: a dead helper cannot run a required guard.
+      if (this.#executorHealth() === 'down' && this.#plugins.some((p) => p.guard)) {
+        this.#presentation?.notice(TRANSPORT_UNAVAILABLE);
+        return { action: 'block', reason: TRANSPORT_UNAVAILABLE };
+      }
+      const review = this.#review?.intercept(tx.draft.version);
+      if (review) return review;
       return await submit.beforeSubmit(tx);
     } catch (error) {
       this.#guard.record(error);
@@ -854,6 +934,7 @@ class CoreSession implements Session {
     this.#intake?.bumpEpoch();
     this.#options.menu?.dismiss();
     this.#menu?.dismiss();
+    this.#review?.reset();
   }
 
   #kill(): void {

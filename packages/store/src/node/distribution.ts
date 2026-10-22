@@ -70,6 +70,17 @@ export interface PublisherIdentity {
   readonly highWater: number;
   readonly highestVersion: string;
   readonly versions: Readonly<Record<string, string>>;
+  /** Fingerprints from oldest to current after rotations. High-water never lowers. */
+  readonly chain?: readonly string[];
+}
+
+export interface RevocationRecord {
+  readonly publisher: string;
+  readonly plugin?: string;
+  readonly version?: string;
+  readonly reason: string;
+  readonly issuedAt: number;
+  readonly signature: string;
 }
 
 export interface ProjectApproval {
@@ -88,6 +99,7 @@ export interface DistributionLedger {
   readonly schema: typeof DISTRIBUTION_SCHEMA;
   readonly identities: Readonly<Record<string, PublisherIdentity>>;
   readonly projects: Readonly<Record<string, ProjectApproval>>;
+  readonly revocations?: readonly RevocationRecord[];
 }
 
 export interface UpdateJournal {

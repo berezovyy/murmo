@@ -5,7 +5,16 @@ export interface PluginFlags {
   readonly flags: Map<string, string | true>;
 }
 
-const VALUE = new Set(['--trust-key', '--grant', '--digest', '--registry', '--approve-project', '--timeout']);
+const VALUE = new Set([
+  '--trust-key',
+  '--grant',
+  '--digest',
+  '--registry',
+  '--approve-project',
+  '--timeout',
+  '--rotate-statement',
+  '--statement',
+]);
 const BARE = new Set(['--json', '--offline']);
 
 export function parsePluginArgs(args: readonly string[]): PluginFlags {

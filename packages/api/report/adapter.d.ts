@@ -1,7 +1,7 @@
 import type { PluginService, ProjectChange, ProjectReadResult } from './brokers.ts';
 import type { HostCapabilities } from './caps.ts';
-import type { Certainty, Change, Draft, DraftDelta, HostName, HostState, Range } from './draft.ts';
-import type { ActionResult, Edit, EditResult, EffectType, MenuItem } from './effects.ts';
+import type { Certainty, Change, Draft, DraftDelta, HostName, HostState, Range, SubmitGesture } from './draft.ts';
+import type { ActionResult, Edit, EditResult, EffectType, HighlightMark, MenuItem } from './effects.ts';
 import type { ActionId, KeyClaim, KeyId, PluginAction } from './keys.ts';
 import type { DEADLINES, Permission } from './limits.ts';
 import type { PluginManifest } from './manifest.ts';
@@ -78,6 +78,15 @@ export declare const SERVICE_ROUTES: {
     readonly 'project.read': {
         readonly requires: readonly ["fs:project-read"];
     };
+    readonly 'project.list': {
+        readonly requires: readonly ["project:list"];
+    };
+    readonly 'network.request': {
+        readonly requires: readonly ["network"];
+    };
+    readonly 'git.query': {
+        readonly requires: readonly ["project:git"];
+    };
 };
 /** Effects and the permission each needs to apply. */
 export declare const EFFECT_ROUTES: {
@@ -117,6 +126,8 @@ export declare const PERMISSION_DEFAULTS: {
     readonly 'agent:send': 'explicit';
     readonly 'agent:control': 'explicit';
     readonly 'messages:rewrite': 'explicit';
+    readonly 'project:list': 'explicit';
+    readonly 'project:git': 'explicit';
 };
 export interface PermissionRoutes {
     readonly hooks: readonly PluginHook[];
@@ -124,8 +135,8 @@ export interface PermissionRoutes {
     readonly effects: readonly EffectType[];
 }
 /**
- * The hooks, services and effects a set of granted permissions opens. `network`
- * opens nothing: no executor routes a network request yet (phase 32).
+ * The hooks, services and effects a set of granted permissions opens.
+ * `network` opens `network.request`; listing and git are their own services.
  */
 export declare function routesFor(granted: readonly Permission[]): PermissionRoutes;
 interface PluginSpecBase {
@@ -145,6 +156,10 @@ interface PluginSpecBase {
     readonly resources?: {
         readonly memoryMiB: number;
     };
+    /** OS sandbox for this worker. Third-party specs set this; built-ins share a guest without it. */
+    readonly sandbox?: boolean;
+    /** Exact origins the `network` grant covers (scheme, host, port). */
+    readonly networkOrigins?: readonly string[];
 }
 /**
  * A plugin as the host loads it. Only the host marks a spec `builtin` (our own
@@ -238,6 +253,26 @@ export interface EditAttribution {
     readonly label: string;
     readonly before: Draft;
 }
+export type ReviewFlag = 'zero-width' | 'bidi' | 'homoglyph' | 'off-screen';
+/** One third-party edit as the review panel shows it. */
+export interface ReviewEdit {
+    readonly pluginId: string;
+    readonly sequence: number;
+    readonly from: number;
+    readonly to: number;
+    readonly before: string;
+    readonly after: string;
+    readonly onScreen: boolean;
+    readonly flags: readonly ReviewFlag[];
+}
+/** Version-bound review of unreviewed third-party edits. */
+export interface ReviewPanel {
+    readonly version: number;
+    readonly edits: readonly ReviewEdit[];
+    readonly cooldownMs: number;
+    readonly remainingMs: number;
+}
+export type ReviewAction = 'approve' | 'dismiss';
 /** The pipeline's final answer for one submit attempt. */
 export type SubmitOutcome = {
     readonly action: 'send';
@@ -402,7 +437,13 @@ export interface Adapter {
     showAttributedGhost(text: string | null, baseVersion: number, pluginId: string): ActionResult;
     showMenu(items: readonly PresentedMenuItem[] | null, selected: number, baseVersion: number): ActionResult;
     showHighlight(ranges: readonly Range[] | null, baseVersion: number): ActionResult;
+    /** Severity and message when `ui.highlightDiagnostics` is true. */
+    showHighlightMarks?(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult;
     showStatus(text: string | null, baseVersion: number): ActionResult;
+    /** Third-party edit review; required when `ui.review` is true. */
+    showReview?(panel: ReviewPanel | null, baseVersion: number): ActionResult;
+    /** Re-issue a send after review approval (the first gesture opened the review). */
+    requestSubmit?(gesture: SubmitGesture): Promise<SubmitOutcome>;
     onDraftChange(callback: (change: Change) => void): Unsubscribe;
     onKey(callback: (key: KeyId) => 'consume' | 'pass'): Unsubscribe;
     /** Every configured send, queue and steer gesture, before the host clears the draft. */

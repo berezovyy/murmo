@@ -110,6 +110,16 @@ export interface UiCapabilities {
   readonly opaqueParts: boolean;
   /** Host-side namespace of Murmo's UI slots, when the host has one. */
   readonly namespace?: string;
+  /**
+   * The adapter can show the third-party edit review panel. Without it the
+   * core drops third-party `draft:write`.
+   */
+  readonly review: boolean;
+  /**
+   * Highlight severity and message are shown, not only ranges. False: adapters
+   * keep ranges and drop severity/message.
+   */
+  readonly highlightDiagnostics: boolean;
 }
 
 /**
@@ -217,6 +227,8 @@ export const CAPABILITY_PATHS = [
   'ui.normalization',
   'ui.opaqueParts',
   'ui.namespace',
+  'ui.review',
+  'ui.highlightDiagnostics',
   'coexistence.editorComposition',
   'coexistence.keyArbitration',
   'coexistence.peerUiObservable',

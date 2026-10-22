@@ -87,6 +87,19 @@ export {
 export { type ScanHit, scanBytes, scanTree } from './scan.ts';
 export { signManifest, writeSigned } from './sign.ts';
 export {
+  REVOCATION_FORMAT,
+  type RevocationBody,
+  ROTATION_FORMAT,
+  type RotationBody,
+  type SignedRevocation,
+  type SignedRotation,
+  StatementError,
+  signRevocation,
+  signRotation,
+  verifyRevocation,
+  verifyRotation,
+} from './statements.ts';
+export {
   loadTrustAnchor,
   type TrustAnchor,
   type TrustSource,

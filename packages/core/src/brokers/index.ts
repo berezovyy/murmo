@@ -1,3 +1,19 @@
+export { createMemoryGit, denyGit, type MemoryGitState } from './git.ts';
+export {
+  createMemoryList,
+  denyList,
+  type MemoryListFile,
+  type MemoryListOptions,
+  type ProjectListAccess,
+} from './list.ts';
+export {
+  type AddressKind,
+  classifyAddress,
+  createMemoryNetwork,
+  denyNetwork,
+  type MemoryNetworkOptions,
+  originAllowed,
+} from './network.ts';
 export {
   createMemoryProjectFiles,
   denyProject,

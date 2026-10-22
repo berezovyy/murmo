@@ -33,6 +33,7 @@ import {
   type Edit,
   type EditResult,
   type Gesture,
+  type HighlightMark,
   type HostName,
   type HostState,
   type InputOriginEvidence,
@@ -56,6 +57,7 @@ import type {
   InlineSnapshot,
   MenuSelection,
   PresentedMenuItem,
+  ReviewPanel,
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
@@ -111,7 +113,15 @@ export function referenceCaps(): HostCapabilities {
       guardPosition: 'final-boundary',
       committed: 'accepted-text',
     },
-    ui: { dialogSafe: true, anchor: 'host-owned', statusMaxLength: 512, normalization: 'preserve', opaqueParts: false },
+    ui: {
+      dialogSafe: true,
+      anchor: 'host-owned',
+      statusMaxLength: 512,
+      normalization: 'preserve',
+      opaqueParts: false,
+      review: true,
+      highlightDiagnostics: true,
+    },
     coexistence: { editorComposition: 'chainable', keyArbitration: 'host-coordinated', peerUiObservable: true },
   };
 }
@@ -288,7 +298,9 @@ export class FakeAdapter implements Adapter {
   menu: readonly PresentedMenuItem[] | null = null;
   menuSelected = 0;
   highlight: readonly Range[] | null = null;
+  highlightMarks: readonly HighlightMark[] | null = null;
   status: string | null = null;
+  review: ReviewPanel | null = null;
   readonly audit: AuditEntry[] = [];
   readonly edits: CommittedEdit[] = [];
   readonly restores: RestoreEntry[] = [];
@@ -402,6 +414,23 @@ export class FakeAdapter implements Adapter {
     return this.#present(baseVersion, this.caps.highlight !== 'none', () => {
       this.highlight = ranges === null ? null : copy(ranges);
     });
+  }
+
+  showHighlightMarks(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult {
+    return this.#present(baseVersion, this.caps.ui.highlightDiagnostics && this.caps.highlight !== 'none', () => {
+      this.highlightMarks = marks === null ? null : copy(marks);
+      this.highlight = marks === null ? null : marks.map((m) => m.range);
+    });
+  }
+
+  showReview(panel: ReviewPanel | null, baseVersion: number): ActionResult {
+    return this.#present(baseVersion, this.caps.ui.review, () => {
+      this.review = panel === null ? null : copy(panel);
+    });
+  }
+
+  requestSubmit(gesture: SubmitGesture): Promise<SubmitOutcome> {
+    return this.submit(gesture);
   }
 
   showStatus(text: string | null, baseVersion: number): ActionResult {

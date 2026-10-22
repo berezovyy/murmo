@@ -26,6 +26,11 @@ export interface PermissionDeclaration {
     readonly name: Permission;
     /** Shown to the user when the host asks for the grant. */
     readonly reason: string;
+    /**
+     * Exact origin (`https://host:443`) when `name` is `network`. Required for
+     * `network`; refused on any other permission.
+     */
+    readonly origin?: string;
 }
 /**
  * Manifest v1. `api` names the core contract, independently of the plugin's own

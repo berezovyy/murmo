@@ -611,7 +611,7 @@
       "output": {
         "ok": {
           "apiVersion": "2.0.0",
-          "apiDraft": "2.0-pre.0",
+          "apiDraft": "2.0-pre.1",
           "optional": { "ghost": false, "api.typed-read-default": true },
           "missingOptional": ["ghost"]
         }
@@ -625,7 +625,7 @@
         "caps": "managed-host",
         "patch": { "capabilities": { "required": { "submit.gestures": ["queue", "send"] }, "optional": {} } }
       },
-      "output": { "ok": { "apiVersion": "2.0.0", "apiDraft": "2.0-pre.0", "optional": {}, "missingOptional": [] } },
+      "output": { "ok": { "apiVersion": "2.0.0", "apiDraft": "2.0-pre.1", "optional": {}, "missingOptional": [] } },
       "reason": "array requirements mean all listed elements, in any order"
     },
     {
@@ -658,7 +658,7 @@
       "output": {
         "ok": {
           "apiVersion": "2.0.0",
-          "apiDraft": "2.0-pre.0",
+          "apiDraft": "2.0-pre.1",
           "optional": { "made.up": false },
           "missingOptional": ["made.up"]
         }

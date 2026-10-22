@@ -14,13 +14,18 @@ test('one physical key has one canonical ID, so two adapters cannot route the sa
   }
 });
 
-test('network opens no hook or service: it is declaration-only until phase 32 adds a broker', () => {
-  assert.deepEqual(routesFor(['network']).services, ['clock', 'storage']);
+test('network opens the network.request broker and no extra hooks (phase 32)', () => {
+  assert.deepEqual(routesFor(['network']).services, ['clock', 'storage', 'network.request']);
   assert.deepEqual(
     routesFor(['network']).hooks,
     routesFor([]).hooks,
     'network must not open any hook beyond the ungated ones',
   );
+});
+
+test('project:list and project:git open their brokers without extra hooks', () => {
+  assert.deepEqual(routesFor(['project:list']).services, ['clock', 'storage', 'project.list']);
+  assert.deepEqual(routesFor(['project:git']).services, ['clock', 'storage', 'git.query']);
 });
 
 test('draft:read:full opens everything draft:read does, so a full-read plugin never loses onChange', () => {

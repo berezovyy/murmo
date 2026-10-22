@@ -68,6 +68,8 @@ export function offCaps(): HostCapabilities {
       statusMaxLength: 512,
       normalization: 'preserve',
       opaqueParts: true,
+      review: false,
+      highlightDiagnostics: false,
     },
     coexistence: {
       editorComposition: 'exclusive',

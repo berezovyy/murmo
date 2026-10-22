@@ -61,7 +61,11 @@ export async function preflightActivate(
     storage,
     project: {
       read: async () => ({ status: 'denied', reason: 'fs:project-read must be declared, granted and brokered' }),
+      list: async () => ({ status: 'denied', reason: 'project:list must be declared, granted and brokered' }),
     },
+    network: { request: async () => ({ status: 'denied', reason: 'network must be declared, granted and brokered' }) },
+    git: { query: async () => ({ status: 'denied', reason: 'project:git must be declared, granted and brokered' }) },
+    session: { id: 'preflight' },
   };
   if (typeof plugin.activate === 'function') {
     try {

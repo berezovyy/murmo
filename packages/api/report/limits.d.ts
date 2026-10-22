@@ -5,7 +5,7 @@ export declare const API_VERSION = "2.0.0";
  * counter (`2.0-pre.1`, ...); scaffolds record it and `murmo plugin dev` warns
  * when it differs.
  */
-export declare const API_DRAFT = "2.0-pre.0";
+export declare const API_DRAFT = "2.0-pre.1";
 /**
  * Every permission a plugin can declare. A declaration is never a grant: the host
  * grants (see `PERMISSION_DEFAULTS` in `@murmo/api/adapter`).
@@ -15,8 +15,7 @@ export declare const API_DRAFT = "2.0-pre.0";
  * - `submit:observe`: committed and unresolved send events, read-only.
  * - `draft:write`: versioned edits, ghosts, menus with edits.
  * - `submit`: warn or block a send; only host-installed built-ins may rewrite it.
- * - `network`: declaration only. No executor routes a network request yet
- *   (phase 32 adds the broker); declaring it grants nothing.
+ * - `network`: brokered HTTP to one exact origin disclosed in the manifest.
  * - `fs:project-read`: bounded UTF-8 reads inside the approved project root.
  * Event grants (preview, `@murmo/api/events`) are independent of draft grants:
  * - `events:read`: observe agent-loop events; never implies `draft:read`.
@@ -26,9 +25,11 @@ export declare const API_DRAFT = "2.0-pre.0";
  * - `agent:send`: send a new prompt (off in the preview).
  * - `agent:control`: compaction / Stop continuation.
  * - `messages:rewrite`: stored or model-visible message text (types only).
+ * - `project:list`: paged paths under the project root (gitignore, no symlink escape).
+ * - `project:git`: read-only git queries served by the helper, never the guest.
  */
 export declare const EVENT_PERMISSIONS: readonly ['events:read', 'tools:guard', 'tools:rewrite', 'context:write', 'agent:send', 'agent:control', 'messages:rewrite'];
-export declare const PERMISSIONS: readonly ["draft:read", "draft:read:full", "submit:observe", "draft:write", "submit", "network", "fs:project-read", "events:read", "tools:guard", "tools:rewrite", "context:write", "agent:send", "agent:control", "messages:rewrite"];
+export declare const PERMISSIONS: readonly ["draft:read", "draft:read:full", "submit:observe", "draft:write", "submit", "network", "fs:project-read", "events:read", "tools:guard", "tools:rewrite", "context:write", "agent:send", "agent:control", "messages:rewrite", "project:list", "project:git"];
 export type Permission = (typeof PERMISSIONS)[number];
 /**
  * Wall-clock budgets per hook call, before scaling by measured scheduler lag
@@ -82,4 +83,21 @@ export declare const LIMITS: {
     readonly projectSessionBytes: 1048576;
     /** Project read attempts of one plugin per session. */
     readonly projectReads: 128;
+    /** One brokered network request body. */
+    readonly networkRequestBytes: 65536;
+    /** One brokered network response body. */
+    readonly networkResponseBytes: 262144;
+    /** Brokered network requests per plugin per rolling minute. */
+    readonly networkRequestsPerMinute: 10;
+    /** Metadata bytes of one project listing snapshot. */
+    readonly projectListBytes: 1048576;
+    /** Paths in one project listing snapshot. */
+    readonly projectListEntries: 10000;
+    /** Paths returned on one listing page. */
+    readonly projectListPage: 256;
 };
+/**
+ * Permissions that need an explicit per-permission confirmation at add, even
+ * when they also appear in `--grant`. Shown in `murmo plugin list`.
+ */
+export declare const HIGH_TRUST_PERMISSIONS: readonly ['draft:read:full', 'network', 'project:git'];

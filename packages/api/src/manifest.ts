@@ -5,6 +5,7 @@
 // and both QuickJS engines (lesson 73). Portable: no Node APIs, no structuredClone,
 // no Object.hasOwn (QuickJS and the Claude runtime are targets).
 
+import { isExactOrigin } from './brokers.ts';
 import { CAPABILITY_PATHS, type Capabilities } from './caps.ts';
 import { EVENTS_VERSION } from './events.ts';
 import { API_DRAFT, API_VERSION, EVENT_PERMISSIONS, LIMITS, PERMISSIONS, type Permission } from './limits.ts';
@@ -39,6 +40,11 @@ export interface PermissionDeclaration {
   readonly name: Permission;
   /** Shown to the user when the host asks for the grant. */
   readonly reason: string;
+  /**
+   * Exact origin (`https://host:443`) when `name` is `network`. Required for
+   * `network`; refused on any other permission.
+   */
+  readonly origin?: string;
 }
 
 /**
@@ -397,10 +403,13 @@ function checkPermissions(value: unknown, hasEventsRange: boolean): void {
   const seen = new Set<string>();
   value.forEach((declaration: unknown, index) => {
     const path = `permissions[${index}]`;
-    if (!isPlainObject(declaration) || Object.keys(declaration).some((key) => key !== 'name' && key !== 'reason')) {
-      throw new ManifestError('invalid-permissions', path, 'a permission is {"name", "reason"}');
+    if (
+      !isPlainObject(declaration) ||
+      Object.keys(declaration).some((key) => key !== 'name' && key !== 'reason' && key !== 'origin')
+    ) {
+      throw new ManifestError('invalid-permissions', path, 'a permission is {"name", "reason"} with optional origin');
     }
-    const { name, reason } = declaration as { name?: unknown; reason?: unknown };
+    const { name, reason, origin } = declaration as { name?: unknown; reason?: unknown; origin?: unknown };
     if (typeof name !== 'string' || !PERMISSION_NAMES.has(name)) {
       throw new ManifestError('invalid-permissions', `${path}.name`, `unknown permission ${show(name)}`);
     }
@@ -413,6 +422,17 @@ function checkPermissions(value: unknown, hasEventsRange: boolean): void {
     }
     if (typeof reason !== 'string' || !reason.trim()) {
       throw new ManifestError('invalid-permissions', `${path}.reason`, `permission "${name}" needs a reason`);
+    }
+    if (name === 'network') {
+      if (typeof origin !== 'string' || !isExactOrigin(origin)) {
+        throw new ManifestError(
+          'invalid-permissions',
+          `${path}.origin`,
+          'network needs an exact origin (scheme, host, port)',
+        );
+      }
+    } else if (origin !== undefined) {
+      throw new ManifestError('invalid-permissions', `${path}.origin`, `permission "${name}" cannot declare an origin`);
     }
     if (seen.has(name))
       throw new ManifestError('invalid-permissions', `${path}.name`, `duplicate permission "${name}"`);

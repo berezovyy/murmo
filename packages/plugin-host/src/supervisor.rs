@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Write};
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Instant;
@@ -28,12 +28,6 @@ fn current_exe() -> Result<PathBuf, String> {
     std::env::current_exe().map_err(|e| e.to_string())
 }
 
-fn worker_cwd() -> PathBuf {
-    let dir = std::env::temp_dir().join("murmo-plugin-host-cwd");
-    let _ = std::fs::create_dir_all(&dir);
-    dir
-}
-
 struct Worker {
     child: Child,
     input: ChildStdin,
@@ -45,15 +39,8 @@ struct Worker {
 impl Worker {
     fn spawn(cfg: &Value) -> Result<Self, String> {
         let exe = current_exe()?;
-        let mut child = Command::new(exe)
-            .arg("--worker")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .env_clear()
-            .current_dir(worker_cwd())
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let sandboxed = cfg.get("sandbox").and_then(Value::as_bool).unwrap_or(false);
+        let mut child = crate::sandbox::spawn_worker(&exe, sandboxed)?;
         let mut input = child.stdin.take().ok_or("worker stdin")?;
         let mut output = BufReader::new(child.stdout.take().ok_or("worker stdout")?);
         writeln!(input, "{cfg}").map_err(|e| e.to_string())?;
@@ -136,9 +123,24 @@ impl Slot {
             }
         }
         let timeout = watchdog_ms(q.get("deadlineMs").and_then(Value::as_u64).unwrap_or(5));
-        let result = match self.worker.as_mut() {
-            Some(w) => w.request(q, timeout),
-            None => return error_reply(FaultKind::Transport, "plugin worker is down"),
+        let mut request = q.clone();
+        let result = loop {
+            let result = match self.worker.as_mut() {
+                Some(w) => w.request(&request, timeout),
+                None => return error_reply(FaultKind::Transport, "plugin worker is down"),
+            };
+            match result {
+                Ok(row) if row.get("status").and_then(Value::as_str) == Some("broker") => {
+                    if let Some(replies) = fulfill_helper(&self.config, &row) {
+                        request = q.clone();
+                        request["resume"] = json!(true);
+                        request["replies"] = replies;
+                        continue;
+                    }
+                    break Ok(row);
+                }
+                other => break other,
+            }
         };
         let failed = result
             .as_ref()
@@ -571,4 +573,65 @@ pub fn serve_stdio(supervisor: &Supervisor) {
         }
     }
     supervisor.slots.lock().expect("slots").clear();
+}
+
+fn helper_method(method: &str) -> bool {
+    method.starts_with("network.") || method == "project.list" || method.starts_with("git.")
+}
+
+fn coordinator_method(method: &str) -> bool {
+    method.starts_with("storage.") || method == "project.read" || method == "project.readFile"
+}
+
+fn fulfill_helper(cfg: &Value, row: &Value) -> Option<Value> {
+    let reqs = row.get("requests")?.as_array()?;
+    let methods: Vec<&str> = reqs
+        .iter()
+        .map(|r| r.get("method").and_then(Value::as_str).unwrap_or(""))
+        .collect();
+    if methods.iter().any(|m| helper_method(m)) && methods.iter().any(|m| coordinator_method(m)) {
+        return None;
+    }
+    if !methods.iter().any(|m| helper_method(m)) {
+        return None;
+    }
+    let origins: Vec<String> = cfg
+        .get("networkOrigins")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let root = cfg.get("projectRoot").and_then(Value::as_str).unwrap_or("");
+    let replies: Vec<Value> = reqs
+        .iter()
+        .map(|req| {
+            let id = req.get("id").cloned().unwrap_or(Value::Null);
+            let method = req.get("method").and_then(Value::as_str).unwrap_or("");
+            let args = req.get("args").cloned().unwrap_or(json!([]));
+            let value = match method {
+                "network.request" => {
+                    let spec = args.get(0).cloned().unwrap_or(json!({}));
+                    crate::network::handle(
+                        &spec,
+                        &origins,
+                        origins.iter().any(|o| o.contains("127.0.0.1")),
+                    )
+                }
+                "project.list" => {
+                    let query = args.get(0).cloned().unwrap_or(json!({}));
+                    crate::listing::handle(root, &query)
+                }
+                "git.query" => {
+                    let spec = args.get(0).cloned().unwrap_or(json!({}));
+                    crate::git::handle(root, &spec)
+                }
+                _ => json!({"status": "denied", "reason": "broker denied"}),
+            };
+            json!({"id": id, "value": value})
+        })
+        .collect();
+    Some(json!(replies))
 }

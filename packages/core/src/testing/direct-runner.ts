@@ -54,6 +54,7 @@ export interface DirectRunnerOptions {
   readonly clock: Clock;
   /** Override reported executor health (the honest-health case: down while the session is still ready). */
   readonly health?: RunnerHealth;
+  readonly sessionId?: string;
 }
 
 export interface DirectRunner extends HookRunner {
@@ -105,22 +106,33 @@ export function changeView(change: Change, permissions: readonly Permission[], e
 
 class MemoryStorage implements PluginStorage {
   readonly #values = new Map<string, string>();
+  readonly #revisions = new Map<string, number>();
 
   async get(key: string): Promise<StorageResult> {
     const value = this.#values.get(key);
-    return value === undefined ? { status: 'ok' } : { status: 'ok', value: JSON.parse(value) };
+    const revision = this.#revisions.get(key) ?? 0;
+    return value === undefined ? { status: 'ok', revision: 0 } : { status: 'ok', value: JSON.parse(value), revision };
   }
 
   async set(key: string, value: unknown): Promise<StorageResult> {
     const json = JSON.stringify(value);
     if (json === undefined) return { status: 'error', reason: 'not JSON' };
+    const revision = (this.#revisions.get(key) ?? 0) + 1;
     this.#values.set(key, json);
-    return { status: 'ok' };
+    this.#revisions.set(key, revision);
+    return { status: 'ok', revision };
+  }
+
+  async cas(key: string, expected: number, value: unknown): Promise<StorageResult> {
+    const current = this.#revisions.get(key) ?? 0;
+    if (current !== expected) return { status: 'conflict', revision: current, reason: 'revision mismatch' };
+    return this.set(key, value);
   }
 
   async delete(key: string): Promise<StorageResult> {
     this.#values.delete(key);
-    return { status: 'ok' };
+    this.#revisions.delete(key);
+    return { status: 'ok', revision: 0 };
   }
 
   json(): string {
@@ -157,7 +169,13 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
       storage: entry.storage,
       project: {
         read: async () => ({ status: 'denied', reason: 'project reads need the phase 09 broker' }),
+        list: async () => ({ status: 'denied', reason: 'project:list must be declared, granted and brokered' }),
       },
+      network: {
+        request: async () => ({ status: 'denied', reason: 'network must be declared, granted and brokered' }),
+      },
+      git: { query: async () => ({ status: 'denied', reason: 'project:git must be declared, granted and brokered' }) },
+      session: { id: options.sessionId ?? 'direct' },
     };
   };
 

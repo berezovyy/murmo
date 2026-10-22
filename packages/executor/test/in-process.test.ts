@@ -26,8 +26,15 @@ function ctx(clock: Clock, cancelled = false): PluginContext {
       get: async () => ({ status: 'ok' }),
       set: async () => ({ status: 'ok' }),
       delete: async () => ({ status: 'ok' }),
+      cas: async () => ({ status: 'ok', revision: 1 }),
     },
-    project: { read: async () => ({ status: 'denied', reason: 'none' }) },
+    project: {
+      read: async () => ({ status: 'denied', reason: 'none' }),
+      list: async () => ({ status: 'denied', reason: 'none' }),
+    },
+    network: { request: async () => ({ status: 'denied', reason: 'none' }) },
+    git: { query: async () => ({ status: 'denied', reason: 'none' }) },
+    session: { id: 'test' },
   };
 }
 

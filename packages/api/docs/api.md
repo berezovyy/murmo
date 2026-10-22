@@ -1,6 +1,6 @@
 # Murmo plugin API
 
-> **Preview, draft `2.0-pre.0`.** This API can break before Murmo v1. Each breaking change bumps the draft counter (`API_DRAFT`) and is listed in [CHANGELOG.md](CHANGELOG.md). Murmo v1 ships its own plugins only; third-party installs turn on later.
+> **Preview, draft `2.0-pre.1`.** This API can break before Murmo v1. Each breaking change bumps the draft counter (`API_DRAFT`) and is listed in [CHANGELOG.md](CHANGELOG.md). Third-party installs are on: a publisher key is supplied independently (`--trust-key`), never taken from the archive.
 
 This page is the normative contract. The TypeScript types in `packages/api/src/` are the source of truth; each rule below names the type it constrains. Plugin authors import `@murmo/api`; adapter and executor code imports `@murmo/api/adapter`. Recipes are in [AUTHORING.md](AUTHORING.md), the manifest in [MANIFEST.md](MANIFEST.md), the adapter contract in [PORTING.md](PORTING.md).
 
@@ -9,7 +9,7 @@ This page is the normative contract. The TypeScript types in `packages/api/src/`
 - A plugin is a plain object returned by a `PluginFactory(settings)`. Settings arrive already resolved against the manifest's settings schema (`resolveSettings`). Write the factory as `export default ((settings) => ({ ... })) satisfies PluginFactory`.
 - The plugin source must be one self-contained ES module: the isolated executor loads it with no module loader, no Node APIs and no timers of its own. Import only types from `@murmo/api`.
 - Every hook is asynchronous from the host's point of view and receives JSON snapshots that are immutable by contract (`Plugin`). Effect hooks return `Effect[]` (`HookEffects`); `onBeforeSubmit` returns a `SubmitDecision`.
-- No adapter or host object reaches a plugin. A plugin sees only its `PluginContext`: host name, version and measured capabilities, the draft, the host state, settings, a cancellation signal, a clock, storage and project reads.
+- No adapter or host object reaches a plugin. A plugin sees only its `PluginContext`: host name, version and measured capabilities, the draft, the host state, settings, a cancellation signal, a clock, storage, project reads/listing, brokered network, git queries, and `ctx.session.id` (stable across a plugin reload in this session).
 - `activate` runs once after load, `deactivate` on unload. Closure state lives until unload and is not durable; use `ctx.storage` for state that must survive.
 - Before any plugin code runs, the core validates the manifest, checks the `api` range and the required capabilities, and resolves settings ([MANIFEST.md](MANIFEST.md)). The result reaches the plugin as `ctx.negotiation`.
 
@@ -42,7 +42,7 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 | `submit:observe` | Committed and unresolved send events, read-only | when declared |
 | `draft:write` | Versioned edits, ghosts, menus with edits | when declared |
 | `submit` | Warn or block a send | when declared |
-| `network` | Nothing yet: declaration only, no executor routes network requests | explicit grant |
+| `network` | Brokered HTTP to one exact origin (`origin` on the declaration). Draft text may be sent there. | explicit grant |
 | `fs:project-read` | Bounded reads inside the approved project root | explicit grant plus user approval |
 | `events:read` | Observe agent-loop events; never implies `draft:read` | when declared (events API 0.4 preview) |
 | `tools:guard` | Deny a tool call at a real before-execution barrier | when declared |
@@ -51,6 +51,10 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 | `agent:send` | Send a new prompt; off in the preview | explicit grant |
 | `agent:control` | Compaction or Stop continuation | explicit grant |
 | `messages:rewrite` | Stored or model-visible message text; not advertised in the preview | explicit grant |
+| `project:list` | Paged paths under the project root, gitignore, no symlink escape | explicit grant |
+| `project:git` | Read-only git queries (branch, status, log subjects, changed paths) served by the helper | explicit grant |
+
+`draft:read:full`, `network` and `project:git` are high-trust: `murmo plugin add` names them one by one and `murmo plugin list` shows them. There is no ambient `fetch`.
 
 - **Typed-only reads.** With `draft:read`, every UTF-16 unit outside a typed span reads as `MASKED_UNIT` (`█`): length, cursor and versions stay exact. The draft, `before`, deltas, submit and committed text are all masked the same way. A plugin that must see pasted text (a guard, a linter) asks for `draft:read:full`.
 - **Claude Code host limit.** Claude's `prompt.edit` cannot label input origin, so its `inputOriginEvidence` is not `host-labeled` and the core clears every typed span: a `draft:read` plugin on Claude sees an all-masked draft (length and cursor only). This is a host limit, not a bug.
@@ -71,7 +75,9 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 - `Effect` is one of `edit`, `ghost`, `menu`, `highlight`, `status`. Each is bound to its `baseVersion` and dropped as `stale` if the draft moved on. An edit in an effect array makes later effects of the same array stale; recompute them from the next `onChange`.
 - At most `LIMITS.effectsPerCall` (128) effects per call. Third-party plugins may apply at most `LIMITS.editsPerSecond` (20) edits per rolling second.
 - An edit is `{from, to, insert, baseVersion}` (`Edit`). `undoable` records one undo step for an immediate Backspace or the undo key; `rejectSeparator` also removes the typed separator after an autocorrect fix on Backspace. `label` appears in the host-owned attribution.
-- Every third-party edit, status row, menu row and ghost is attributed by the host with the plugin's real ID; the plugin cannot set or fake it (`MenuItem` has no owner field). A host that can't attribute denies the feature. Attribution is still plain text: a plugin can write `SYSTEM:` in its own row, and a review screen for edits before send does not exist yet.
+- Every third-party edit, status row, menu row and ghost is attributed by the host with the plugin's real ID; the plugin cannot set or fake it (`MenuItem` has no owner field). A host that can't attribute denies the feature. Attribution is still plain text: a plugin can write `SYSTEM:` in its own row. Display names are also checked against reserved words after NFKC folding; that check is not a guarantee (a homoglyph still needs the id prefix).
+- **Review before send.** Every applied third-party edit is logged. While any such edit since the last review is unreviewed, Enter (and every other send gesture) opens the review instead of sending. Edits younger than 500 ms cannot be approved. Approval is bound to the draft version it showed. A host that cannot show the review (`ui.review: false`) drops third-party `draft:write`.
+- Highlight effects may carry `marks` with `severity` and `message`. Adapters that cannot show both advertise `ui.highlightDiagnostics: false` and keep ranges only.
 - Menu row `id`s are opaque: the core routes a selection back to its owner unchanged, never by position or label. One merged menu shows every plugin's rows in plugin order. **Enter with a plugin menu open never sends.**
 - `highlight` ranges compose per plugin: clearing yours keeps every other plugin's.
 - Inserted and submitted text must not contain executable C0/C1 controls (except tab, LF, CR), DEL, bidi override or isolate controls, or unpaired surrogates; such an edit is denied. Labels and status text are shown with control characters escaped.
@@ -108,8 +114,12 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 ## Services
 
 - `ctx.clock` (`Clock`): `now()` for elapsed time, `wallTimeMs()` for calendar work, `setTimer`, `sleep`. Guests have no other timers.
-- `ctx.storage` (`PluginStorage`): JSON values namespaced by the plugin's stable ID; at most `LIMITS.storageKeys` (64) keys of `LIMITS.storageKeyUnits` (128) UTF-16 units, `LIMITS.storageBytes` (64 KiB) in all. Results are typed: `quota` when full, `denied` with a reason (for example `private mode`). A read-modify-write across two calls is not atomic.
-- `ctx.project.read(path)` (`ProjectAccess`): needs `fs:project-read` declared, granted and approved before activation. At most `LIMITS.projectFileBytes` (256 KiB) per file, `LIMITS.projectSessionBytes` (1 MiB) and `LIMITS.projectReads` (128) reads per session. It reads known paths only: there is no listing, search, git or network service.
+- `ctx.storage` (`PluginStorage`): JSON values namespaced by the plugin's stable ID; at most `LIMITS.storageKeys` (64) keys of `LIMITS.storageKeyUnits` (128) UTF-16 units, `LIMITS.storageBytes` (64 KiB) in all. Results are typed: `quota` when full, `denied` with a reason (for example `private mode`), `conflict` on a lost compare-and-set. `get` returns `revision`; `cas(key, expected, value)` writes only when the stored revision is `expected`.
+- `ctx.project.read(path)` (`ProjectAccess`): needs `fs:project-read` declared, granted and approved before activation. At most `LIMITS.projectFileBytes` (256 KiB) per file, `LIMITS.projectSessionBytes` (1 MiB) and `LIMITS.projectReads` (128) reads per session. Known paths only.
+- `ctx.project.list(query)`: needs `project:list`. Snapshot id, paging, gitignore, no symlink escape. Metadata quota is `LIMITS.projectListBytes` (1 MiB) and `LIMITS.projectListEntries` (10,000) paths; a page is at most `LIMITS.projectListPage` (256).
+- `ctx.network.request(spec)`: needs `network` for that exact origin. One pinned DNS resolution, no redirects, no loopback/private/link-local unless the origin is. At most `LIMITS.networkRequestBytes` (64 KiB) request, `LIMITS.networkResponseBytes` (256 KiB) response, `LIMITS.networkRequestsPerMinute` (10) per rolling minute. Never on the key path.
+- `ctx.git.query(spec)`: needs `project:git`. Read-only `branch` / `status` / `log` / `changed`, served by the helper.
+- `ctx.session.id`: opaque string, stable across a plugin reload in this session; a new session gets a different one.
 
 ## Limits
 
@@ -133,6 +143,12 @@ Every number is an initial default from the prototype, not a calibrated budget. 
 | `LIMITS.projectFileBytes` | 256 KiB | One project read |
 | `LIMITS.projectSessionBytes` | 1 MiB | Project reads per session |
 | `LIMITS.projectReads` | 128 | Project read attempts per session |
+| `LIMITS.networkRequestBytes` | 64 KiB | One brokered network request |
+| `LIMITS.networkResponseBytes` | 256 KiB | One brokered network response |
+| `LIMITS.networkRequestsPerMinute` | 10 | Brokered requests per rolling minute |
+| `LIMITS.projectListBytes` | 1 MiB | Metadata of one listing snapshot |
+| `LIMITS.projectListEntries` | 10,000 | Paths in one listing snapshot |
+| `LIMITS.projectListPage` | 256 | Paths on one listing page |
 | `DEADLINES.activateMs` | 50 ms | `activate` |
 | `DEADLINES.changeMs` | 100 ms | `onChange` |
 | `DEADLINES.keyDispatchMs` | 10 ms | `onKey` |
