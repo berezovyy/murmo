@@ -59,13 +59,16 @@ SCRUB_NAMES: frozenset[str] = frozenset(
 )
 
 # Variables the profile sets on purpose although they match a scrub prefix:
-# the fake base URL and key, and the harness's own run markers.
+# the fake base URL and key, the harness's own run markers, and packed-product
+# install pointers (not credentials; the packed integration sets them in HOME).
 ALLOWED_SET = frozenset(
     {
         'ANTHROPIC_BASE_URL',
         'ANTHROPIC_API_KEY',
         'MURMO_FAKE_KEY',
         'MURMO_HARNESS_RUN',
+        'MURMO_PACKAGE_ROOT',
+        'MURMO_PLUGIN_TEST',
     }
 )
 

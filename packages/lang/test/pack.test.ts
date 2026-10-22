@@ -171,3 +171,14 @@ test('unknown formats and mismatched files fail closed with their own reason', (
   rmSync(join(missing.dir, 'typos.bin'));
   assert.equal(problem(missing.dir, missing.record), 'missing-file');
 });
+
+test('install succeeds when provenance.csv is absent (shipped tarball omits it, docs/plan/26)', () => {
+  const { dir, record } = writePack();
+  rmSync(join(dir, 'provenance.csv'));
+  const installed = installLanguagePack(dir, record);
+  assert.equal(installed.record.receipt.table.entries, 3);
+  assert.equal('provenance.csv' in installed.record.receipt.files, false);
+  const opened = openLanguagePack(dir, record);
+  assert.ok(opened.ok);
+  assert.equal(lookup(opened.pack.table, 'teh'), 'the');
+});

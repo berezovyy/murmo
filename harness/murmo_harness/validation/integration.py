@@ -25,6 +25,17 @@ def _records(host: str) -> dict:
     return json.loads(path.read_text())
 
 
+# Adapters' advertised flags (packages/fake-host/src/records.ts patches). The
+# JSON measurement files omit `patch`; claims still need the live advertised
+# origin or the oracle fails closed with "no assertions ran".
+ADVERTISED = {
+    'pi': {'inputOriginEvidence': 'host-labeled', 'ui.dialogSafe': True},
+    'opencode': {'inputOriginEvidence': 'host-labeled', 'ui.dialogSafe': False},
+    'claude': {'inputOriginEvidence': 'host-labeled', 'ui.dialogSafe': False},
+    'codex': {'inputOriginEvidence': 'host-labeled', 'ui.dialogSafe': False},
+}
+
+
 class PackedMurmo(Integration):
     name = 'packed'
     features = frozenset({
@@ -70,16 +81,23 @@ class PackedMurmo(Integration):
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         if host.name != 'codex' or self.product is None:
             return argv
+        # The harness launches the npm bin as `node …/codex.js …flags`. murmo-codex
+        # resolves stock `codex` on PATH and treats a leading `node` as a prompt
+        # (then the .js path as a second positional → pass-through, which stock
+        # Codex rejects). Users type `murmo codex [flags]`; pass flags only.
+        flags = list(argv)
+        if len(flags) >= 2 and Path(flags[0]).name in {'node', 'nodejs'} and 'codex' in Path(flags[1]).name:
+            flags = flags[2:]
         launcher = launcher_path(profile)
         if launcher.is_file():
-            return [str(launcher), 'codex', *argv]
+            return [str(launcher), 'codex', *flags]
         plat = getattr(install, 'platform', None)
         if plat is None:
             from .. import paths
             plat = paths.current_platform()
         wrap = self.product.wrapper(plat)
         if wrap.is_file():
-            return [str(wrap), *argv]
+            return [str(wrap), *flags]
         return argv
 
     def logs(self, host, profile) -> list[Path]:
@@ -137,7 +155,9 @@ class PackedMurmo(Integration):
         return IntegrationState(healthy=healthy, plugins=plugins, stats=stats, notices=notices)
 
     def capabilities(self, host, profile) -> dict | None:
-        record = _records(host.name if hasattr(host, 'name') else str(host))
+        name = host.name if hasattr(host, 'name') else str(host)
+        record = _records(name)
+        advertised = dict(ADVERTISED.get(name) or {})
         live = None
         data = murmo_data(profile)
         sessions = data / 'sessions'
@@ -150,7 +170,20 @@ class PackedMurmo(Integration):
                 if isinstance(body.get('capabilities'), dict):
                     live = body['capabilities']
                     break
-        out = dict(record)
+        origin = advertised.get('inputOriginEvidence')
+        dialog = advertised.get('ui.dialogSafe')
+        if isinstance(live, dict):
+            origin = live.get('inputOriginEvidence', origin)
+            ui = live.get('ui') if isinstance(live.get('ui'), dict) else None
+            if ui and 'dialogSafe' in ui:
+                dialog = ui['dialogSafe']
+        out = {
+            **record,
+            **advertised,
+            'inputOriginEvidence': origin,
+            'ui.dialogSafe': dialog,
+            'patch': {'inputOriginEvidence': origin, 'ui': {'dialogSafe': dialog}},
+        }
         if live:
             out['live'] = live
         return out or None

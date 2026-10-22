@@ -40,7 +40,7 @@ export const MODE_FILE = 0o644;
 export const MODE_EXEC = 0o755;
 
 export const MAX_DATA_BYTES = 4 * 1024 * 1024;
-export const MAX_BINARY_BYTES = 1.5 * 1024 * 1024;
+export const MAX_BINARY_BYTES = 2 * 1024 * 1024;
 export const MAX_TGZ_BYTES = 8 * 1024 * 1024;
 export const MAX_UNPACKED_BYTES = 16 * 1024 * 1024;
 

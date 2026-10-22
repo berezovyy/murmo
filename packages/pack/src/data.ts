@@ -72,9 +72,20 @@ export function packLanguageData(packageDir: string, repoRoot: string): PackedDa
     const size = readFileSync(dest).byteLength;
     if (size > MAX_DATA_BYTES) throw new DataError(`${to} is ${size} bytes, over the 4 MiB $.fs cap`);
   }
+  rewriteShippedManifest(packageDir);
   const packed = { sourceDir, tableSha256: digest, entries, bytes: bytes.byteLength };
   writeDataDigest(packageDir, packed);
   return packed;
+}
+
+/** lang-en builds `typos.bin`; the tarball ships it as `english.bin` (Claude $.fs path). */
+export function rewriteShippedManifest(packageDir: string): void {
+  const path = join(packageDir, PACK_MANIFEST_FILE);
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as { table?: { file?: string } };
+  const tableName = TABLE_FILE.split('/').pop() ?? 'english.bin';
+  if (!manifest.table || manifest.table.file === tableName) return;
+  manifest.table.file = tableName;
+  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
 function sha256(bytes: Uint8Array): string {

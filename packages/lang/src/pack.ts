@@ -134,7 +134,11 @@ export function validatePack(
   const contents = new Map<string, Uint8Array>();
   for (const f of packFiles(manifest)) {
     const bytes = read(f.file);
-    if (!bytes) throw new PackError('missing-file', `${f.file} is missing`);
+    if (!bytes) {
+      // provenance.csv is 8.6 MB and unused at runtime; the signed tarball omits it (docs/plan/26).
+      if (f.file === manifest.provenance.file) continue;
+      throw new PackError('missing-file', `${f.file} is missing`);
+    }
     if (bytes.byteLength !== f.bytes) {
       throw new PackError('size-mismatch', `${f.file} is ${bytes.byteLength} bytes, manifest says ${f.bytes}`);
     }

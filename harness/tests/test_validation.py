@@ -159,7 +159,7 @@ class OraclesCatchR14(unittest.TestCase):
         self.assertEqual(result.status, 'fail')
 
     def test_empty_evidence_fails_closed(self):
-        for sid in ('functional-contract', 'security-s1-s6', 'false-timeout', 'all-at-once'):
+        for sid in ('functional-contract', 'security-s1-s6', 'false-timeout', 'all-at-once', 'outbound-connect'):
             result = evaluate(sid, {})
             self.assertEqual(result.status, 'fail', sid)
             self.assertEqual(result.reason, 'no assertions ran')

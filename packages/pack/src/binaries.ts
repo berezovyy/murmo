@@ -36,7 +36,7 @@ export function copyBinary(src: string, dest: string): void {
   copyFileSync(src, dest);
   chmodSync(dest, MODE_EXEC);
   const size = statSync(dest).size;
-  if (size > MAX_BINARY_BYTES) throw new BinaryError(`${dest} is ${size} bytes, over the 1.5 MB target`);
+  if (size > MAX_BINARY_BYTES) throw new BinaryError(`${dest} is ${size} bytes, over the 2 MB target`);
   if ((statSync(dest).mode & 0o777) !== MODE_EXEC) throw new BinaryError(`${dest} is not mode 0755`);
 }
 

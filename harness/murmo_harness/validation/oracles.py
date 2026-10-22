@@ -435,6 +435,8 @@ def update_rollback(evidence: dict) -> OracleResult:
 
 def outbound(evidence: dict) -> OracleResult:
     """0 connection attempts other than the fake model and Murmo Unix sockets (E18)."""
+    if 'unexpected' not in evidence and 'murmoUnexpected' not in evidence:
+        return OracleResult('fail', 'no assertions ran', owner='10, 27')
     unexpected = list(evidence.get('unexpected') or [])
     murmo = list(evidence.get('murmoUnexpected') or unexpected)
     checks = [_check('zero-unexpected', not murmo, [], murmo)]
