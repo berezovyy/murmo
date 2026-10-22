@@ -74,6 +74,7 @@ export interface PublisherIdentity {
   readonly chain?: readonly string[];
 }
 
+/** A key or version marked bad. Registry listings feed this; the check is phase 32. */
 export interface RevocationRecord {
   readonly publisher: string;
   readonly plugin?: string;

@@ -15,6 +15,7 @@ import {
   bumpManifest,
   chainPrevious,
   clearJournal,
+  type DistributionLedger,
   type InstalledPlugin,
   initPluginStore,
   listLiveSessions,
@@ -37,6 +38,17 @@ import { fail } from './errors.ts';
 import { grantReview, HIGH_TRUST, parseGrantList, requireGrants } from './grants.ts';
 import { migrateStorage, preflightActivate } from './preflight.ts';
 import { reviewProjectFile } from './project.ts';
+import {
+  assertListedArchive,
+  formatInfo,
+  formatSearchLine,
+  loadIndex,
+  lookupListed,
+  mergeIndexRevocations,
+  parseRegistryTarget,
+  type RegistryLoad,
+  searchIndex,
+} from './registry.ts';
 import { type ResolveOptions, resolveSource } from './sources.ts';
 import {
   assertPins,
@@ -52,8 +64,10 @@ import { verifyInstalled } from './verify.ts';
 
 export const PLUGIN_USAGE = `murmo plugin
   murmo plugin list [--json]
+  murmo plugin search <words> [--index URL] [--registry-key PUBLIC.pem] [--json]
+  murmo plugin info <id> [--index URL] [--registry-key PUBLIC.pem] [--json]
   murmo plugin inspect <source> [--registry URL] [--json]
-  murmo plugin add <source> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL] [--rotate-statement FILE]
+  murmo plugin add <source|id[@version]> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL] [--index URL] [--rotate-statement FILE]
   murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL] [--rotate-statement FILE]
   murmo plugin disable|enable|remove|rollback|reinstall <id>
   murmo plugin revoke --statement FILE --trust-key PUBLIC.pem
@@ -69,6 +83,8 @@ export interface PluginCommandContext {
   readonly firstPartyFingerprint?: string;
   readonly allowThirdParty?: boolean;
   readonly get?: ResolveOptions['get'];
+  readonly registryUrl?: string;
+  readonly registryPublicKey?: string;
   readonly out: (text: string) => void;
   readonly err: (text: string) => void;
   readonly now?: () => number;
@@ -103,6 +119,89 @@ function pluginOf(manifest: PluginsManifest, id: string): InstalledPlugin {
 
 function putPlugin(manifest: PluginsManifest, id: string, plugin: InstalledPlugin): PluginsManifest {
   return { ...manifest, plugins: { ...manifest.plugins, [id]: plugin } };
+}
+
+function registryConfig(
+  ctx: PluginCommandContext,
+  flags: Map<string, string | true>,
+): { url: string | undefined; publicKey: string | undefined; refresh: boolean; offline: boolean } {
+  const url = flagString(flags, '--index') ?? ctx.registryUrl ?? process.env.MURMO_REGISTRY_URL;
+  const keyPath = flagString(flags, '--registry-key') ?? process.env.MURMO_REGISTRY_KEY;
+  const publicKey = ctx.registryPublicKey ?? (keyPath ? readFileSync(keyPath, 'utf8') : undefined);
+  return { url, publicKey, refresh: flags.has('--refresh'), offline: flags.has('--offline') };
+}
+
+async function ingestRegistry(
+  ctx: PluginCommandContext,
+  flags: Map<string, string | true>,
+  required: boolean,
+): Promise<RegistryLoad | undefined> {
+  const cfg = registryConfig(ctx, flags);
+  if (!cfg.url) {
+    if (required) fail('registry-index-unconfigured');
+    return undefined;
+  }
+  if (!cfg.publicKey) {
+    if (required) fail('registry-key-mismatch', { reason: 'missing-key' });
+    return undefined;
+  }
+  try {
+    const loaded = await loadIndex({
+      roots: ctx.roots,
+      url: cfg.url,
+      publicKey: cfg.publicKey,
+      refresh: cfg.refresh,
+      offline: cfg.offline,
+      ...(ctx.get ? { get: ctx.get } : {}),
+      ...(ctx.now ? { now: ctx.now } : {}),
+    });
+    if (loaded.expired) {
+      ctx.err('registry-index-expired: using a frozen index; new revocations will not arrive\n');
+    }
+    const ledger = await readLedger(ctx.roots);
+    const next = mergeIndexRevocations(ledger, loaded.index);
+    if (next !== ledger) await writeLedger(ctx.roots, next);
+    await applyRevocations(ctx, next);
+    return loaded;
+  } catch (error) {
+    if (required) throw error;
+    return undefined;
+  }
+}
+
+async function applyRevocations(ctx: PluginCommandContext, ledger: DistributionLedger): Promise<void> {
+  const manifest = await readPluginsManifest(ctx.roots);
+  if (!manifest) return;
+  const plugins: Record<string, InstalledPlugin> = { ...manifest.plugins };
+  let changed = false;
+  for (const [id, plugin] of Object.entries(plugins)) {
+    const dist = plugin.distribution;
+    if (!dist) continue;
+    const version = typeof dist.manifest.version === 'string' ? dist.manifest.version : undefined;
+    if (!isRevoked(ledger.revocations, id, dist.publisher, version)) continue;
+    const prev = plugin.previous;
+    const prevVersion =
+      typeof prev?.distribution?.manifest.version === 'string' ? prev.distribution.manifest.version : undefined;
+    if (prev?.distribution && !isRevoked(ledger.revocations, id, prev.distribution.publisher, prevVersion)) {
+      plugins[id] = prev;
+      changed = true;
+      await writeLastRollback(ctx.roots, {
+        id,
+        failedDigest: dist.digest,
+        to: prev.distribution.digest,
+        error: 'revoked',
+        phase: 'revocation',
+        at: (ctx.now ?? Date.now)(),
+      });
+    } else if (plugin.enabled !== false) {
+      plugins[id] = { ...plugin, enabled: false };
+      changed = true;
+    }
+  }
+  if (changed) {
+    const next = await bumpManifest(ctx.roots, { ...manifest, plugins });
+    await waitForRevision(ctx.roots, next.revision, ctx.quiesceMs);
+  }
 }
 
 async function writeGeneration(roots: StoreRoots, inspected: InspectedPlugin): Promise<string> {
@@ -147,6 +246,56 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
   if (!command || command === 'help' || command === '-h') {
     ctx.out(PLUGIN_USAGE);
     return command ? 0 : 2;
+  }
+
+  if (command === 'search') {
+    const loaded = await ingestRegistry(ctx, parsed.flags, true);
+    if (!loaded) fail('registry-index-unconfigured');
+    const hits = searchIndex(loaded.index, rest);
+    return print(
+      ctx,
+      json,
+      {
+        plugins: hits.map((plugin) => ({
+          id: plugin.id,
+          publisher: plugin.publisher,
+          versions: plugin.versions.map((v) => ({
+            version: v.version,
+            license: v.license,
+            permissions: v.permissions,
+            capabilities: v.capabilities,
+            source: v.source,
+          })),
+          revoked: plugin.revoked ?? [],
+        })),
+        expired: loaded.expired,
+      },
+      hits.map(formatSearchLine).join('\n\n') || 'no matches',
+    );
+  }
+
+  if (command === 'info') {
+    const id = rest[0];
+    if (!id) {
+      ctx.err('usage: murmo plugin info <id>\n');
+      return 2;
+    }
+    const loaded = await ingestRegistry(ctx, parsed.flags, true);
+    if (!loaded) fail('registry-index-unconfigured');
+    const target = parseRegistryTarget(id, ctx.cwd) ?? { id };
+    const listed = lookupListed(loaded.index, target);
+    return print(
+      ctx,
+      json,
+      {
+        id: listed.plugin.id,
+        publisher: listed.plugin.publisher,
+        version: listed.version,
+        revoked: listed.plugin.revoked ?? [],
+        expired: loaded.expired,
+      },
+      formatInfo(listed),
+    );
   }
 
   if (command === 'inspect') {
@@ -217,6 +366,7 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
   }
 
   if (command === 'list') {
+    await ingestRegistry(ctx, parsed.flags, false);
     const manifest = await requireManifest(ctx);
     const rows = manifest.order.map((id) => {
       const plugin = manifest.plugins[id];
@@ -245,6 +395,7 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
   }
 
   if (command === 'doctor') {
+    await ingestRegistry(ctx, parsed.flags, false);
     const manifest = await requireManifest(ctx);
     const plugins = Object.entries(manifest.plugins).map(([id, plugin]) => {
       try {
@@ -280,6 +431,10 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
         (row as { ok: boolean; error?: string }).ok = false;
         (row as { error?: string }).error = 'revoked';
       }
+      (row as { ok: boolean; error?: string }).ok = false;
+      (row as { error?: string }).error = plugin?.previous?.distribution
+        ? 'revoked; roll back to last good generation'
+        : 'revoked';
     }
     const payload = {
       core: { apiVersion: API_VERSION },
@@ -422,12 +577,24 @@ async function install(
   flags: Map<string, string | true>,
   json: boolean,
 ): Promise<number> {
-  const source = rest[0];
-  if (!source) {
+  const given = rest[0];
+  if (!given) {
     ctx.err(`usage: murmo plugin ${command} <source>\n`);
     return 2;
   }
   let manifest = await requireManifest(ctx);
+  const target = command === 'add' ? parseRegistryTarget(given, ctx.cwd) : undefined;
+  let source = given;
+  let listed: ReturnType<typeof lookupListed> | undefined;
+  if (target) {
+    const loaded = await ingestRegistry(ctx, flags, true);
+    if (!loaded) fail('registry-index-unconfigured');
+    listed = lookupListed(loaded.index, target);
+    source = listed.version.source;
+  } else {
+    await ingestRegistry(ctx, flags, false);
+  }
+  manifest = await requireManifest(ctx);
   const ledger = await readLedger(ctx.roots);
   const resolved = await resolveSource(source, {
     registry: flagString(flags, '--registry'),
@@ -435,6 +602,7 @@ async function install(
     get: ctx.get,
   });
   const inspected = inspectArchive(resolved.bytes);
+  if (listed) assertListedArchive(listed, inspected, resolved.source.kind);
   const id = inspected.envelope.id;
   if ((BUILTIN_IDS as readonly string[]).includes(id)) fail('reserved-id', { id });
   const old = manifest.plugins[id];

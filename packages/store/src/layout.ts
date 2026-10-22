@@ -69,6 +69,16 @@ export function lastRollbackPath(roots: StoreRoots): string {
   return `${roots.data}/last-rollback.json`;
 }
 
+/** Last verified registry index (signed JSON). Searched locally; never holds prompt text. */
+export function registryIndexPath(roots: StoreRoots): string {
+  return `${roots.data}/registry/index.json`;
+}
+
+/** Last-seen index version, fetch time and registry key fingerprint. */
+export function registryMetaPath(roots: StoreRoots): string {
+  return `${roots.data}/registry/meta.json`;
+}
+
 export function extensionsDir(roots: StoreRoots, pluginId: string, digest: string): string {
   return `${roots.data}/extensions/${pluginId}/${digest}`;
 }

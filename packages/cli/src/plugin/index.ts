@@ -4,5 +4,20 @@ export { DistributionError, formatError } from './errors.ts';
 export { followSelection, selectionDiff } from './lifecycle.ts';
 export { generatePublisher, type PackedPlugin, type PackPluginOptions, packPlugin } from './pack.ts';
 export { readProjectRequests, reviewProjectFile } from './project.ts';
+export {
+  envelopeSha256,
+  formatArchiveDigest,
+  INDEX_FETCH_MS,
+  INDEX_FORMAT,
+  INDEX_MAX_BYTES,
+  type IndexPlugin,
+  loadIndex,
+  parseIndex,
+  parseRegistryTarget,
+  type SignedRegistryIndex,
+  searchIndex,
+  signIndex,
+  verifyIndex,
+} from './registry.ts';
 export { type ResolveOptions, resolveSource, type SourceGet } from './sources.ts';
-export { FIRST_PARTY_PUBLISHER, thirdPartyMessage } from './trust.ts';
+export { FIRST_PARTY_PUBLISHER, isRevoked, thirdPartyMessage } from './trust.ts';

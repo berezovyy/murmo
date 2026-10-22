@@ -31,7 +31,7 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo doctor [--json] [--stats] [--key PUBLIC.pem]
   murmo codex [args...]
   murmo plugin new|test|dev
-  murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
+  murmo plugin list|inspect|search|info|add|update|disable|enable|remove|rollback|reinstall|doctor
   murmo trust | init | vocab | words | names | index | phrases | history | data | private | shortcuts save
   murmo hook codex <event>
 `;

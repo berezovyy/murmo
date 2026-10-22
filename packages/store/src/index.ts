@@ -52,6 +52,8 @@ export {
   projectDirectory,
   projectDrafts,
   projectWordsPath,
+  registryIndexPath,
+  registryMetaPath,
   STORE_VERSION,
   storeLayout,
   updateJournalPath,

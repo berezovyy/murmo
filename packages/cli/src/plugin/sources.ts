@@ -156,9 +156,24 @@ function resolveGit(spec: string): ResolvedSource {
   return { bytes, source: { kind: 'git', spec, url: remote, commit } };
 }
 
+async function resolveHttp(spec: string, options: ResolveOptions): Promise<ResolvedSource> {
+  if (options.offline) fail('offline-use-reinstall', { spec });
+  let url: URL;
+  try {
+    url = new URL(spec);
+  } catch {
+    fail('fetch-failed', { url: spec });
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') fail('fetch-failed', { url: spec });
+  const get = options.get ?? defaultGet;
+  const bytes = await get(url);
+  return { bytes, source: { kind: 'tarball', spec, url: url.href } };
+}
+
 export async function resolveSource(spec: string, options: ResolveOptions = {}): Promise<ResolvedSource> {
   if (spec.startsWith('npm:')) return resolveNpm(spec, options);
   if (spec.startsWith('git+')) return resolveGit(spec);
+  if (spec.startsWith('http://') || spec.startsWith('https://')) return resolveHttp(spec, options);
   const path = resolve(spec);
   return { bytes: readFileSync(path), source: { kind: 'tarball', spec, path } };
 }

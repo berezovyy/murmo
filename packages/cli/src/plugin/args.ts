@@ -14,8 +14,10 @@ const VALUE = new Set([
   '--timeout',
   '--rotate-statement',
   '--statement',
+  '--index',
+  '--registry-key',
 ]);
-const BARE = new Set(['--json', '--offline']);
+const BARE = new Set(['--json', '--offline', '--refresh']);
 
 export function parsePluginArgs(args: readonly string[]): PluginFlags {
   const positional: string[] = [];
