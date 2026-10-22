@@ -132,7 +132,20 @@ export interface Session {
    * An expansion already planned finishes against the table it started with.
    */
   replaceInline(rule: RegisteredInline): void;
+  /**
+   * Reload one plugin. Other plugins keep their in-memory state (E5). Key
+   * handling never waits for this.
+   */
+  applyPlugin(change: PluginChange): Promise<PluginActivation>;
 }
+
+export type PluginActivation = 'loaded' | 'activated' | 'disabled' | 'error';
+
+export type PluginChange =
+  | { readonly action: 'disable'; readonly id: string }
+  | { readonly action: 'enable'; readonly id: string }
+  | { readonly action: 'remove'; readonly id: string }
+  | { readonly action: 'replace'; readonly plugin: LoadedPlugin };
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
@@ -740,6 +753,63 @@ class CoreSession implements Session {
 
   replaceInline(rule: RegisteredInline): void {
     this.#inline?.swap(rule);
+  }
+
+  async applyPlugin(change: PluginChange): Promise<PluginActivation> {
+    if (!this.#live) return 'error';
+    if (change.action === 'disable') {
+      const plugin = this.#byId.get(change.id);
+      if (!plugin) return 'error';
+      plugin.disabled = true;
+      plugin.activated = false;
+      this.#presentation?.render();
+      this.#menu?.render();
+      return 'disabled';
+    }
+    if (change.action === 'enable') {
+      const plugin = this.#byId.get(change.id);
+      if (!plugin) return 'error';
+      plugin.disabled = false;
+      if (plugin.hooks.has('activate')) this.#schedule(plugin, 'activate', null);
+      else plugin.activated = true;
+      this.#presentation?.render();
+      this.#menu?.render();
+      return plugin.hooks.has('activate') ? 'loaded' : 'activated';
+    }
+    if (change.action === 'remove') {
+      const plugin = this.#byId.get(change.id);
+      if (!plugin) return 'disabled';
+      plugin.disabled = true;
+      this.#plugins = this.#plugins.filter((entry) => entry.id !== change.id);
+      this.#byId.delete(change.id);
+      try {
+        await this.#runner.unload(change.id);
+      } catch {
+        // already gone
+      }
+      this.#presentation?.render();
+      this.#menu?.render();
+      return 'disabled';
+    }
+    const loaded = change.plugin;
+    const entry = entryOf(loaded);
+    const existing = this.#byId.get(entry.id);
+    if (existing) {
+      const index = this.#plugins.indexOf(existing);
+      this.#plugins[index] = entry;
+    } else this.#plugins.push(entry);
+    this.#byId.set(entry.id, entry);
+    if (this.#hostCaps) {
+      const { claims, notices } = validateClaims(entry, loaded.descriptor.keys, this.#hostCaps);
+      entry.claims = claims;
+      for (const text of notices) this.#presentation?.notice(text);
+    }
+    if (entry.disabled) return 'error';
+    if (entry.hooks.has('activate')) this.#schedule(entry, 'activate', null);
+    else entry.activated = true;
+    this.#presentation?.render();
+    this.#menu?.render();
+    return entry.disabled ? 'error' : entry.hooks.has('activate') ? 'loaded' : 'activated';
   }
 
   /** Per-draft state that a committed send drops (pending `.` and rejected words are 07/13). */

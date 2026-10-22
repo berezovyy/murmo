@@ -32,6 +32,10 @@ import {
   PROVENANCE_FORMAT,
   TABLE_FORMAT,
 } from '@murmo/lang';
+import type { StoreRoots } from '@murmo/store';
+import { ensurePluginStore, formatError, type PluginCommandContext, pluginCommand } from '../src/plugin/index.ts';
+import { generatePublisher, type PackPluginOptions, packPlugin } from '../src/plugin/pack.ts';
+import type { ResolveOptions } from '../src/plugin/sources.ts';
 
 export const cliPath = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -280,3 +284,79 @@ export function capture(): {
     },
   };
 }
+
+export interface PluginHome {
+  readonly dir: string;
+  readonly roots: StoreRoots;
+  readonly ctx: PluginCommandContext;
+  readonly stdout: string[];
+  readonly stderr: string[];
+  setGet(get: ResolveOptions['get']): void;
+  remove(): void;
+}
+
+export function pluginHome(): PluginHome {
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-plugin-'));
+  const roots: StoreRoots = {
+    data: join(dir, 'data', 'murmo'),
+    state: join(dir, 'state', 'murmo'),
+    cache: join(dir, 'cache', 'murmo'),
+  };
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const holder: { get?: ResolveOptions['get'] } = {};
+  const ctx: PluginCommandContext = {
+    roots,
+    cwd: dir,
+    packed: false,
+    allowThirdParty: true,
+    get: (url) => {
+      if (!holder.get) throw new Error(`unexpected fetch ${url.href}`);
+      return holder.get(url);
+    },
+    out: (text) => {
+      stdout.push(text);
+    },
+    err: (text) => {
+      stderr.push(text);
+    },
+    quiesceMs: 200,
+  };
+  return {
+    dir,
+    roots,
+    ctx,
+    stdout,
+    stderr,
+    setGet: (get) => {
+      holder.get = get;
+    },
+    remove: () => rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
+export async function runPlugin(home: PluginHome, args: readonly string[]): Promise<number> {
+  home.stdout.length = 0;
+  home.stderr.length = 0;
+  try {
+    return await pluginCommand(home.ctx, args);
+  } catch (error) {
+    home.stderr.push(formatError(error));
+    return 1;
+  }
+}
+
+export async function preparedHome(): Promise<PluginHome> {
+  const home = pluginHome();
+  await ensurePluginStore(home.roots);
+  return home;
+}
+
+export function writeKey(dir: string, pem: string, name = 'publisher.pub'): string {
+  const path = join(dir, name);
+  writeFileSync(path, pem);
+  return path;
+}
+
+export type { PackPluginOptions };
+export { generatePublisher, packPlugin };

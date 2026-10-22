@@ -11,12 +11,14 @@ import {
   parseManifest,
   verifyPackage,
 } from '@murmo/integrity';
+import { storeRootsFromEnv } from '@murmo/store/node';
 import { dispatchMounted } from './commands.ts';
 import { doctorCommand, doctorExit, printDoctor } from './doctor.ts';
 import { formatError } from './errors.ts';
 import { homeLayout } from './home.ts';
 import { acquireLock, releaseLock } from './lock.ts';
 import { packageRoot, platformBin } from './paths.ts';
+import { pluginCommand } from './plugin/index.ts';
 import { printSetup, setupCommand } from './setup.ts';
 import { printUninstall, uninstallCommand } from './uninstall.ts';
 
@@ -28,6 +30,7 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo doctor [--json] [--key PUBLIC.pem]
   murmo codex [args...]
   murmo plugin new|test|dev
+  murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
   murmo trust | init | vocab | words | data | private
 `;
 
@@ -116,7 +119,24 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
       printDoctor(report, json, out);
       return doctorExit(report);
     }
-    if (['plugin', 'trust', 'init', 'vocab', 'words', 'data', 'private'].includes(cmd)) {
+    if (cmd === 'plugin') {
+      const verb = rest[0];
+      if (verb === 'new' || verb === 'test' || verb === 'dev') {
+        return dispatchMounted(cmd, rest, env, cwd, err);
+      }
+      const packed = existsSync(`${packageRoot()}/${INTEGRITY_FILE}`);
+      return pluginCommand(
+        {
+          roots: storeRootsFromEnv(env, env.HOME),
+          cwd,
+          packed,
+          out,
+          err,
+        },
+        rest,
+      );
+    }
+    if (['trust', 'init', 'vocab', 'words', 'data', 'private'].includes(cmd)) {
       return dispatchMounted(cmd, rest, env, cwd, err);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);

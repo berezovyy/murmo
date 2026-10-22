@@ -163,9 +163,21 @@ importers:
 
   packages/cli:
     dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
+      '@murmo/config':
+        specifier: workspace:*
+        version: link:../config
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../core
       '@murmo/devkit':
         specifier: workspace:*
         version: link:../devkit
+      '@murmo/executor':
+        specifier: workspace:*
+        version: link:../executor
       '@murmo/integrity':
         specifier: workspace:*
         version: link:../integrity
@@ -310,7 +322,11 @@ importers:
         specifier: workspace:*
         version: link:../text
 
-  packages/integrity: {}
+  packages/integrity:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../api
 
   packages/lang: {}
 

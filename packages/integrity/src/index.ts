@@ -1,5 +1,27 @@
 export { CanonicalError, canonicalBytes, canonicalJson } from './canonical.ts';
 export {
+  ARCHIVE_COMPRESSED_MAX,
+  ARCHIVE_ENTRY_MAX,
+  ARCHIVE_EXPANDED_MAX,
+  assertApiCompatible,
+  ENVELOPE_FILE,
+  ENVELOPE_FORMAT,
+  EnvelopeError,
+  type EnvelopeErrorCode,
+  type EnvelopeMigration,
+  envelopeBytes,
+  type InspectedPlugin,
+  inspectPluginFiles,
+  PLUGIN_MANIFEST_FILE,
+  type PluginEnvelope,
+  parseEnvelope,
+  publisherFingerprint,
+  type SignedEnvelope,
+  safeRelPath,
+  signEnvelope,
+  verifyEnvelopeSignature,
+} from './envelope.ts';
+export {
   fingerprint,
   KeyError,
   keyIdOf,

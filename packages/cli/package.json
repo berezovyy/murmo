@@ -10,7 +10,11 @@
     ".": "./src/cli.ts"
   },
   "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/config": "workspace:*",
+    "@murmo/core": "workspace:*",
     "@murmo/devkit": "workspace:*",
+    "@murmo/executor": "workspace:*",
     "@murmo/integrity": "workspace:*",
     "@murmo/lang": "workspace:*",
     "@murmo/plugin-autocorrect": "workspace:*",

@@ -50,6 +50,45 @@ export function storeLayout(roots: StoreRoots): StoreLayout {
   };
 }
 
+/** Selected generation, revision, grants and order (`<data>/plugins.json`). */
+export function pluginsManifestPath(roots: StoreRoots): string {
+  return `${roots.data}/plugins.json`;
+}
+
+/** Publisher pins, high-water and project approvals. Survives `plugin remove`. */
+export function distributionLedgerPath(roots: StoreRoots): string {
+  return `${roots.data}/distribution.json`;
+}
+
+/** Interrupted add/update journal; finished or undone on the next command. */
+export function updateJournalPath(roots: StoreRoots): string {
+  return `${roots.data}/update.json`;
+}
+
+export function lastRollbackPath(roots: StoreRoots): string {
+  return `${roots.data}/last-rollback.json`;
+}
+
+export function extensionsDir(roots: StoreRoots, pluginId: string, digest: string): string {
+  return `${roots.data}/extensions/${pluginId}/${digest}`;
+}
+
+export function pluginCacheFile(roots: StoreRoots, pluginId: string, digest: string): string {
+  return `${roots.data}/plugin-cache/${pluginId}/${digest}.tgz`;
+}
+
+export function pluginGenerationStorage(roots: StoreRoots, pluginId: string, digest: string): string {
+  return `${roots.data}/plugin-storage/${pluginId}/${digest}.json`;
+}
+
+export function pluginSessionsDir(roots: StoreRoots): string {
+  return `${roots.data}/sessions`;
+}
+
+export function pluginSessionFile(roots: StoreRoots, sessionId: string): string {
+  return `${pluginSessionsDir(roots)}/${checkSessionId(sessionId)}.json`;
+}
+
 /** A plugin's storage namespace file: its ID hashed, so any ID is a safe file name. */
 export function pluginRecordPath(layout: StoreLayout, pluginId: string): string {
   return `${layout.plugins}/${sha256Hex(utf8Encode(pluginId))}.json`;

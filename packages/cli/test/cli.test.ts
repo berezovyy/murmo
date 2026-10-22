@@ -18,8 +18,7 @@ test('unknown commands and missing argv are usage (exit 2)', async () => {
   assert.equal(await main(['nope'], { out: io.writeOut, err: io.writeErr }), 2);
 });
 
-test('plugin enable/disable stay phase 28', async () => {
+test('plugin help is mounted (phase 28)', async () => {
   const io = capture();
-  assert.equal(await main(['plugin', 'enable', 'x'], { out: io.writeOut, err: io.writeErr }), 2);
-  assert.match(io.err.join(''), /phase 28/);
+  assert.equal(await main(['plugin', 'help'], { out: io.writeOut, err: io.writeErr }), 0);
 });

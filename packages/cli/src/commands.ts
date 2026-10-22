@@ -5,21 +5,14 @@ import { initCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
 import { dataCommand, openStore, privateCommand, storeRootsFromEnv } from '@murmo/store/node';
 import { vocabCommand, wordsCommand } from '@murmo/vocab/node';
 
-const PHASE_28 = new Set(['enable', 'disable', 'add', 'remove', 'rollback', 'list']);
-
 export async function dispatchMounted(
   cmd: string,
   rest: string[],
   env: NodeJS.ProcessEnv,
   cwd: string,
-  err: (text: string) => void = (text) => process.stderr.write(text.endsWith('\n') ? text : `${text}\n`),
+  _err: (text: string) => void = (text) => process.stderr.write(text.endsWith('\n') ? text : `${text}\n`),
 ): Promise<number> {
   if (cmd === 'plugin') {
-    const verb = rest[0];
-    if (verb && PHASE_28.has(verb)) {
-      err(`murmo plugin ${verb}: not in this package (phase 28)`);
-      return 2;
-    }
     const { pluginCommand } = await import('@murmo/devkit');
     return pluginCommand(['plugin', ...rest]);
   }

@@ -22,5 +22,7 @@ export {
 export type { Locator, SourceScan } from './source.ts';
 export { codePointLength, normalizeToml, scanSource, utf8Length } from './source.ts';
 export { displayText, unsafeText } from './text-policy.ts';
+export type { TomlParse, TomlTable } from './toml.ts';
+export { parseToml } from './toml.ts';
 export type { PinnedFile, SymlinkHop } from './trust.ts';
 export { TRUST_MANIFEST_VERSION, trustManifest } from './trust.ts';

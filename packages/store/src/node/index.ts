@@ -3,6 +3,54 @@ export type { CommandContext } from './commands.ts';
 export { DATA_USAGE, dataCommand, PRIVATE_USAGE, privateCommand } from './commands.ts';
 export type { DataKind, DeleteReport, DeleteSelector, InventoryKind, InventoryRow } from './data.ts';
 export { DATA_KINDS } from './data.ts';
+export type {
+  ActivationOutcome,
+  DistributionLedger,
+  InstalledPlugin,
+  JournalOp,
+  JournalPhase,
+  LastRollback,
+  PluginDistribution,
+  PluginSource,
+  PluginsManifest,
+  ProjectApproval,
+  ProjectPluginRequest,
+  PublisherIdentity,
+  SessionAck,
+  UpdateJournal,
+} from './distribution.ts';
+export {
+  BUILTIN_IDS,
+  bumpManifest,
+  chainPrevious,
+  clearJournal,
+  DEFAULT_PLUGIN_ORDER,
+  DISTRIBUTION_SCHEMA,
+  defaultManifest,
+  EMPTY_LEDGER,
+  EMPTY_MANIFEST,
+  GENERATIONS_KEPT,
+  initPluginStore,
+  JOURNAL_SCHEMA,
+  listLiveSessions,
+  PLUGINS_SCHEMA,
+  QUIESCE_MS,
+  readJournal,
+  readLastRollback,
+  readLedger,
+  readPluginsManifest,
+  recoverInterrupted,
+  referencedDigests,
+  removeGenerationFiles,
+  removePluginTrees,
+  SESSION_SCHEMA,
+  waitForRevision,
+  writeJournal,
+  writeLastRollback,
+  writeLedger,
+  writePluginsManifest,
+  writeSessionAck,
+} from './distribution.ts';
 export type { FileDraftsOptions } from './drafts.ts';
 export { createFileDrafts } from './drafts.ts';
 export type { ModeRepairs, WriteOptions } from './files.ts';

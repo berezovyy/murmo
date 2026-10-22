@@ -111,12 +111,15 @@ export interface PluginHost extends HookRunner {
   readonly executor: Executor;
   storage(): Readonly<Record<string, string>>;
   grantOf(pluginId: string): readonly Permission[];
+  /** Load one extra spec without touching plugins already in memory (E5). */
+  loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin>;
 }
 
 export function createPluginHost(options: PluginHostOptions): PluginHost {
   const storage: StorageBroker = createStorageBroker(options.storage);
   const coalescer = new ChangeCoalescer();
   const loaded = new Map<string, Loaded>();
+  const specs = [...options.specs];
   let disposed = false;
   let health: RunnerHealth = 'ok';
   const services: RuntimeCapabilities['services'] = options.projectFiles
@@ -188,85 +191,99 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     }
   };
 
+  const loadOneSpec = async (spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin> => {
+    const fail = (error: unknown): LoadedPlugin => ({
+      descriptor: emptyDescriptor(spec),
+      builtin: spec.builtin,
+      loadError: error instanceof Error ? error.message : String(error),
+      granted: [],
+    });
+    try {
+      let negotiation: Negotiation | undefined;
+      let settings: Readonly<Record<string, unknown>> = spec.settings ?? {};
+      if (spec.manifest) {
+        if (caps) negotiation = negotiate(spec.manifest, caps as Capabilities);
+        settings = resolveSettings(spec.manifest, spec.settings);
+      }
+      // An enabled inline rule set turns the async typo path off (docs/plan/07).
+      if (spec.inline?.some((rule) => rule.enabled)) {
+        settings = { ...settings, autocorrect: false };
+      }
+      const resources = spec.resources ?? spec.manifest?.resources;
+      const pluginSpec = asPluginSpec({ ...spec, settings, ...(resources ? { resources } : {}) });
+      admit(pluginSpec, options.admission);
+      let descriptor: PluginDescriptor | undefined;
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          descriptor = await options.executor.load(pluginSpec);
+          lastError = undefined;
+          break;
+        } catch (error) {
+          lastError = error;
+          const code = (error as { code?: unknown } | null)?.code;
+          if (attempt === 0 && typeof code === 'string' && retryable.has(code)) continue;
+          throw error;
+        }
+      }
+      if (!descriptor) throw lastError;
+      if (!metadataMatches(spec, descriptor)) {
+        await options.executor.unload(spec.id);
+        throw new Error('manifest metadata or permissions do not match plugin descriptor');
+      }
+      const granted = grantedPermissions(
+        { id: spec.id, builtin: spec.builtin, declared: descriptor.permissions },
+        options.grants,
+      );
+      const routes = routesFor(granted);
+      if (routes.services.includes('project.read') && !services.includes('project.read')) {
+        await options.executor.unload(spec.id);
+        throw new Error('plugin requires project.read but the executor does not route it');
+      }
+      loaded.set(spec.id, {
+        spec,
+        descriptor,
+        granted,
+        settings,
+        ...(negotiation ? { negotiation } : {}),
+      });
+      return {
+        descriptor: { ...descriptor, guard: descriptor.guard || spec.requiredGuard === true },
+        builtin: spec.builtin,
+        granted,
+        ...(negotiation ? { negotiation } : {}),
+        ...(spec.inline ? { inline: spec.inline } : {}),
+        ...(spec.assets ? { assets: spec.assets } : {}),
+      };
+    } catch (error) {
+      return fail(error);
+    }
+  };
+
   return {
     executor: options.executor,
     runtime,
 
     ids(): readonly string[] {
-      return options.specs.map((spec) => spec.id);
+      return specs.map((spec) => spec.id);
+    },
+
+    async loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin> {
+      if (disposed) throw new Error('disposed');
+      if (loaded.has(spec.id)) await this.unload(spec.id);
+      if (!specs.some((item) => item.id === spec.id)) specs.push(spec);
+      else {
+        const at = specs.findIndex((item) => item.id === spec.id);
+        specs[at] = spec;
+      }
+      uniquePluginIds(specs.map((item) => item.id));
+      return loadOneSpec(spec, caps);
     },
 
     async load(caps?: Capabilities | HostCapabilities): Promise<readonly LoadedPlugin[]> {
-      uniquePluginIds(options.specs.map((spec) => spec.id));
+      uniquePluginIds(specs.map((spec) => spec.id));
       const out: LoadedPlugin[] = [];
-      for (const spec of options.specs) {
-        const fail = (error: unknown): LoadedPlugin => ({
-          descriptor: emptyDescriptor(spec),
-          builtin: spec.builtin,
-          loadError: error instanceof Error ? error.message : String(error),
-          granted: [],
-        });
-        try {
-          let negotiation: Negotiation | undefined;
-          let settings: Readonly<Record<string, unknown>> = spec.settings ?? {};
-          if (spec.manifest) {
-            if (caps) negotiation = negotiate(spec.manifest, caps as Capabilities);
-            settings = resolveSettings(spec.manifest, spec.settings);
-          }
-          // An enabled inline rule set turns the async typo path off (docs/plan/07).
-          if (spec.inline?.some((rule) => rule.enabled)) {
-            settings = { ...settings, autocorrect: false };
-          }
-          const resources = spec.resources ?? spec.manifest?.resources;
-          const pluginSpec = asPluginSpec({ ...spec, settings, ...(resources ? { resources } : {}) });
-          admit(pluginSpec, options.admission);
-          let descriptor: PluginDescriptor | undefined;
-          let lastError: unknown;
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-              descriptor = await options.executor.load(pluginSpec);
-              lastError = undefined;
-              break;
-            } catch (error) {
-              lastError = error;
-              const code = (error as { code?: unknown } | null)?.code;
-              if (attempt === 0 && typeof code === 'string' && retryable.has(code)) continue;
-              throw error;
-            }
-          }
-          if (!descriptor) throw lastError;
-          if (!metadataMatches(spec, descriptor)) {
-            await options.executor.unload(spec.id);
-            throw new Error('manifest metadata or permissions do not match plugin descriptor');
-          }
-          const granted = grantedPermissions(
-            { id: spec.id, builtin: spec.builtin, declared: descriptor.permissions },
-            options.grants,
-          );
-          const routes = routesFor(granted);
-          if (routes.services.includes('project.read') && !services.includes('project.read')) {
-            await options.executor.unload(spec.id);
-            throw new Error('plugin requires project.read but the executor does not route it');
-          }
-          loaded.set(spec.id, {
-            spec,
-            descriptor,
-            granted,
-            settings,
-            ...(negotiation ? { negotiation } : {}),
-          });
-          out.push({
-            descriptor: { ...descriptor, guard: descriptor.guard || spec.requiredGuard === true },
-            builtin: spec.builtin,
-            granted,
-            ...(negotiation ? { negotiation } : {}),
-            ...(spec.inline ? { inline: spec.inline } : {}),
-            ...(spec.assets ? { assets: spec.assets } : {}),
-          });
-        } catch (error) {
-          out.push(fail(error));
-        }
-      }
+      for (const spec of specs) out.push(await loadOneSpec(spec, caps));
       return out;
     },
 

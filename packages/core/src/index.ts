@@ -89,7 +89,14 @@ export {
   permissionGate,
 } from './plugins/index.ts';
 export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type VisibleGhost } from './present.ts';
-export { createSession, KILL_NOTICE, type Session, type SessionOptions } from './session.ts';
+export {
+  createSession,
+  KILL_NOTICE,
+  type PluginActivation,
+  type PluginChange,
+  type Session,
+  type SessionOptions,
+} from './session.ts';
 export { isCurrent, issueTicket, type SessionView, type StaleReason, staleReason, type Ticket } from './stale.ts';
 export { Counters, type DecisionBy, type PluginHealth, type SessionStats, type Surface } from './stats.ts';
 export {
