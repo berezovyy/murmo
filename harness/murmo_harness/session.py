@@ -407,7 +407,8 @@ class Session:
             self.run.watchdog.check()
             screen = driver.screen()
             if self.host.ready(screen):
-                driver.settle(quiet=0.4, timeout=3)
+                quiet = float(getattr(self.integration, 'ready_quiet', 0.4) or 0.4)
+                driver.settle(quiet=quiet, timeout=max(3.0, quiet * 8))
                 self.ready_screen = driver.screen()
                 if self.host.ready(self.ready_screen):
                     return

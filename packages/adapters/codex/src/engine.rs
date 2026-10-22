@@ -149,6 +149,29 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", h.finalize())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::english_table_path;
+    use std::fs;
+    use std::sync::Mutex;
+
+    static ENV: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn packed_package_root_finds_english_bin() {
+        let _g = ENV.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("murmo-table-{}", std::process::id()));
+        fs::create_dir_all(dir.join("data/en")).unwrap();
+        fs::write(dir.join("data/en/english.bin"), [0u8; 32]).unwrap();
+        std::env::remove_var("MURMO_ENGLISH_TABLE");
+        std::env::set_var("MURMO_PACKAGE_ROOT", &dir);
+        let path = english_table_path().expect("table under MURMO_PACKAGE_ROOT");
+        assert!(path.ends_with("english.bin"));
+        std::env::remove_var("MURMO_PACKAGE_ROOT");
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
+
 pub fn table_entries(bytes: &[u8]) -> Option<u32> {
     if bytes.len() < 8 {
         return None;
@@ -156,8 +179,42 @@ pub fn table_entries(bytes: &[u8]) -> Option<u32> {
     Some(u32::from_le_bytes(bytes[4..8].try_into().ok()?))
 }
 
+fn table_exists(path: &std::path::Path) -> bool {
+    path.is_file()
+}
+
+/// `MURMO_ENGLISH_TABLE`, else the packed payload `data/en/english.bin`.
+pub fn english_table_path() -> Option<std::path::PathBuf> {
+    if let Ok(path) = std::env::var("MURMO_ENGLISH_TABLE") {
+        let p = std::path::PathBuf::from(path);
+        if table_exists(&p) {
+            return Some(p);
+        }
+    }
+    if let Ok(root) = std::env::var("MURMO_PACKAGE_ROOT") {
+        let p = std::path::Path::new(&root).join("data/en/english.bin");
+        if table_exists(&p) {
+            return Some(p);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        // payload/bin/<platform>/murmo-codex → payload/data/en/english.bin
+        if let Some(payload) = exe
+            .parent()
+            .and_then(|p| p.parent())
+            .and_then(|p| p.parent())
+        {
+            let p = payload.join("data/en/english.bin");
+            if table_exists(&p) {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 pub fn load_english_table() -> Option<(Vec<u8>, Value)> {
-    let path = std::env::var("MURMO_ENGLISH_TABLE").ok()?;
+    let path = english_table_path()?;
     let bytes = std::fs::read(&path).ok()?;
     if bytes.len() < 32 {
         return None;

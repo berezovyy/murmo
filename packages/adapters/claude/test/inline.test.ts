@@ -1,7 +1,41 @@
 // Inline path: keyed correction, cursor, skips, NFC. Catches a broken prompt.edit splice (E16, E1).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { installTestPolicy } from '@murmo/plugin-autocorrect';
+import { createClaudeHost } from '../src/session.ts';
 import { boot, type } from './boot.ts';
+import { FakeClaude, paste, typeChars } from './fake-runtime.ts';
+
+test('packed builtins: user murmo.toml plus english.bin corrects typed teh, not paste', async () => {
+  const fake = new FakeClaude({
+    files: { '/config/murmo/murmo.toml': '[autocorrect]\nenabled = true\n' },
+  });
+  const host = createClaudeHost({ skipProbes: true });
+  try {
+    await host.start(fake.$);
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'teh ');
+    assert.equal(fake.draft.text, 'the ');
+    fake.draft = { text: '', cursor: 0 };
+    await paste((event, next) => host.adapter.handleEdit(event, next), fake, 'teh ');
+    assert.equal(fake.draft.text, 'teh ');
+  } finally {
+    await host.dispose();
+    installTestPolicy();
+  }
+});
+
+test('packed builtins without user enabled leave teh (opt-in)', async () => {
+  const fake = new FakeClaude();
+  const host = createClaudeHost({ skipProbes: true });
+  try {
+    await host.start(fake.$);
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'teh ');
+    assert.equal(fake.draft.text, 'teh ');
+  } finally {
+    await host.dispose();
+    installTestPolicy();
+  }
+});
 
 test('teh space becomes the space on a keyed boundary (E1, E16)', async () => {
   const { fake, host } = await boot();

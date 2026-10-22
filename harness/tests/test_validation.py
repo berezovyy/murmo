@@ -264,3 +264,30 @@ class PlanDoesNotLaunch(unittest.TestCase):
         for row in summary['rows']:
             self.assertIn(row['status'], ('skip', 'planned'))
             self.assertNotEqual(row['status'], 'pass')
+
+
+class PackedLaunchArgv(unittest.TestCase):
+    """Packed Pi must load the installed extension; stock `--no-extensions` hid Murmo."""
+
+    def test_packed_pi_passes_explicit_extension(self):
+        from murmo_harness.validation.integration import PackedMurmo
+        from support import scratch
+
+        class Host:
+            name = 'pi'
+
+        with scratch() as root:
+            payload = root / 'package'
+            entry = payload / 'adapters' / 'pi' / 'index.js'
+            entry.parent.mkdir(parents=True)
+            entry.write_text('export default function murmo() {}\n')
+
+            class Profile:
+                env = {'MURMO_PACKAGE_ROOT': str(payload)}
+
+            argv = PackedMurmo(None, 'b').argv(
+                Host(), None, Profile(),
+                ['node', 'pi.js', '--offline', '--no-extensions', '--no-skills'],
+            )
+            self.assertIn('--no-extensions', argv)
+            self.assertEqual(argv[-2:], ['-e', str(entry)])

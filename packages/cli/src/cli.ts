@@ -3,12 +3,16 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { mergeConfig, parseConfig, resolveShortcuts } from '@murmo/config';
+import { userConfigPath } from '@murmo/config/node';
 import {
   CODEX_NAME,
   INTEGRITY_FILE,
   loadTrustAnchor,
   PACKAGE_VERSION,
   parseManifest,
+  TABLE_FILE,
   verifyPackage,
 } from '@murmo/integrity';
 import { storeRootsFromEnv } from '@murmo/store/node';
@@ -80,7 +84,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
   }
   try {
     if (cmd === 'verify') return verifyCmd(rest, env, out, err);
-    if (cmd === 'codex') return codexCmd(rest, err);
+    if (cmd === 'codex') return codexCmd(rest, env, err);
     if (cmd === 'setup' || cmd === 'uninstall' || cmd === 'doctor') {
       const parsed = parseFlags(rest);
       if (typeof parsed === 'string') {
@@ -203,13 +207,49 @@ function readStdin(): Promise<string> {
   });
 }
 
-function codexCmd(argv: string[], err: (s: string) => void): number {
+function userFileAutocorrect(env: NodeJS.ProcessEnv): boolean {
+  const path = userConfigPath(env);
+  if (!existsSync(path)) return false;
+  try {
+    const parsed = parseConfig(readFileSync(path, 'utf8'), { file: path, origin: 'user' });
+    if (parsed.status !== 'ok') return false;
+    return mergeConfig({ user: resolveShortcuts(parsed, new Map()), projectTrusted: false }).autocorrect;
+  } catch {
+    return false;
+  }
+}
+
+/** Env the wrapper needs so packed `murmo codex` loads english.bin and user autocorrect. */
+export function codexChildEnv(env: NodeJS.ProcessEnv, packedRoot: string): NodeJS.ProcessEnv {
+  const next: NodeJS.ProcessEnv = { ...env };
+  if (!next.MURMO_PACKAGE_ROOT) next.MURMO_PACKAGE_ROOT = packedRoot;
+  const table = join(packedRoot, TABLE_FILE);
+  if (!next.MURMO_ENGLISH_TABLE && existsSync(table)) next.MURMO_ENGLISH_TABLE = table;
+  if (next.MURMO_AUTOCORRECT === undefined && userFileAutocorrect(env)) next.MURMO_AUTOCORRECT = '1';
+  return next;
+}
+
+function packedRootOf(env: NodeJS.ProcessEnv): string | undefined {
+  if (env.MURMO_PACKAGE_ROOT && existsSync(join(env.MURMO_PACKAGE_ROOT, INTEGRITY_FILE))) {
+    return env.MURMO_PACKAGE_ROOT;
+  }
+  try {
+    const root = packageRoot();
+    return existsSync(join(root, INTEGRITY_FILE)) ? root : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function codexCmd(argv: string[], env: NodeJS.ProcessEnv, err: (s: string) => void): number {
   const bin = platformBin(CODEX_NAME);
   if (!existsSync(bin)) {
     err(`murmo codex: ${bin} is missing (Codex wrapper unavailable on this platform)`);
     return 1;
   }
-  const run = spawnSync(bin, argv, { stdio: 'inherit' });
+  const packed = packedRootOf(env);
+  const child = packed ? codexChildEnv(env, packed) : env;
+  const run = spawnSync(bin, argv, { stdio: 'inherit', env: child });
   return run.status ?? 1;
 }
 

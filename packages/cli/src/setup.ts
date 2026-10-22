@@ -242,6 +242,8 @@ export function printSetup(report: SetupReport, json: boolean, out: (s: string) 
   if (report.warning) out(`  warning: ${report.warning}\n`);
   out(`  ${report.claudeOnboarding}\n`);
   if (report.registered.includes('codex') || report.hosts.some((h) => h.name === 'codex' && h.installed)) {
-    out('  Codex hooks: review and trust them in Codex with /hooks. Murmo never ships bypass_hook_trust.\n');
+    out(
+      '  Codex: run `murmo codex`. Event hooks are not installed until [events] is on; Murmo never ships bypass_hook_trust.\n',
+    );
   }
 }

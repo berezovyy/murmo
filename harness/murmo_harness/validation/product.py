@@ -134,7 +134,8 @@ def enable_autocorrect(profile) -> None:
     config.parent.mkdir(parents=True, exist_ok=True)
     existing = config.read_text() if config.is_file() else ''
     if '[autocorrect]' not in existing:
-        config.write_text(existing + '\n[autocorrect]\nenabled = true\n')
+        prefix = existing.strip() or 'version = 1'
+        config.write_text(f'{prefix}\n\n[autocorrect]\nenabled = true\n')
         return
     config.write_text(existing.replace('enabled = false', 'enabled = true'))
 

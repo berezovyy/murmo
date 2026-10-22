@@ -38,6 +38,8 @@ ADVERTISED = {
 
 class PackedMurmo(Integration):
     name = 'packed'
+    # session_start + english.bin load is async; type before wrap leaves `teh`.
+    ready_quiet = 1.0
     features = frozenset({
         'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
         'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
@@ -61,14 +63,15 @@ class PackedMurmo(Integration):
         spec = PLUGIN_SETS[self.plugin_set]
         if spec.get('testBuild'):
             profile.env['MURMO_PLUGIN_TEST'] = '1'
-        if spec.get('autocorrect'):
-            enable_autocorrect(profile)
         if run is None:
             raise RuntimeError('packed integration needs Run to install via murmo setup (sandboxed)')
         argv = setup_argv(self.product)
         result = run.sandboxed(profile, argv, timeout=120)
         if result.code not in (0, None):
             raise RuntimeError(f'murmo setup exited {result.code}: {result.stderr[-2000:]}')
+        # After setup so a future installer that writes murmo.toml cannot wipe opt-in.
+        if spec.get('autocorrect'):
+            enable_autocorrect(profile)
         # The journaled launcher lives under the throwaway HOME.
         local_bin = str(Path(profile.env['HOME']) / '.local' / 'bin')
         path = profile.env.get('PATH', '')
@@ -79,6 +82,17 @@ class PackedMurmo(Integration):
             profile.env['MURMO_PACKAGE_ROOT'] = str(payload)
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
+        # Stock Pi uses --no-extensions (no discovery). Explicit `-e` still
+        # loads; without it packed claims typed `teh ` and never became `the`.
+        if host.name == 'pi':
+            payload = Path(profile.env.get('MURMO_PACKAGE_ROOT') or murmo_data(profile) / 'package')
+            entry = payload / 'adapters' / 'pi' / 'index.js'
+            if entry.is_file() and '-e' not in argv:
+                argv = [*argv, '-e', str(entry)]
+            nm = Path(getattr(install, 'dir', '') or '') / 'node_modules'
+            if nm.is_dir():
+                prior = profile.env.get('NODE_PATH', '')
+                profile.env['NODE_PATH'] = f'{nm}:{prior}' if prior else str(nm)
         if host.name != 'codex' or self.product is None:
             return argv
         # The harness launches the npm bin as `node …/codex.js …flags`. murmo-codex

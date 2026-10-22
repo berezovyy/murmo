@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCasePolicy, parseManifest } from '@murmo/lang';
 import { installEnglishPolicy } from '../rules.ts';
@@ -25,17 +25,30 @@ export function tableFileIn(dir: string): string {
   throw new Error(`no english.bin or typos.bin in ${dir}`);
 }
 
-/** Packed tarball `data/en`, or `MURMO_PACKAGE_ROOT/data/en`. */
+function englishDirIfPresent(root: string | undefined): string | undefined {
+  if (!root) return undefined;
+  const dir = join(root, 'data/en');
+  if (existsSync(join(dir, 'english.bin')) || existsSync(join(dir, 'typos.bin'))) return dir;
+  return undefined;
+}
+
+function installedPackageRoot(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const xdg = env.XDG_DATA_HOME;
+  const home = env.HOME;
+  const dataHome = xdg && isAbsolute(xdg) ? xdg : home && isAbsolute(home) ? join(home, '.local', 'share') : undefined;
+  return dataHome ? join(dataHome, 'murmo', 'package') : undefined;
+}
+
+/** Packed tarball `data/en`, `MURMO_PACKAGE_ROOT/data/en`, or the setup payload. */
 export function findShippedEnglishDir(start = dirname(fileURLToPath(import.meta.url))): string | undefined {
-  const override = process.env.MURMO_PACKAGE_ROOT;
-  if (override) {
-    const dir = join(override, 'data/en');
-    if (existsSync(join(dir, 'english.bin')) || existsSync(join(dir, 'typos.bin'))) return dir;
-  }
+  const fromEnv = englishDirIfPresent(process.env.MURMO_PACKAGE_ROOT);
+  if (fromEnv) return fromEnv;
+  const installed = englishDirIfPresent(installedPackageRoot());
+  if (installed) return installed;
   let dir = start;
   for (let i = 0; i < 8; i++) {
-    const candidate = join(dir, 'data/en');
-    if (existsSync(join(candidate, 'english.bin')) || existsSync(join(candidate, 'typos.bin'))) return candidate;
+    const candidate = englishDirIfPresent(dir);
+    if (candidate) return candidate;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;

@@ -233,10 +233,56 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
     pty.close_and_wait()
 }
 
+fn user_config_path() -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    let base = match std::env::var("XDG_CONFIG_HOME") {
+        Ok(v) if std::path::Path::new(&v).is_absolute() => std::path::PathBuf::from(v),
+        _ => std::path::Path::new(&home).join(".config"),
+    };
+    Some(base.join("murmo").join("murmo.toml"))
+}
+
+/// `[autocorrect] enabled = true` in the user file, or `MURMO_AUTOCORRECT=1`.
+pub fn autocorrect_enabled() -> bool {
+    if std::env::var("MURMO_AUTOCORRECT").ok().as_deref() == Some("1") {
+        return true;
+    }
+    let Some(path) = user_config_path() else {
+        return false;
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    autocorrect_enabled_in_toml(&text)
+}
+
+pub fn autocorrect_enabled_in_toml(text: &str) -> bool {
+    let mut in_section = false;
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+            continue;
+        }
+        if line.starts_with('[') {
+            in_section = line == "[autocorrect]";
+            continue;
+        }
+        if in_section {
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
+            if key.trim() == "enabled" {
+                return value.trim() == "true";
+            }
+        }
+    }
+    false
+}
+
 fn load_config() -> Value {
     let mut cfg = json!({
         "hostVersion": std::env::var("MURMO_HOST_VERSION").unwrap_or_else(|_| "unknown".into()),
-        "autocorrect": std::env::var("MURMO_AUTOCORRECT").ok().as_deref() == Some("1"),
+        "autocorrect": autocorrect_enabled(),
         "replacements": {},
         "pluginOrder": [],
         "plugins": [],
@@ -602,3 +648,20 @@ fn drain_edits(inner: &Rc<RefCell<Inner>>, eng: &Engine) {
 }
 
 use unicode_segmentation::UnicodeSegmentation;
+
+#[cfg(test)]
+mod tests {
+    use super::autocorrect_enabled_in_toml;
+
+    #[test]
+    fn user_toml_opt_in_is_the_packed_switch() {
+        assert!(!autocorrect_enabled_in_toml(""));
+        assert!(autocorrect_enabled_in_toml(
+            "version = 1\n\n[autocorrect]\nenabled = true\n"
+        ));
+        assert!(!autocorrect_enabled_in_toml(
+            "[autocorrect]\nenabled = false\n"
+        ));
+        assert!(!autocorrect_enabled_in_toml("[events]\nenabled = true\n"));
+    }
+}

@@ -3,6 +3,7 @@
 
 import type { Executor } from '@murmo/api/adapter';
 import type { EffectiveConfig } from '@murmo/config';
+import { loadSessionConfig } from '@murmo/config/node';
 import { createMemoryStorage, createPluginHost, createSession, type HostPluginSpec, type Session } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
@@ -13,6 +14,7 @@ import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
+import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
 
 export interface SessionStartOptions {
@@ -96,6 +98,16 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
     })(),
   ];
   return specs;
+}
+
+/** User `murmo.toml` plus project file. Missing files leave autocorrect off (opt-in). */
+export async function loadHostSessionConfig(
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<EffectiveConfig> {
+  const store = await openStore({ roots: storeRootsFromEnv(env) });
+  const loaded = await loadSessionConfig({ cwd, store, env });
+  return loaded.effective;
 }
 
 export async function startSession(options: SessionStartOptions): Promise<StartedSession> {

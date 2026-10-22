@@ -1,8 +1,10 @@
 // OpenCode V2 `/tui` entry. Loaded only by the host, which resolves
 // `@opentui/core`. Unit tests call `createTuiPlugin` with fakes instead.
 
+import type { EffectiveConfig } from '@murmo/config';
 import { TextareaRenderable, TextRenderable } from '@opentui/core';
 import { createTuiPlugin } from './plugin.ts';
+import { loadHostSessionConfig } from './session.ts';
 import type { OpenCodeApi } from './types.ts';
 
 const PLUGIN_ID = 'murmo';
@@ -10,7 +12,13 @@ const PLUGIN_ID = 'murmo';
 export default {
   id: PLUGIN_ID,
   async setup(api: OpenCodeApi) {
-    const handle = await createTuiPlugin(api, { TextareaRenderable, TextRenderable });
+    let config: EffectiveConfig | undefined;
+    try {
+      config = await loadHostSessionConfig();
+    } catch {
+      // Fail open: built-ins still load; autocorrect stays off without a user file.
+    }
+    const handle = await createTuiPlugin(api, { TextareaRenderable, TextRenderable }, config ? { config } : {});
     return () => handle.dispose();
   },
 };

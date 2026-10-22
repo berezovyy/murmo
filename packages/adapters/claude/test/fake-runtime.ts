@@ -34,6 +34,7 @@ export interface FakeClaudeOptions {
   readonly config?: readonly ConfigRow[];
   readonly hidePromptEdit?: boolean;
   readonly hideClassic?: boolean;
+  readonly pluginRoot?: string;
 }
 
 function b64(bytes: Uint8Array): string {
@@ -96,7 +97,7 @@ export class FakeClaude {
     const self = this;
     const config = options.config ?? [];
     this.$ = {
-      plugin: { root: '/plugin' },
+      plugin: { root: options.pluginRoot ?? '/plugin' },
       env: {
         async get(name) {
           return self.env[name];

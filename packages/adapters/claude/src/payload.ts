@@ -72,22 +72,42 @@ async function readJson($: ClaudeRuntime, path: string): Promise<unknown> {
   return JSON.parse(raw) as unknown;
 }
 
+function packageFromPluginRoot(pluginRoot: string): string | undefined {
+  const markers = ['/adapters/claude/hooks', '/adapters/claude'];
+  for (const marker of markers) {
+    if (pluginRoot === marker || pluginRoot.endsWith(marker) || pluginRoot.endsWith(`${marker}/`)) {
+      const cut = pluginRoot.lastIndexOf('/adapters/claude');
+      if (cut > 0) return pluginRoot.slice(0, cut);
+    }
+  }
+  return undefined;
+}
+
 export async function locatePayload($: ClaudeRuntime, override?: string): Promise<LocatedPayload | undefined> {
-  const root = override ?? join(await dataHome($), 'package');
-  const integrityPath = join(root, 'integrity.json');
-  if (!(await $.fs.exists(integrityPath))) return undefined;
-  const integrity = (await readJson($, integrityPath)) as IntegrityFile;
-  if (!integrity || typeof integrity.version !== 'string') {
-    return { root, integrity: { version: '' }, notice: 'payload integrity.json is unreadable' };
+  const candidates: string[] = [];
+  if (override) candidates.push(override);
+  candidates.push(join(await dataHome($), 'package'));
+  const fromPlugin = packageFromPluginRoot($.plugin.root);
+  if (fromPlugin && !candidates.includes(fromPlugin)) candidates.push(fromPlugin);
+  let lastUnreadable: LocatedPayload | undefined;
+  for (const root of candidates) {
+    const integrityPath = join(root, 'integrity.json');
+    if (!(await $.fs.exists(integrityPath))) continue;
+    const integrity = (await readJson($, integrityPath)) as IntegrityFile;
+    if (!integrity || typeof integrity.version !== 'string') {
+      lastUnreadable = { root, integrity: { version: '' }, notice: 'payload integrity.json is unreadable' };
+      continue;
+    }
+    if (integrity.version !== PLUGIN_VERSION) {
+      return {
+        root,
+        integrity,
+        notice: `payload version ${integrity.version} does not match plugin ${PLUGIN_VERSION}`,
+      };
+    }
+    return { root, integrity };
   }
-  if (integrity.version !== PLUGIN_VERSION) {
-    return {
-      root,
-      integrity,
-      notice: `payload version ${integrity.version} does not match plugin ${PLUGIN_VERSION}`,
-    };
-  }
-  return { root, integrity };
+  return lastUnreadable;
 }
 
 export async function loadTable($: ClaudeRuntime, payload: LocatedPayload): Promise<PayloadTable | undefined> {
