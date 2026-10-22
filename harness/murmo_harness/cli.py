@@ -313,6 +313,29 @@ def cmd_test(args) -> int:
     return 0 if result.wasSuccessful() else 1
 
 
+def cmd_validate(args) -> int:
+    """Phase 29: packed-product platform validation. Missing hosts skip by name."""
+    from .validation.runner import validate
+
+    summary = validate(
+        hosts=list(args.host) if args.host else None,
+        sections=args.section.split(',') if args.section else None,
+        smoke=args.smoke,
+        cpus=args.cpus,
+        cpuset=args.cpuset,
+        write=args.write_report,
+        execute=not args.plan,
+    )
+    out({
+        **{k: v for k, v in summary.items() if k != 'rows'},
+        'rows': [{'id': r['id'], 'status': r['status'], 'reason': r.get('reason'), 'skip': r.get('skip')}
+                 for r in summary['rows']],
+    })
+    if summary['counts']['fail']:
+        return 1
+    return 0
+
+
 def cmd_clean_check(args) -> int:
     """No process, temp folder, tmux socket or container of any harness run is left."""
     from .procs import snapshot
@@ -381,6 +404,11 @@ def parser() -> argparse.ArgumentParser:
     p = command('soak', cmd_soak, 'unique-token soak (default: the 2-minute smoke)')
     p.add_argument('--minutes', type=float, default=2.0)
     p.add_argument('--words', type=int, default=200)
+    p = command('validate', cmd_validate, 'phase 29 packed-product platform validation (skip named, never fake-pass)')
+    p.add_argument('--section', help='comma-separated sections (functional,correction,security,...)')
+    p.add_argument('--smoke', action='store_true', help='only the cheap smoke scenarios')
+    p.add_argument('--write-report', action='store_true', help='write docs/experiments/v1-platform-validation.md')
+    p.add_argument('--plan', action='store_true', help='expand the matrix and skip, do not launch hosts')
     command('demo', cmd_demo, 'record a scripted tmux run as an asciinema cast')
     p = command('image', cmd_image, 'build the Linux image (networked; starts no host)', hosts=False, linux=False)
     p.add_argument('--target', choices=('base', 'tmux'), default='base')

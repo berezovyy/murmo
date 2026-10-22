@@ -1,0 +1,164 @@
+"""Packed-product integration: `murmo setup` in the throwaway profile.
+
+One Integration covers all four hosts. Setup goes through `Run.sandboxed` so
+the pre-launch check and the sandbox wrap the CLI and every host command it
+spawns. Codex is launched as `murmo codex` with the rule 4 flags still on
+the final argv (the Codex host profile puts them there; the wrapper must keep
+them).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from ..integrations import Integration, IntegrationState, PluginState
+from ..paths import REPO
+from .matrix import PLUGIN_SETS
+from .product import PackedProduct, doctor_argv, enable_autocorrect, launcher_path, murmo_data, setup_argv
+
+
+def _records(host: str) -> dict:
+    path = REPO / 'packages' / 'fake-host' / 'records' / f'{host}.json'
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text())
+
+
+class PackedMurmo(Integration):
+    name = 'packed'
+    features = frozenset({
+        'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
+        'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
+        'plugin.shortcuts',
+    })
+
+    def __init__(self, product: PackedProduct | None, plugin_set: str = 'b') -> None:
+        self.product = product
+        self.plugin_set = plugin_set
+        spec = PLUGIN_SETS[plugin_set]
+        extra = []
+        if spec.get('autocorrect'):
+            extra.append('plugin.autocorrect=release')
+        if spec.get('testBuild'):
+            extra.append('plugin.test-build')
+        self.features = PackedMurmo.features | frozenset(extra)
+
+    def prepare(self, host, profile, run=None) -> None:
+        if self.product is None:
+            raise RuntimeError('packed-product-missing: set MURMO_PACKED or run pnpm pack')
+        spec = PLUGIN_SETS[self.plugin_set]
+        if spec.get('testBuild'):
+            profile.env['MURMO_PLUGIN_TEST'] = '1'
+        if spec.get('autocorrect'):
+            enable_autocorrect(profile)
+        if run is None:
+            raise RuntimeError('packed integration needs Run to install via murmo setup (sandboxed)')
+        argv = setup_argv(self.product)
+        result = run.sandboxed(profile, argv, timeout=120)
+        if result.code not in (0, None):
+            raise RuntimeError(f'murmo setup exited {result.code}: {result.stderr[-2000:]}')
+        # The journaled launcher lives under the throwaway HOME.
+        local_bin = str(Path(profile.env['HOME']) / '.local' / 'bin')
+        path = profile.env.get('PATH', '')
+        if local_bin not in path.split(':'):
+            profile.env['PATH'] = f'{local_bin}:{path}'
+        payload = murmo_data(profile) / 'package'
+        if payload.is_dir():
+            profile.env['MURMO_PACKAGE_ROOT'] = str(payload)
+
+    def argv(self, host, install, profile, argv: list[str]) -> list[str]:
+        if host.name != 'codex' or self.product is None:
+            return argv
+        launcher = launcher_path(profile)
+        if launcher.is_file():
+            return [str(launcher), 'codex', *argv]
+        plat = getattr(install, 'platform', None)
+        if plat is None:
+            from .. import paths
+            plat = paths.current_platform()
+        wrap = self.product.wrapper(plat)
+        if wrap.is_file():
+            return [str(wrap), *argv]
+        return argv
+
+    def logs(self, host, profile) -> list[Path]:
+        data = murmo_data(profile)
+        found = []
+        for path in (data / 'sessions').glob('*.json') if (data / 'sessions').is_dir() else []:
+            found.append(path)
+        for path in Path(profile.home).glob('murmo-*.jsonl'):
+            found.append(path)
+        return found
+
+    def state(self, host, profile) -> IntegrationState:
+        data = murmo_data(profile)
+        sessions = data / 'sessions'
+        if not sessions.is_dir():
+            return IntegrationState()
+        plugins: list[PluginState] = []
+        healthy = None
+        notices: list[str] = []
+        stats: dict[str, int] = {}
+        for path in sorted(sessions.glob('*.json')):
+            try:
+                body = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            if 'healthy' in body:
+                healthy = bool(body['healthy']) if healthy is None else (healthy and bool(body['healthy']))
+            for raw in body.get('plugins') or []:
+                if isinstance(raw, str):
+                    plugins.append(PluginState(raw, True))
+                    continue
+                if not isinstance(raw, dict):
+                    continue
+                pid = str(raw.get('id') or raw.get('name') or '')
+                if not pid:
+                    continue
+                enabled = raw.get('enabled', raw.get('activated', True)) is not False
+                reason = None
+                if isinstance(raw.get('fault'), dict):
+                    reason = str(raw['fault'].get('kind') or raw['fault'].get('message') or 'fault')
+                elif raw.get('disabled_reason'):
+                    reason = str(raw['disabled_reason'])
+                faults = int(raw.get('faults') or 0)
+                plugins.append(PluginState(pid, enabled, reason, faults))
+            # store acks: plugins is a map of id → outcome
+            ack = body.get('plugins')
+            if isinstance(ack, dict):
+                for pid, outcome in ack.items():
+                    enabled = outcome not in ('disabled', 'error')
+                    plugins.append(PluginState(str(pid), enabled, None if enabled else str(outcome)))
+            for n in body.get('notices') or body.get('boundaries') or []:
+                notices.append(n if isinstance(n, str) else json.dumps(n))
+            if isinstance(body.get('stats'), dict):
+                stats.update({k: int(v) for k, v in body['stats'].items() if isinstance(v, int)})
+        return IntegrationState(healthy=healthy, plugins=plugins, stats=stats, notices=notices)
+
+    def capabilities(self, host, profile) -> dict | None:
+        record = _records(host.name if hasattr(host, 'name') else str(host))
+        live = None
+        data = murmo_data(profile)
+        sessions = data / 'sessions'
+        if sessions.is_dir():
+            for path in sessions.glob('*.json'):
+                try:
+                    body = json.loads(path.read_text())
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if isinstance(body.get('capabilities'), dict):
+                    live = body['capabilities']
+                    break
+        out = dict(record)
+        if live:
+            out['live'] = live
+        return out or None
+
+    def read_ui(self, host, screen) -> dict | None:
+        text = getattr(screen, 'text', '') or ''
+        status = None
+        if 'helper unavailable' in text.lower() or 'helper-down' in text.lower():
+            status = 'helper unavailable'
+        ghost = None
+        return {'ghost': ghost, 'menu': [], 'status': status, 'screen': text[-2000:]}

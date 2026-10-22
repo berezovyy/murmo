@@ -78,12 +78,16 @@ pnpm harness matrix --version all [--linux] [--real-home-check]
 pnpm harness drift [--linux]                      # newest release vs newest pinned: probe diff
 pnpm harness load --linux --cpus 0.5 [--cpuset 0] [--trials 20] [--sessions N] [--neighbour]
 pnpm harness soak [--linux] [--minutes 2] [--words 200]
+pnpm harness validate [--smoke] [--plan] [--write-report] [--section functional] [--linux]
+                                                   # phase 29 packed-product matrix; missing hosts skip by name
 pnpm harness demo --host pi                        # tmux run → asciinema v2 cast
 pnpm harness clean-check
 pnpm test:harness                                  # the harness's own tests (pnpm harness test --linux in the container)
 ```
 
 `--linux` re-runs the same command inside a fresh `--network none` container; `--cpus` and `--cpuset` exist only there (macOS has no CPU quota). The harness runs unsandboxed itself, because macOS cannot nest `sandbox-exec`; every host process it starts is sandboxed. That is also why `pnpm test:harness` is not part of `pnpm test`.
+
+`pnpm harness validate` reruns round 14's load, security, coexistence, soak and distribution checks against the packed tarball (`MURMO_PACKED` or `dist/release/package`) after `murmo setup` in a throwaway profile. A missing stock host or tarball **skips with a named reason** and never passes. `--plan` expands the matrix without launching. `--write-report` writes `docs/experiments/v1-platform-validation.md`.
 
 Host versions live in `matrix.toml`. Installs and the stop marker live in the shared cache: `<main checkout>/experiments/.cache/hosts/` (or `MURMO_HARNESS_CACHE`).
 
@@ -103,6 +107,7 @@ Host versions live in `matrix.toml`. Installs and the stop marker live in the sh
 | `murmo_harness/runner.py` | shared fixture cases → driver steps → conformance verdicts (`subject: host:<name>`) plus per-case evidence |
 | `murmo_harness/probe.py` | version probe, format canary, drift diff |
 | `murmo_harness/load.py`, `soak.py`, `demo.py`, `inventory.py` | load knobs with a paired control, soak, demo recorder, HOME inventories |
+| `murmo_harness/validation/` | phase 29 packed-product matrix, named skips, oracles, report writer |
 | `murmo_harness/integrations.py` | the seam for Murmo adapters |
 | `tests/` | the harness's own tests, with a stub TUI host for the safety checks |
 

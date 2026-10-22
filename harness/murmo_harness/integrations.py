@@ -63,8 +63,12 @@ class Integration:
     # code): safety rule 7 allows that only in a --network none container.
     third_party: bool = False
 
-    def prepare(self, host, profile) -> None:
-        """Install Murmo into the profile before launch. Stock: nothing."""
+    def prepare(self, host, profile, run=None) -> None:
+        """Install Murmo into the profile before launch. Stock: nothing.
+
+        Packed-product setup (phase 29) uses `run.sandboxed` so the CLI and
+        every host command it spawns stay inside the sandbox.
+        """
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         return argv

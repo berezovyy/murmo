@@ -251,6 +251,55 @@ class Run:
         self.watchdog.check()
         return result
 
+    def sandboxed(self, prof: profiles.Profile, argv: list[str], *, timeout: float = 60, source: str = 'stdout') -> CommandResult:
+        """A non-host command (murmo setup/doctor/plugin) in the same sandbox.
+
+        Used by the packed-product integration so setup's spawned host
+        `--version` probes inherit the network block (rule 2).
+        """
+        from . import sandbox as sandboxes
+
+        ensure_not_stopped(self.stop_marker)
+        self.watchdog.check()
+        if self.sandbox is None or self.self_test is None or not self.self_test.passed:
+            raise sandboxes.SandboxBroken('no passing network self-test in this run; not launching')
+        profiles.check(
+            prof,
+            host_checks={'sandboxed-cli': True},
+            argv=argv,
+            cwd=prof.project,
+            watchdog=self.watchdog,
+            log=self.evidence / 'prelaunch.jsonl',
+        )
+        wrapped = self.sandbox.wrap(argv)
+        started = time.monotonic()
+        self.launches += 1
+        proc = subprocess.Popen(
+            wrapped,
+            cwd=prof.project,
+            env=prof.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            start_new_session=True,
+        )
+        self.registry.register(proc.pid)
+        timed_out = False
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            self.registry.kill_session(proc.pid)
+            stdout, stderr = proc.communicate(timeout=10)
+        finally:
+            self.registry.kill_session(proc.pid)
+        result = CommandResult(argv, proc.returncode, stdout or '', stderr or '', time.monotonic() - started, timed_out)
+        self.watchdog.scan(result.stdout, source, ' '.join(argv[-2:]))
+        self.watchdog.scan(result.stderr, 'stderr', ' '.join(argv[-2:]))
+        self.watchdog.check()
+        return result
+
     def probe_version(self, host: HostProfile, install: Install) -> tuple[str | None, CommandResult]:
         """`--version` in a throwaway profile, in the sandbox (OpenCode writes
         state even for `--version`, r10 I1)."""
@@ -308,7 +357,7 @@ class Session:
     closed: bool = False
 
     def start(self) -> None:
-        self.integration.prepare(self.host, self.profile)
+        self.integration.prepare(self.host, self.profile, run=self.run)
         self.argv = self.integration.argv(self.host, self.install, self.profile, self.host.launch_argv(self.install, self.profile))
         self.run.preflight(self.host, self.profile, self.argv)
         wrapped = self.run.sandbox.wrap(self.argv)
