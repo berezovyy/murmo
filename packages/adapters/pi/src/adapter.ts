@@ -470,7 +470,7 @@ export class PiAdapter implements Adapter {
     this.#submitMutation = null;
 
     let consume: 'consume' | 'pass' = 'pass';
-    if (!this.#probing && !this.#disposed) {
+    if (!this.#disposed) {
       for (const cb of [...this.#keys]) {
         try {
           if (cb(decoded.id) === 'consume') consume = 'consume';

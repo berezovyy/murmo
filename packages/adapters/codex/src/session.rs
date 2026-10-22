@@ -13,6 +13,11 @@ use crate::screen::{Screen, Ui};
 use crate::transport::{apply_planned, inline_apply, plan_edit};
 use crate::INLINE_MAX_BYTES;
 
+/// Startup echo probe runs before `finish()`, so `edits_on()` is still false.
+pub fn edit_gate(probes: &Probes, probed: bool, known: bool, ui: Ui) -> bool {
+    known && ui == Ui::Idle && (probes.edits_on() || !probed)
+}
+
 pub struct Inner {
     pub fd: i32,
     pub screen: Screen,
@@ -117,7 +122,7 @@ impl Inner {
     }
 
     pub fn run_edit(&mut self, e: &Value) -> Value {
-        if !self.probes.edits_on() || !self.ledger.known || self.ledger.ui != Ui::Idle {
+        if !edit_gate(&self.probes, self.probed, self.ledger.known, self.ledger.ui) {
             return json!({"ok": false, "why": "state", "snapshot": self.snapshot()});
         }
         let from = e["from"].as_u64().unwrap_or(0) as usize;
@@ -233,5 +238,27 @@ impl Inner {
         let contents = self.screen.contents();
         self.ledger.apply_event(ev, &contents);
         self.refresh_ledger();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::edit_gate;
+    use crate::probes::Probes;
+    use crate::screen::Ui;
+
+    #[test]
+    fn echo_probe_is_allowed_before_finish() {
+        let probes = Probes::new();
+        assert!(edit_gate(&probes, false, true, Ui::Idle));
+        assert!(!edit_gate(&probes, true, true, Ui::Idle));
+    }
+
+    #[test]
+    fn edits_on_after_prompt_probe() {
+        let mut probes = Probes::new();
+        probes.finish(true, true, true, true, true, true, false);
+        assert!(edit_gate(&probes, true, true, Ui::Idle));
+        assert!(probes.transport_on(), "bracketed paste is enough; echo is advisory");
     }
 }

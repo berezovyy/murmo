@@ -1,4 +1,4 @@
-// Spawn `murmo-plugin-host --http --socket` and talk over `$.http.fetch`.
+// Spawn `murmo-plugin-host --http --socket` and talk over `rt.http.fetch`.
 // Socket names stay short: a long path exited 101 on macOS (E11).
 
 import type { Clock } from '@murmo/api';
@@ -18,14 +18,14 @@ function shortId(): string {
   return Math.random().toString(16).slice(2, 10);
 }
 
-export async function socketDir($: ClaudeRuntime): Promise<string> {
-  const tmp = (await $.env.get('TMPDIR')) || '/tmp';
+export async function socketDir(rt: ClaudeRuntime): Promise<string> {
+  const tmp = (await rt.env.get('TMPDIR')) || '/tmp';
   return tmp.replace(/\/$/, '');
 }
 
-export async function spawnHelper($: ClaudeRuntime, binary: string, clock: Clock): Promise<HelperHandle> {
-  const socketPath = `${await socketDir($)}/murmo-${shortId()}.sock`;
-  const hostProcess = $.process;
+export async function spawnHelper(rt: ClaudeRuntime, binary: string, clock: Clock): Promise<HelperHandle> {
+  const socketPath = `${await socketDir(rt)}/murmo-${shortId()}.sock`;
+  const hostProcess = rt.process;
   const stream: SpawnStream = hostProcess.spawn({ argv: [binary, '--http', '--socket', socketPath] });
   let settled = false;
   let resolveReady: (info: { pid?: number }) => void = () => {};
@@ -68,7 +68,7 @@ export async function spawnHelper($: ClaudeRuntime, binary: string, clock: Clock
   const info = await Promise.race([ready, timeout]);
   const transport = createSocketTransport({
     socketPath,
-    fetch: (url, init) => $.http.fetch(url, init),
+    fetch: (url, init) => rt.http.fetch(url, init),
   });
   return {
     socketPath,

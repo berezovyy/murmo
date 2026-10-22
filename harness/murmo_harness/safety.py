@@ -69,6 +69,8 @@ ALLOWED_SET = frozenset(
         'MURMO_HARNESS_RUN',
         'MURMO_PACKAGE_ROOT',
         'MURMO_PLUGIN_TEST',
+        'MURMO_AUTOCORRECT',
+        'MURMO_ENGLISH_TABLE',
     }
 )
 

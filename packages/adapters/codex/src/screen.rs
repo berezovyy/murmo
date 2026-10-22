@@ -45,6 +45,7 @@ pub struct Screen {
     pub saw_sync_frames: bool,
     pub saw_run_state: bool,
     pending: Vec<u8>,
+    detect_tail: Vec<u8>,
 }
 
 impl Screen {
@@ -57,6 +58,7 @@ impl Screen {
             saw_sync_frames: false,
             saw_run_state: false,
             pending: Vec::new(),
+            detect_tail: Vec::new(),
         }
     }
 
@@ -69,16 +71,20 @@ impl Screen {
     }
 
     pub fn process(&mut self, raw: &[u8]) {
-        if raw.windows(8).any(|w| w == b"\x1b[?2004h") {
+        let mut combined = std::mem::take(&mut self.detect_tail);
+        combined.extend_from_slice(raw);
+        if combined.windows(8).any(|w| w == b"\x1b[?2004h") {
             self.saw_bracketed_paste = true;
         }
-        if raw
+        if combined
             .windows(8)
             .any(|w| w == b"\x1b[?2026h" || w == b"\x1b[?2026l")
         {
             self.saw_sync_frames = true;
         }
-        self.frames += raw.windows(8).filter(|w| *w == b"\x1b[?2026l").count() as u64;
+        self.frames += combined.windows(8).filter(|w| *w == b"\x1b[?2026l").count() as u64;
+        let keep = combined.len().min(7);
+        self.detect_tail = combined[combined.len() - keep..].to_vec();
         if let Some(title) = osc_title(raw) {
             self.title = title;
             if matches!(
@@ -250,5 +256,14 @@ mod tests {
     fn unknown_until_prompt() {
         assert_eq!(classify("loading", "hi", 2, true, false), Ui::Unknown);
         assert_eq!(classify("› hi", "hi", 2, false, false), Ui::Unknown);
+    }
+
+    #[test]
+    fn bracketed_paste_csi_split_across_reads() {
+        let mut screen = Screen::new(24, 80);
+        screen.process(b"\x1b[?200");
+        assert!(!screen.saw_bracketed_paste);
+        screen.process(b"4h");
+        assert!(screen.saw_bracketed_paste);
     }
 }

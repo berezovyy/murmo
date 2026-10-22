@@ -162,11 +162,11 @@ export class ClaudeAdapter implements Adapter {
   readonly #actions = new Set<(action: ActionId) => void>();
   readonly #committed = new Set<(event: HostSubmitAccepted) => void>();
   readonly #options: ClaudeAdapterOptions;
-  readonly $: ClaudeRuntime | undefined;
+  readonly rt: ClaudeRuntime | undefined;
 
   constructor(options: ClaudeAdapterOptions = {}, runtime?: ClaudeRuntime) {
     this.#options = options;
-    this.$ = runtime;
+    this.rt = runtime;
     this.host = { name: 'claude', version: options.version ?? TESTED_HOST };
     this.caps = claudeCaps();
     this.probes = defaultProbes();
@@ -189,7 +189,7 @@ export class ClaudeAdapter implements Adapter {
     if (this.#ready) return this.caps;
     this.#probe = true;
     try {
-      if (!this.#options.skipProbes && this.$ && this.probes.promptEdit) await this.#probeHost(this.$);
+      if (!this.#options.skipProbes && this.rt && this.probes.promptEdit) await this.#probeHost(this.rt);
     } finally {
       this.#probe = false;
       this.#ready = true;
@@ -725,17 +725,17 @@ export class ClaudeAdapter implements Adapter {
     this.#state = { ...this.#state, history: false, mode: this.#opaque ? 'unknown' : 'prose', popup: null };
   }
 
-  async #probeHost($: ClaudeRuntime): Promise<void> {
-    const before = await $.prompt.read();
+  async #probeHost(rt: ClaudeRuntime): Promise<void> {
+    const before = await rt.prompt.read();
     this.probes.base64Fs = typeof (Uint8Array as { fromBase64?: unknown }).fromBase64 === 'function';
     if (before.text) {
       this.#draft = { ...emptyDraft(), text: before.text, cursor: before.cursor };
       return;
     }
     try {
-      const filled = await $.prompt.fill({ text: 'A🙂\nB' });
-      const read = await $.prompt.read();
-      await $.prompt.fill({ text: before.text });
+      const filled = await rt.prompt.fill({ text: 'A🙂\nB' });
+      const read = await rt.prompt.read();
+      await rt.prompt.fill({ text: before.text });
       this.caps = {
         ...this.caps,
         readDraft: typeof read.text === 'string',

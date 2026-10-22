@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compileShortcuts, SAMPLE_SHORTCUTS, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { utf8Length } from '@murmo/text';
+import type { FakePiEditor } from './fake-pi.ts';
 import { startLive } from './helpers.ts';
 
 test('typed teh␠ corrects; pasted teh stays literal (E1, E16, lesson 52)', async () => {
@@ -103,6 +104,16 @@ test('startup probes publish 2.0-pre caps: host-labeled, same-transaction, accep
   assert.equal(caps.ghost, 'end-only');
   assert.equal(caps.ui.statusMaxLength, 512);
   assert.equal(caps.keyPriority, 'unknown');
+  await live.dispose();
+});
+
+test('startup probe consumes Enter so stock-canary is not submitted (packed -e)', async () => {
+  const live = await startLive();
+  const wrapped = live.adapter.backend.editor as InstanceType<typeof FakePiEditor> | undefined;
+  assert.equal(wrapped?.submitCount ?? live.env.editor.submitCount, 0);
+  assert.equal((wrapped ?? live.env.editor).getText(), '');
+  live.type('murmo harness canary line');
+  assert.equal((wrapped ?? live.env.editor).getText(), 'murmo harness canary line');
   await live.dispose();
 });
 

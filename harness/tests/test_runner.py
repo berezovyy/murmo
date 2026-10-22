@@ -78,6 +78,27 @@ class FunctionalNotLoaded(unittest.TestCase):
             self.assertEqual(verdict['status'], 'fail')
             self.assertEqual(verdict['reason'], 'no assertions ran')
 
+    def test_packed_skips_r14_conflict_plugins(self):
+        """Packed product does not ship fixtures/plugins/conflicts.js (r14-followup)."""
+        from murmo_harness.validation.integration import PackedMurmo
+
+        needs_sandbox()
+        case = {
+            'id': 'order-AB-edit',
+            'plugins': [{'id': 'A', 'plugin': 'conflicts', 'settings': {'letter': 'A'}}],
+            'steps': [{'type': 'r14word target '}],
+            'expect': {'draft': {'text': 'r14word A '}},
+        }
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                packed = PackedMurmo(None, 'b')
+                s = subject(run, folder / 'a', packed)
+                reason = s.unsupported(case, case['expect'])
+                verdict = s.run_case('hosts/r14-followup.json', case)
+        self.assertEqual(reason, 'packed-no-conflict-plugins')
+        self.assertEqual(verdict['status'], 'skip')
+        self.assertEqual(verdict['reason'], 'packed-no-conflict-plugins')
+
     def test_unsupported_steps_skip_with_reason_never_pass(self):
         with scratch() as folder, stub_host():
             run = new_run(folder)

@@ -170,6 +170,14 @@ mod tests {
         std::env::remove_var("MURMO_PACKAGE_ROOT");
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn table_entries_reads_packed_count() {
+        let mut bytes = vec![0u8; 32];
+        bytes[4..8].copy_from_slice(&88_525u32.to_le_bytes());
+        assert_eq!(super::table_entries(&bytes), Some(88_525));
+        assert_eq!(super::table_entries(&[1, 2, 3]), None);
+    }
 }
 
 pub fn table_entries(bytes: &[u8]) -> Option<u32> {

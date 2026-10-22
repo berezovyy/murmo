@@ -1,7 +1,7 @@
 // Wire the core session, built-in plugins, user config and optional helper.
 
 import type { Clock } from '@murmo/api';
-import type { Executor, StorageBackend } from '@murmo/api/adapter';
+import type { Executor } from '@murmo/api/adapter';
 import { mergeConfig, resolveShortcuts } from '@murmo/config';
 import {
   createMemoryProjectFiles,
@@ -13,6 +13,7 @@ import {
   type Session,
 } from '@murmo/core';
 import { createClock, createInProcessExecutor } from '@murmo/executor';
+import { mapTable } from '@murmo/lang';
 import {
   autocorrectFactory,
   englishInlineRules,
@@ -26,13 +27,16 @@ import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
+import { bytesOf } from './decode.ts';
 import { createClaudeBroker } from './events.ts';
-import { type HelperHandle, isolatedFrom, spawnHelper } from './helper.ts';
+import { type HelperHandle, spawnHelper } from './helper.ts';
 import {
   helperPath,
+  type IntegrityFile,
   type LocatedPayload,
   loadTable,
   locatePayload,
+  type PayloadTable,
   parseUserConfig,
   readUserConfig,
 } from './payload.ts';
@@ -53,11 +57,21 @@ export interface ClaudeHost {
   readonly events: EventBroker | undefined;
   readonly alive: boolean;
   readonly notices: readonly string[];
-  start($: ClaudeRuntime): Promise<void>;
+  start(rt: ClaudeRuntime): Promise<void>;
+  bootPacked(input: PackedBoot): Promise<void>;
   dispose(): Promise<void>;
 }
 
-function clockOf($: ClaudeRuntime, injected?: Clock): Clock {
+export interface PackedBoot {
+  readonly payloadRoot: string;
+  readonly integrityJson: string;
+  readonly tableRaw?: string | { readonly base64: string };
+  readonly casePolicyJson?: string;
+  readonly userToml?: string;
+  readonly cwd: string;
+}
+
+function clockOf(rt: ClaudeRuntime, injected?: Clock): Clock {
   if (injected) return injected;
   return createClock({
     now: () => {
@@ -66,33 +80,21 @@ function clockOf($: ClaudeRuntime, injected?: Clock): Clock {
     },
     wallTimeMs: () => Date.now(),
     setTimer: (callback, ms) => {
-      const handle = $.clock.after(ms, callback);
+      const handle = rt.clock.after(ms, callback);
       return () => handle.cancel();
     },
   });
 }
 
-function storageOverHelper(handle: HelperHandle): StorageBackend {
-  return {
-    async load(namespace) {
-      const reply = await handle.transport().request({ op: 'storage.get', plugin: namespace, key: '__doc__' });
-      return typeof reply.value === 'string' ? reply.value : '{}';
-    },
-    async save(namespace, json) {
-      await handle.transport().request({ op: 'storage.set', plugin: namespace, key: '__doc__', value: json });
-    },
-  };
-}
-
-async function builtIns(
-  $: ClaudeRuntime,
+function builtinsFromConfig(
   adapter: ClaudeAdapter,
-  payload: LocatedPayload | undefined,
-): Promise<{
+  userText: string | undefined,
+  cwd: string,
+  table: PayloadTable | undefined,
+): {
   specs: HostPluginSpec[];
   order: string[];
-}> {
-  const userText = await readUserConfig($);
+} {
   const parsed = parseUserConfig(userText, 'murmo.toml');
   const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
   const config = mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
@@ -108,7 +110,6 @@ async function builtIns(
   });
   for (const notice of compiled.notices) adapter.notices.push(notice.text);
 
-  const table = payload ? await loadTable($, payload) : undefined;
   if (table) {
     provideEnglishPack({
       bytes: table.bytes,
@@ -146,7 +147,6 @@ async function builtIns(
       })()
     : { id: 'autocorrect', builtin: true, factory: autocorrectFactory, settings: { enabled: false } };
 
-  const cwd = await $.session.cwd();
   const project = `${cwd.replace(/[^a-zA-Z0-9]/g, '')}0000000000000000`.slice(0, 16);
   const specs: HostPluginSpec[] = [
     autocorrect,
@@ -184,6 +184,27 @@ async function builtIns(
   return { specs: enabled, order };
 }
 
+async function builtIns(
+  rt: ClaudeRuntime,
+  adapter: ClaudeAdapter,
+  payload: LocatedPayload | undefined,
+): Promise<{
+  specs: HostPluginSpec[];
+  order: string[];
+}> {
+  const userText = await readUserConfig(rt);
+  const table = payload ? await loadTable(rt, payload) : undefined;
+  const cwd = await rt.session.cwd();
+  return builtinsFromConfig(adapter, userText, cwd, table);
+}
+
+function packedClock(injected?: Clock): Clock {
+  if (injected) return injected;
+  return createClock({
+    setTimer: (_callback, _ms) => () => {},
+  });
+}
+
 export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost {
   let adapter = new ClaudeAdapter(options);
   let session: Session | undefined;
@@ -210,36 +231,23 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
     get notices() {
       return adapter.notices;
     },
-    async start($: ClaudeRuntime) {
-      adapter = new ClaudeAdapter(options, $);
-      const clock = clockOf($, options.clock);
+    async start(rt: ClaudeRuntime) {
+      adapter = new ClaudeAdapter(options, rt);
+      const clock = clockOf(rt, options.clock);
       await adapter.ready();
-      const payload = await locatePayload($, options.payloadRoot);
+      const payload = await locatePayload(rt, options.payloadRoot);
       if (payload?.notice) adapter.notices.push(payload.notice);
-      let executor: Executor = createInProcessExecutor({ clock });
-      if (payload && !payload.notice) {
-        const binary = await helperPath($, payload);
-        if (binary) {
-          try {
-            helper = await spawnHelper($, binary, clock);
-            adapter.noteHelper(true);
-            executor = isolatedFrom(helper, clock);
-          } catch (error) {
-            adapter.notices.push(`helper unavailable: ${error instanceof Error ? error.message : String(error)}`);
-            adapter.noteHelper(false);
-            helper = undefined;
-            executor = createInProcessExecutor({ clock });
-          }
-        }
-      }
+      // Built-ins (inline teh→the) run in-process. Waiting for the helper here
+      // left host.alive false through the harness ready_quiet window (4 s vs 1 s).
+      const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
-        : await builtIns($, adapter, payload);
+        : await builtIns(rt, adapter, payload);
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,
-        storage: helper ? storageOverHelper(helper) : createMemoryStorage(),
-        projectFiles: createMemoryProjectFiles({ root: await $.session.cwd() }),
+        storage: createMemoryStorage(),
+        projectFiles: createMemoryProjectFiles({ root: await rt.session.cwd() }),
       });
       session = createSession({
         adapter,
@@ -253,7 +261,22 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
-      const userText = await readUserConfig($);
+      if (payload && !payload.notice) {
+        const binary = await helperPath(rt, payload);
+        if (binary) {
+          void spawnHelper(rt, binary, clock).then(
+            (handle) => {
+              helper = handle;
+              adapter.noteHelper(true);
+            },
+            (error: unknown) => {
+              adapter.notices.push(`helper unavailable: ${error instanceof Error ? error.message : String(error)}`);
+              adapter.noteHelper(false);
+            },
+          );
+        }
+      }
+      const userText = await readUserConfig(rt);
       const parsed = parseUserConfig(userText, 'murmo.toml');
       const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
       const config = mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
@@ -283,10 +306,10 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
           hostCaps: caps,
           ghost: {
             apply: async (_id, text, version) => {
-              const box = await $.prompt.read();
+              const box = await rt.prompt.read();
               if (box.text !== '') return { status: 'denied' as const, reason: 'prompt not empty' };
               const suggest = (
-                $ as ClaudeRuntime & {
+                rt as ClaudeRuntime & {
                   prompt: ClaudeRuntime['prompt'] & { suggest?: (t: string) => Promise<{ isShown?: boolean }> };
                 }
               ).prompt.suggest;
@@ -295,11 +318,63 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
                 return { status: 'applied' as const, reason: shown?.isShown ? 'suggest-ack' : 'suggest' };
               }
               void version;
-              return { status: 'unsupported' as const, reason: '$.prompt.suggest missing' };
+              return { status: 'unsupported' as const, reason: 'rt.prompt.suggest missing' };
             },
           },
         }).broker;
       }
+      alive = true;
+    },
+    async bootPacked(input: PackedBoot) {
+      adapter = new ClaudeAdapter({ ...options, skipProbes: true });
+      const clock = packedClock(options.clock);
+      let payload: LocatedPayload | undefined;
+      try {
+        const integrity = JSON.parse(input.integrityJson) as IntegrityFile;
+        if (integrity?.version === PLUGIN_VERSION) payload = { root: input.payloadRoot, integrity };
+        else if (integrity?.version)
+          adapter.notices.push(`payload version ${integrity.version} does not match plugin ${PLUGIN_VERSION}`);
+      } catch {
+        payload = undefined;
+      }
+      let table: PayloadTable | undefined;
+      if (payload && input.tableRaw) {
+        const bytes = bytesOf(input.tableRaw);
+        const mapped = mapTable(bytes);
+        let lowercaseOnly: string[] = [];
+        if (input.casePolicyJson) {
+          try {
+            const json = JSON.parse(input.casePolicyJson) as { lowercaseOnly?: unknown };
+            if (Array.isArray(json.lowercaseOnly))
+              lowercaseOnly = json.lowercaseOnly.filter((w): w is string => typeof w === 'string');
+          } catch {
+            lowercaseOnly = [];
+          }
+        }
+        table = { bytes, sha256: '', entries: mapped.entries, lowercaseOnly };
+      }
+      const executor: Executor = createInProcessExecutor({ clock });
+      const loaded = options.plugins
+        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
+        : builtinsFromConfig(adapter, input.userToml, input.cwd, table);
+      const runner = createPluginHost({
+        specs: loaded.specs,
+        executor,
+        storage: createMemoryStorage(),
+        projectFiles: createMemoryProjectFiles({ root: input.cwd }),
+      });
+      session = createSession({
+        adapter,
+        runner,
+        order: loaded.order,
+        clock,
+        keyBursts: false,
+        guardPolicy: 'managed',
+        notify: (message) => {
+          adapter.notices.push(message);
+        },
+      });
+      await session.ready;
       alive = true;
     },
     async dispose() {

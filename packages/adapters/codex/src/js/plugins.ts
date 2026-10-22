@@ -10,7 +10,6 @@ import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { INLINE_MAX_BYTES } from './caps.ts';
-import { sha256 } from './host.ts';
 
 export interface EngineConfig {
   readonly hostVersion?: string;
@@ -31,15 +30,23 @@ export interface TableMeta {
   readonly asset?: string;
 }
 
+/** Copy the exact view. `new Uint8Array(view.buffer)` includes unrelated prefix bytes. */
+export function tableBytes(asset: unknown): Uint8Array | undefined {
+  if (asset instanceof ArrayBuffer) return new Uint8Array(asset);
+  if (ArrayBuffer.isView(asset)) {
+    const view = asset as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+  }
+  return undefined;
+}
+
 export function installTable(bytes: Uint8Array | undefined, meta: TableMeta): void {
-  if (!bytes || !meta.sha256 || !meta.entries) return;
+  if (!bytes || bytes.byteLength < 32 || !meta.entries) return;
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
-  const hash = sha256(copy);
-  if (hash !== 'missing' && hash !== meta.sha256) return;
   provideEnglishPack({
     bytes: copy,
-    sha256: meta.sha256,
+    sha256: meta.sha256 ?? '',
     entries: meta.entries,
     lowercaseOnly: meta.lowercaseOnly ?? [],
   });

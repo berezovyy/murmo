@@ -7,7 +7,7 @@ import { asSnap, type CodexAdapter, completeEdit, createAdapter, hostState } fro
 import { codexCaps } from './caps.ts';
 import { continueReply, createCodexBroker, handleCodexHookSync } from './events.ts';
 import { createHost } from './host.ts';
-import { builtinSpecs, type EngineConfig, installTable, type TableMeta } from './plugins.ts';
+import { builtinSpecs, type EngineConfig, installTable, type TableMeta, tableBytes } from './plugins.ts';
 import { installTimers, tick } from './timers.ts';
 
 installTimers();
@@ -40,8 +40,8 @@ function boot(): void {
   const config = readJson<EngineConfig>(g.__configJSON, {});
   const tableMeta = readJson<TableMeta>(g.__tableMetaJSON, {});
   const asset = g.__inlineAsset;
-  if (asset instanceof ArrayBuffer) installTable(new Uint8Array(asset), tableMeta);
-  else if (ArrayBuffer.isView(asset)) installTable(new Uint8Array(asset.buffer), tableMeta);
+  const bytes = tableBytes(asset);
+  if (bytes) installTable(bytes, tableMeta);
 
   const specs = builtinSpecs(config);
   adapter = createAdapter(host, {
@@ -108,6 +108,8 @@ function hostStop(): void {
     // fail-open
   }
 }
+
+g.__loadedFlag = () => (g.__loaded ? 'true' : 'false');
 
 g.__init = () => {
   try {

@@ -275,6 +275,8 @@ class ProfileChecks(unittest.TestCase):
             self.assertTrue(record['passed'])
             data = json.loads(host.state_files(prof)[0].read_text())
             self.assertEqual(data['numStartups'], 1, 'the merge must keep what the install wrote')
+            self.assertTrue(data['hasSeenAutoDefaultNotice'])
+            self.assertTrue(data['hasSeenAutoModeEntryWarning'])
             # A settings file pointed elsewhere is never "fixed"; it refuses.
             settings = json.loads(host.settings_path(prof).read_text())
             settings['env']['ANTHROPIC_BASE_URL'] = 'http://10.0.0.1:9'

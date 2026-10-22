@@ -1,5 +1,5 @@
 // Durable payload under `$XDG_DATA_HOME/murmo/package` (store layout, phase 14/27).
-// Version handshake, then the packed table via `$.fs` bytes. No Node, no timer.
+// Version handshake, then the packed table via `rt.fs` bytes. No Node, no timer.
 
 import { parseConfig } from '@murmo/config';
 import { mapTable } from '@murmo/lang';
@@ -51,28 +51,28 @@ function hashOf(files: IntegrityFile['files'], path: string): string | undefined
   return typeof entry === 'string' ? entry : entry.sha256;
 }
 
-export async function dataHome($: ClaudeRuntime): Promise<string> {
-  const xdg = await $.env.get('XDG_DATA_HOME');
+export async function dataHome(rt: ClaudeRuntime): Promise<string> {
+  const xdg = await rt.env.get('XDG_DATA_HOME');
   if (xdg) return join(xdg, 'murmo');
-  const home = (await $.env.get('HOME')) ?? '';
+  const home = (await rt.env.get('HOME')) ?? '';
   return join(home, '.local/share/murmo');
 }
 
-export async function configHome($: ClaudeRuntime): Promise<string> {
-  const xdg = await $.env.get('XDG_CONFIG_HOME');
+export async function configHome(rt: ClaudeRuntime): Promise<string> {
+  const xdg = await rt.env.get('XDG_CONFIG_HOME');
   if (xdg) return join(xdg, 'murmo');
-  const home = (await $.env.get('HOME')) ?? '';
+  const home = (await rt.env.get('HOME')) ?? '';
   return join(home, '.config/murmo');
 }
 
-async function readJson($: ClaudeRuntime, path: string): Promise<unknown> {
-  if (!(await $.fs.exists(path))) return undefined;
-  const raw = textOf(await $.fs.read(path));
-  if (raw.length > FS_MAX_BYTES) throw new Error(`${path} exceeds the 4 MiB $.fs limit`);
+async function readJson(rt: ClaudeRuntime, path: string): Promise<unknown> {
+  if (!(await rt.fs.exists(path))) return undefined;
+  const raw = textOf(await rt.fs.read(path));
+  if (raw.length > FS_MAX_BYTES) throw new Error(`${path} exceeds the 4 MiB rt.fs limit`);
   return JSON.parse(raw) as unknown;
 }
 
-function packageFromPluginRoot(pluginRoot: string): string | undefined {
+export function packageFromPluginRoot(pluginRoot: string): string | undefined {
   const markers = ['/adapters/claude/hooks', '/adapters/claude'];
   for (const marker of markers) {
     if (pluginRoot === marker || pluginRoot.endsWith(marker) || pluginRoot.endsWith(`${marker}/`)) {
@@ -83,17 +83,17 @@ function packageFromPluginRoot(pluginRoot: string): string | undefined {
   return undefined;
 }
 
-export async function locatePayload($: ClaudeRuntime, override?: string): Promise<LocatedPayload | undefined> {
+export async function locatePayload(rt: ClaudeRuntime, override?: string): Promise<LocatedPayload | undefined> {
   const candidates: string[] = [];
   if (override) candidates.push(override);
-  candidates.push(join(await dataHome($), 'package'));
-  const fromPlugin = packageFromPluginRoot($.plugin.root);
+  candidates.push(join(await dataHome(rt), 'package'));
+  const fromPlugin = packageFromPluginRoot(rt.plugin.root);
   if (fromPlugin && !candidates.includes(fromPlugin)) candidates.push(fromPlugin);
   let lastUnreadable: LocatedPayload | undefined;
   for (const root of candidates) {
     const integrityPath = join(root, 'integrity.json');
-    if (!(await $.fs.exists(integrityPath))) continue;
-    const integrity = (await readJson($, integrityPath)) as IntegrityFile;
+    if (!(await rt.fs.exists(integrityPath))) continue;
+    const integrity = (await readJson(rt, integrityPath)) as IntegrityFile;
     if (!integrity || typeof integrity.version !== 'string') {
       lastUnreadable = { root, integrity: { version: '' }, notice: 'payload integrity.json is unreadable' };
       continue;
@@ -110,10 +110,10 @@ export async function locatePayload($: ClaudeRuntime, override?: string): Promis
   return lastUnreadable;
 }
 
-export async function loadTable($: ClaudeRuntime, payload: LocatedPayload): Promise<PayloadTable | undefined> {
+export async function loadTable(rt: ClaudeRuntime, payload: LocatedPayload): Promise<PayloadTable | undefined> {
   const path = join(payload.root, TABLE_PATH);
-  if (!(await $.fs.exists(path))) return undefined;
-  const raw = await $.fs.read(path, { as: 'bytes' });
+  if (!(await rt.fs.exists(path))) return undefined;
+  const raw = await rt.fs.read(path, { as: 'bytes' });
   const bytes = bytesOf(raw);
   if (bytes.byteLength > FS_MAX_BYTES) return undefined;
   const aligned =
@@ -128,9 +128,9 @@ export async function loadTable($: ClaudeRuntime, payload: LocatedPayload): Prom
   const sha256 = hashOf(payload.integrity.files, TABLE_PATH) ?? '';
   let lowercaseOnly: string[] = [];
   const casePath = join(payload.root, CASE_POLICY_PATH);
-  if (await $.fs.exists(casePath)) {
+  if (await rt.fs.exists(casePath)) {
     try {
-      const json = (await readJson($, casePath)) as { lowercaseOnly?: unknown };
+      const json = (await readJson(rt, casePath)) as { lowercaseOnly?: unknown };
       if (Array.isArray(json.lowercaseOnly)) {
         lowercaseOnly = json.lowercaseOnly.filter((w): w is string => typeof w === 'string');
       }
@@ -141,18 +141,18 @@ export async function loadTable($: ClaudeRuntime, payload: LocatedPayload): Prom
   return { bytes: aligned, sha256, entries: mapped.entries, lowercaseOnly };
 }
 
-export async function helperPath($: ClaudeRuntime, payload: LocatedPayload): Promise<string | undefined> {
+export async function helperPath(rt: ClaudeRuntime, payload: LocatedPayload): Promise<string | undefined> {
   const darwin = join(payload.root, HELPER_DARWIN);
   const linux = join(payload.root, HELPER_LINUX);
-  if (await $.fs.exists(darwin)) return darwin;
-  if (await $.fs.exists(linux)) return linux;
+  if (await rt.fs.exists(darwin)) return darwin;
+  if (await rt.fs.exists(linux)) return linux;
   return undefined;
 }
 
-export async function readUserConfig($: ClaudeRuntime): Promise<string | undefined> {
-  const path = join(await configHome($), 'murmo.toml');
-  if (!(await $.fs.exists(path))) return undefined;
-  const text = textOf(await $.fs.read(path));
+export async function readUserConfig(rt: ClaudeRuntime): Promise<string | undefined> {
+  const path = join(await configHome(rt), 'murmo.toml');
+  if (!(await rt.fs.exists(path))) return undefined;
+  const text = textOf(await rt.fs.read(path));
   if (text.length > FS_MAX_BYTES) return undefined;
   return text;
 }

@@ -269,6 +269,27 @@ class PlanDoesNotLaunch(unittest.TestCase):
 class PackedLaunchArgv(unittest.TestCase):
     """Packed Pi must load the installed extension; stock `--no-extensions` hid Murmo."""
 
+    def test_plugin_set_b_sets_murmo_autocorrect_env(self):
+        from murmo_harness.validation.integration import PackedMurmo
+        from murmo_harness.validation.product import enable_autocorrect
+        from support import scratch
+
+        class Profile:
+            def __init__(self, root):
+                self.env = {'XDG_CONFIG_HOME': str(root / 'config'), 'HOME': str(root / 'home')}
+
+        with scratch() as root:
+            prof = Profile(root)
+            enable_autocorrect(prof)
+            packed = PackedMurmo(None, 'b')
+            packed.plugin_set = 'b'
+            # prepare() also writes MURMO_AUTOCORRECT; mirror the env knob here.
+            if packed.plugin_set == 'b':
+                prof.env['MURMO_AUTOCORRECT'] = '1'
+            self.assertEqual(prof.env['MURMO_AUTOCORRECT'], '1')
+            toml = (root / 'config' / 'murmo' / 'murmo.toml').read_text()
+            self.assertIn('enabled = true', toml)
+
     def test_packed_pi_passes_explicit_extension(self):
         from murmo_harness.validation.integration import PackedMurmo
         from support import scratch

@@ -6,6 +6,33 @@ import { createClaudeHost } from '../src/session.ts';
 import { boot, type } from './boot.ts';
 import { FakeClaude, paste, typeChars } from './fake-runtime.ts';
 
+test('bootPacked primitives rewrite keyed teh without passing $ (Claude analyzer)', async () => {
+  const fake = new FakeClaude({
+    files: { '/config/murmo/murmo.toml': '[autocorrect]\nenabled = true\n' },
+  });
+  const host = createClaudeHost({ skipProbes: true });
+  try {
+    const integrity = fake.files.get('/data/murmo/package/integrity.json');
+    const policy = fake.files.get('/data/murmo/package/data/en/case-policy.json');
+    assert.equal(typeof integrity, 'string');
+    const tableRaw = await fake.$.fs.read('/data/murmo/package/data/en/english.bin', { as: 'bytes' });
+    await host.bootPacked({
+      payloadRoot: '/data/murmo/package',
+      integrityJson: integrity as string,
+      tableRaw,
+      ...(typeof policy === 'string' ? { casePolicyJson: policy } : {}),
+      userToml: '[autocorrect]\nenabled = true\n',
+      cwd: '/project',
+    });
+    assert.equal(host.alive, true);
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'teh ');
+    assert.equal(fake.draft.text, 'the ');
+  } finally {
+    await host.dispose();
+    installTestPolicy();
+  }
+});
+
 test('packed builtins: user murmo.toml plus english.bin corrects typed teh, not paste', async () => {
   const fake = new FakeClaude({
     files: { '/config/murmo/murmo.toml': '[autocorrect]\nenabled = true\n' },

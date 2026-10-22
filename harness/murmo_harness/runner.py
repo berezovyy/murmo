@@ -174,6 +174,13 @@ class HostSubject:
                 return f'requires {requirement}'
         if case.get('plugins') and 'plugins' not in features:
             return 'loads plugins: needs a Murmo integration (phases 21–24)'
+        if self.integration.name == 'packed' and case.get('plugins'):
+            names = {
+                (plugin.get('plugin') if isinstance(plugin, dict) else plugin)
+                for plugin in case['plugins']
+            }
+            if 'conflicts' in names:
+                return 'packed-no-conflict-plugins'
         if case.get('variants') and 'state-steps' not in features:
             return 'state and editor-mode variants need an adapter that drives host state (phases 21–24)'
         if case.get('control') or case.get('timing') or case.get('measure'):

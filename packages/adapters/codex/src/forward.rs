@@ -104,6 +104,28 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
             None
         }
     };
+    if let Some(eng) = &engine {
+        let r = eng.call("__init", "");
+        let mut loaded = false;
+        for _ in 0..200 {
+            eng.jobs();
+            if eng.call("__loadedFlag", "").ok().as_deref() == Some("true") {
+                loaded = true;
+                break;
+            }
+        }
+        let entries = table
+            .as_ref()
+            .and_then(|(b, _)| crate::engine::table_entries(b))
+            .unwrap_or(0);
+        trace::emit(&json!({
+            "event": "initialized",
+            "result": r.is_ok(),
+            "loaded": loaded,
+            "table_entries": entries,
+            "autocorrect": config.get("autocorrect"),
+        }));
+    }
 
     let started = Instant::now();
     let mut parser = Parser::new();
@@ -139,8 +161,13 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
         inner.borrow_mut().drain_output(0);
 
         if !initialized && inner.borrow().screen.has_prompt() {
-            initialized = true;
-            probe_and_init(&inner, engine.as_ref(), started);
+            let paste_on = inner.borrow().screen.saw_bracketed_paste;
+            // First prompt can precede CSI ?2004h; wait briefly so the echo
+            // probe is a real bracketed paste (r10 4.2 ms path).
+            if paste_on || started.elapsed() > Duration::from_millis(800) {
+                initialized = true;
+                probe_and_init(&inner, started);
+            }
         }
 
         if let Some(eng) = &engine {
@@ -311,11 +338,14 @@ fn load_config() -> Value {
     cfg
 }
 
-fn probe_and_init(inner: &Rc<RefCell<Inner>>, engine: Option<&Engine>, started: Instant) {
+fn probe_and_init(inner: &Rc<RefCell<Inner>>, started: Instant) {
     let probe_start = Instant::now();
     let echo_ok = {
         let mut g = inner.borrow_mut();
         g.probed = false;
+        // run_edit used to require probes.edits_on() (prompt after finish()),
+        // so the echo probe always failed and inline never ran (`› teh`).
+        g.probes.prompt = g.screen.has_prompt();
         let v = g.ledger.version;
         let a = g.host(&json!({"op":"edit","from":0,"to":0,"insert":"a","version":v}));
         // Drain the queued edit immediately for the probe.
@@ -353,16 +383,8 @@ fn probe_and_init(inner: &Rc<RefCell<Inner>>, engine: Option<&Engine>, started: 
             "event": "capability-probe",
             "ok": g.probed,
             "ms": probe_start.elapsed().as_secs_f64() * 1000.0,
-            "record": g.probes.record(),
-        }));
-    }
-    if let Some(eng) = engine {
-        let r = eng.call("__init", "");
-        eng.jobs();
-        trace::emit(&json!({
-            "event": "initialized",
-            "result": r.is_ok(),
             "load_ms": started.elapsed().as_secs_f64() * 1000.0,
+            "record": g.probes.record(),
         }));
     }
 }
@@ -387,6 +409,15 @@ fn handle_event(
         let g = inner.borrow();
         g.ledger.ui.native_owns_tab_enter() && (key == "Enter" || key == "Tab")
     };
+    {
+        let mut g = inner.borrow_mut();
+        if g.screen.has_prompt() {
+            g.probes.prompt = true;
+        }
+        if g.screen.saw_bracketed_paste {
+            g.probes.bracketed_paste = true;
+        }
+    }
     if native_owns || engine.is_none() || !inner.borrow().probes.edits_on() {
         let mut g = inner.borrow_mut();
         g.apply_input(ev);
@@ -601,8 +632,9 @@ fn submit_guard(
             true
         }
         None => {
-            inner.borrow_mut().overlay.set_status("Guard timeout");
-            true
+            // Fail-open: never eat Enter/Tab (lesson 15). Timeout used to
+            // consume the send, so packed stock-canary never reached the fake.
+            false
         }
     }
 }
@@ -651,7 +683,10 @@ use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(test)]
 mod tests {
-    use super::autocorrect_enabled_in_toml;
+    use super::{autocorrect_enabled, autocorrect_enabled_in_toml, user_config_path};
+    use std::sync::Mutex;
+
+    static ENV: Mutex<()> = Mutex::new(());
 
     #[test]
     fn user_toml_opt_in_is_the_packed_switch() {
@@ -663,5 +698,31 @@ mod tests {
             "[autocorrect]\nenabled = false\n"
         ));
         assert!(!autocorrect_enabled_in_toml("[events]\nenabled = true\n"));
+    }
+
+    #[test]
+    fn xdg_config_home_is_the_user_file() {
+        let _g = ENV.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("murmo-xdg-{}", std::process::id()));
+        let cfg = dir.join("murmo");
+        std::fs::create_dir_all(&cfg).unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", &dir);
+        std::env::set_var("HOME", "/tmp/murmo-not-this-home");
+        let path = user_config_path().expect("xdg path");
+        assert_eq!(path, cfg.join("murmo.toml"));
+        std::fs::write(cfg.join("murmo.toml"), "[autocorrect]\nenabled = true\n").unwrap();
+        std::env::remove_var("MURMO_AUTOCORRECT");
+        assert!(autocorrect_enabled());
+        std::env::remove_var("XDG_CONFIG_HOME");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn murmo_autocorrect_env_opts_in_without_file() {
+        let _g = ENV.lock().unwrap();
+        std::env::set_var("MURMO_AUTOCORRECT", "1");
+        std::env::remove_var("XDG_CONFIG_HOME");
+        assert!(autocorrect_enabled());
+        std::env::remove_var("MURMO_AUTOCORRECT");
     }
 }

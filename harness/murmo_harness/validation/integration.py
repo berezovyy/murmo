@@ -72,6 +72,9 @@ class PackedMurmo(Integration):
         # After setup so a future installer that writes murmo.toml cannot wipe opt-in.
         if spec.get('autocorrect'):
             enable_autocorrect(profile)
+            # Harness-only: the wrapper also reads the user file; this survives
+            # a sandbox that drops XDG_CONFIG_HOME on the child (lesson 38).
+            profile.env['MURMO_AUTOCORRECT'] = '1'
         # The journaled launcher lives under the throwaway HOME.
         local_bin = str(Path(profile.env['HOME']) / '.local' / 'bin')
         path = profile.env.get('PATH', '')
@@ -80,6 +83,9 @@ class PackedMurmo(Integration):
         payload = murmo_data(profile) / 'package'
         if payload.is_dir():
             profile.env['MURMO_PACKAGE_ROOT'] = str(payload)
+            table = payload / 'data' / 'en' / 'english.bin'
+            if table.is_file():
+                profile.env['MURMO_ENGLISH_TABLE'] = str(table)
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         # Stock Pi uses --no-extensions (no discovery). Explicit `-e` still

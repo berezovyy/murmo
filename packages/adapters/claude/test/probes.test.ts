@@ -25,6 +25,19 @@ test('register.ts never polls and never calls node (E21)', () => {
   assert.equal(source.includes("from 'node:"), false);
 });
 
+test('register.ts never passes $ as an argument (Claude 2.1.30x hooks load)', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const source = readFileSync(join(here, '../src/register.ts'), 'utf8');
+  assert.equal(source.includes('start($)'), false);
+  assert.equal(source.includes('host.start('), false);
+  assert.equal(source.includes('void $'), false);
+  assert.ok(source.includes('$.env.get'));
+  assert.ok(source.includes('$.fs.exists'));
+  assert.ok(source.includes('$.fs.read'));
+  assert.ok(source.includes('$.session.cwd()'));
+  assert.ok(source.includes('bootPacked'));
+});
+
 test('register.ts sets an explicit classic timeout (task 8a)', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const source = readFileSync(join(here, '../src/register.ts'), 'utf8');

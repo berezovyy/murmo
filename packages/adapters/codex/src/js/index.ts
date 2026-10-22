@@ -9,4 +9,4 @@ export {
   samplePlugins,
 } from './events.ts';
 export { createHost } from './host.ts';
-export { builtinSpecs, installTable } from './plugins.ts';
+export { builtinSpecs, installTable, tableBytes } from './plugins.ts';

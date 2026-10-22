@@ -54,6 +54,12 @@ class ClaudeHost(HostProfile):
             if not isinstance(data, dict):
                 data = {}
             data['hasCompletedOnboarding'] = True
+            # 2.1.30x first-run Auto-mode notice (r10-stock bootstrap + binary
+            # `hasSeenAutoDefaultNotice` / `hasSeenAutoModeEntryWarning`).
+            data['hasSeenAutoDefaultNotice'] = True
+            data['hasSeenAutoModeEntryWarning'] = True
+            data['hasResetAutoModeOptInForDefaultOffer'] = True
+            data['autoModeOptInDismissed'] = True
             projects = data.setdefault('projects', {})
             projects.setdefault(str(profile.project), {})['hasTrustDialogAccepted'] = True
             approvals = data.setdefault('customApiKeyResponses', {})

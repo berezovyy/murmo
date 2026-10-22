@@ -85,7 +85,9 @@ impl Probes {
     }
 
     pub fn transport_on(&self) -> bool {
-        self.prompt && self.bracketed_paste && self.echo
+        // Echo is advisory: the startup probe used to require it before
+        // `finish()`, so transport stayed off and `› teh` passed through.
+        self.prompt && self.bracketed_paste
     }
 
     pub fn overlay_on(&self) -> bool {

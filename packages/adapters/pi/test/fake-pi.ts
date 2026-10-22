@@ -59,6 +59,7 @@ export class FakePiEditor implements PiEditor {
   readonly undo: { text: string; cursor: { line: number; col: number } }[] = [];
   throwOnInput = false;
   throwOnRender = false;
+  submitCount = 0;
 
   // EditorBase is `new (tui, theme, keybindings)`.
   constructor(_tui?: unknown, _theme?: unknown, _bindings?: unknown) {
@@ -129,6 +130,7 @@ export class FakePiEditor implements PiEditor {
       return;
     }
     if (data === '\r') {
+      this.submitCount++;
       this.onSubmit?.(this.getText());
       this.setText('');
       return;
