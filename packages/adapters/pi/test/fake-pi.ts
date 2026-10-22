@@ -256,6 +256,7 @@ export class FakePiUi implements PiUi {
   readonly notices: string[] = [];
   readonly providers: PiAutocompleteProvider[] = [];
   readonly inputHandlers: ((data: string) => { consume: boolean } | undefined)[] = [];
+  locked = false;
 
   constructor(editor: FakePiEditor, tui: PiTui) {
     this.editor = editor;
@@ -264,6 +265,7 @@ export class FakePiUi implements PiUi {
   }
 
   setEditorComponent(factory: PiEditorFactory | undefined): void {
+    if (this.locked) return;
     this.factory = factory;
     if (factory) {
       const next = factory(this.tui, {}, bindings);
@@ -279,6 +281,16 @@ export class FakePiUi implements PiUi {
 
   getEditorComponent(): PiEditorFactory | undefined {
     return this.factory;
+  }
+
+  /** Exclusive peer: keep the current factory and ignore later Murmo writes. */
+  steal(factory: PiEditorFactory): void {
+    this.factory = factory;
+    this.locked = true;
+  }
+
+  terminalInput(data: string): void {
+    for (const handler of this.inputHandlers) handler(data);
   }
 
   addAutocompleteProvider(factory: PiAutocompleteFactory): void {

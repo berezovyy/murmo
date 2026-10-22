@@ -112,6 +112,7 @@ export function referenceCaps(): HostCapabilities {
       committed: 'accepted-text',
     },
     ui: { dialogSafe: true, anchor: 'host-owned', statusMaxLength: 512, normalization: 'preserve', opaqueParts: false },
+    coexistence: { editorComposition: 'chainable', keyArbitration: 'host-coordinated', peerUiObservable: true },
   };
 }
 

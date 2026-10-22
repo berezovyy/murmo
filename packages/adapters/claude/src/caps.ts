@@ -1,4 +1,5 @@
 import type { HostCapabilities } from '@murmo/api/adapter';
+import { coexistenceFor } from '@murmo/core';
 import { observedKeys } from './keys.ts';
 import { INLINE_MAX_BYTES } from './types.ts';
 
@@ -51,6 +52,7 @@ export function claudeCaps(): HostCapabilities {
       normalization: 'NFC',
       opaqueParts: false,
     },
+    coexistence: coexistenceFor('claude'),
   };
 }
 

@@ -7,6 +7,7 @@
 import type {
   Cancellation,
   Capabilities,
+  CapabilityRequirement,
   Change,
   Draft,
   EffectType,
@@ -42,6 +43,12 @@ export interface LoadedPlugin {
   /** Held permissions after defaults and the host grant map (phase 09). */
   readonly granted?: readonly Permission[];
   readonly negotiation?: Negotiation;
+  /** Host-marked required guard; a failed load still blocks send (phase 25). */
+  readonly requiredGuard?: boolean;
+  /** Manifest required capabilities, kept on load failure so coverage can still refuse. */
+  readonly requiredCapabilities?: Readonly<Record<string, CapabilityRequirement>>;
+  /** Optional capabilities this host does not meet. */
+  readonly missingOptional?: readonly string[];
 }
 
 /** A plugin as the session tracks it, in plugin order. */

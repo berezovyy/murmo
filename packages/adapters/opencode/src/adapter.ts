@@ -30,6 +30,7 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
+import { BoundaryBook, coexistenceFor } from '@murmo/core';
 import { splice as spliceSpans } from '@murmo/provenance';
 import { displayText } from '@murmo/text';
 import { capabilitiesFromProbes, degradedNotice } from './capabilities.ts';
@@ -104,6 +105,7 @@ export class OpenCodeAdapter implements Adapter {
   readonly #overlay: Overlay;
   readonly #status: StatusSurface;
   readonly #unsub: Unsubscribe[] = [];
+  readonly boundaries = new BoundaryBook();
 
   #editor: TextareaEditor | undefined;
   #draft: Draft = emptyDraft();
@@ -190,6 +192,7 @@ export class OpenCodeAdapter implements Adapter {
     this.#degraded = degradedNotice(this.#probe);
     this.#listen();
     this.attach();
+    this.#detectListeners('setup');
     if (this.#degraded) this.#status.set(this.#degraded);
     return clone(this.caps);
   }
@@ -466,8 +469,43 @@ export class OpenCodeAdapter implements Adapter {
     const input = this.#api.renderer.keyInput;
     input.removeListener('keypress', this.#onKeypress);
     input.prependListener('keypress', this.#onKeypress);
+    const order = this.#detectListeners('handoff');
+    return order;
+  }
+
+  #detectListeners(at: 'setup' | 'focus' | 'handoff'): { readonly index: number; readonly count: number } {
+    const input = this.#api.renderer.keyInput;
     const index = input.listeners('keypress').indexOf(this.#onKeypress);
-    return { index, count: input.listenerCount('keypress') };
+    const count = input.listenerCount('keypress');
+    if (index < 0) {
+      const text = this.boundaries.record({
+        boundary: 'missing-hook',
+        evidence: { kind: 'listener-order', index, count, at },
+        action: 'suppress',
+      });
+      if (text) this.#status.set(text);
+      return { index, count };
+    }
+    if (index > 0) {
+      const text = this.boundaries.record({
+        boundary: 'listener-precedes',
+        evidence: { kind: 'listener-order', index, count, at },
+        action: 'compose',
+      });
+      if (text) this.#status.set(text);
+      this.caps = {
+        ...this.caps,
+        keyPriority: 'unknown',
+        coexistence: coexistenceFor('opencode', { keyArbitration: 'unknown' }),
+      };
+    } else if (at === 'handoff') {
+      this.caps = {
+        ...this.caps,
+        keyPriority: 'before-peers',
+        coexistence: coexistenceFor('opencode', { keyArbitration: 'host-coordinated' }),
+      };
+    }
+    return { index, count };
   }
 
   diagnostics(): Record<string, unknown> {
@@ -541,6 +579,7 @@ export class OpenCodeAdapter implements Adapter {
 
   readonly #onFocus = (): void => {
     this.attach();
+    this.#detectListeners('focus');
   };
 
   readonly #changed = (): void => {

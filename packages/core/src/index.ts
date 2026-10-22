@@ -18,6 +18,23 @@ export {
   type StorageBroker,
 } from './brokers/index.ts';
 export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
+export {
+  type BoundaryAction,
+  BoundaryBook,
+  type BoundaryEvidence,
+  type BoundaryId,
+  type BoundaryPeer,
+  type BoundaryRecord,
+  coexistenceFor,
+  doctorLine,
+  doctorLines,
+  FINAL_GUARD_UNAVAILABLE,
+  type GuardCoverage,
+  inspectGuardCoverage,
+  nativeUiOpen,
+  noticeFor,
+  wantsFinalBoundary,
+} from './coexistence.ts';
 export { type Accepted, DraftState, degradeOrigins } from './draft-state.ts';
 export {
   attributionLabel,

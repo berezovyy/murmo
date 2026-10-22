@@ -444,6 +444,15 @@ export class FakeOpenCode {
     };
   }
 
+  /** Peer prepends after Murmo; public listener order is the evidence (E4). */
+  prependPeer(fn: KeypressHandler): void {
+    this.#keypress.unshift(fn);
+  }
+
+  keypressHandlers(): readonly KeypressHandler[] {
+    return this.#keypress;
+  }
+
   focusPrompt(): void {
     for (const fn of this.#focus) fn(this.prompt, null);
   }

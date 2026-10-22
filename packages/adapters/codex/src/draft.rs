@@ -53,6 +53,7 @@ impl Ledger {
             "title": screen.title,
             "probed": probed,
             "reason": self.reason,
+            "multiplexer": multiplexer_from_env(),
         })
     }
 
@@ -213,6 +214,18 @@ pub fn utf16_to_byte(s: &str, units: usize) -> Option<usize> {
 
 pub fn byte_to_utf16(s: &str, byte: usize) -> usize {
     s[..byte.min(s.len())].encode_utf16().count()
+}
+
+fn multiplexer_from_env() -> Value {
+    if std::env::var_os("TMUX").is_some() {
+        json!("tmux")
+    } else if std::env::var_os("ZELLIJ").is_some() {
+        json!("zellij")
+    } else if std::env::var_os("STY").is_some() {
+        json!("screen")
+    } else {
+        Value::Null
+    }
 }
 
 #[cfg(test)]

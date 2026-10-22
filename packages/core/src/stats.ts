@@ -4,6 +4,7 @@
 // was disabled for good and after its helper was killed (lessons 71, 76).
 
 import type { ResultCode } from '@murmo/api';
+import type { BoundaryRecord } from './coexistence.ts';
 import type { RunnerHealth } from './hooks.ts';
 
 export type DecisionBy = 'native' | 'undo' | 'menu' | 'claim' | 'none';
@@ -100,6 +101,8 @@ export interface SessionStats {
   readonly plugins: readonly PluginHealth[];
   readonly disabled: readonly string[];
   readonly notices: readonly string[];
+  /** Detected coexistence boundaries (phase 25); `murmo doctor` prints these. */
+  readonly boundaries: readonly BoundaryRecord[];
   readonly epoch: number;
   readonly version: number;
   readonly undoDepth: number;

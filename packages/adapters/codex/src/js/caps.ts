@@ -4,6 +4,7 @@
 import type { KeyId } from '@murmo/api';
 import { isCanonicalKey, NAMED_KEYS } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
+import { coexistenceFor } from '@murmo/core';
 
 function printable(): KeyId[] {
   return Array.from({ length: 94 }, (_, i) => String.fromCharCode(33 + i)).filter(isCanonicalKey);
@@ -62,5 +63,11 @@ export function codexCaps(options: { readonly menu?: boolean; readonly ghost?: b
       normalization: 'preserve',
       opaqueParts: true,
     },
+    coexistence: coexistenceFor('codex'),
   };
 }
+
+/** Documented tmux remedy (r14 E2). Prefix-Tab and normal configs work; global -n Tab does not. */
+export const TMUX_PREFIX_TAB = 'bind-key Tab send-keys Tab';
+export const TMUX_CONFLICT_TAB = 'bind-key -n Tab next-window';
+export const SCREEN_PREFIX_TAB = 'bindkey ^B Tab';

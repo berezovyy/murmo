@@ -10,6 +10,7 @@
 // `draft:read` (@murmo/provenance `projectTyped`).
 
 import type {
+  CapabilityRequirement,
   Change,
   Clock,
   Draft,
@@ -19,6 +20,7 @@ import type {
   PluginContext,
   PluginFactory,
   PluginHook,
+  PluginManifest,
   PluginStorage,
   StorageResult,
 } from '@murmo/api';
@@ -42,6 +44,9 @@ export interface DirectPluginSpec {
   /** A guard whose load fails still blocks every send (phase 09). */
   readonly requiredGuard?: boolean;
   readonly resources?: { readonly memoryMiB: number };
+  /** Optional manifest so phase 25 can negotiate required final-boundary. */
+  readonly manifest?: PluginManifest;
+  readonly requiredCapabilities?: Readonly<Record<string, CapabilityRequirement>>;
 }
 
 export interface DirectRunnerOptions {
@@ -187,10 +192,16 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
           storages.set(spec.id, storage);
           loaded.set(spec.id, { spec, plugin, permissions: descriptor.permissions, storage, settings });
           out.push({
-            descriptor,
+            descriptor: { ...descriptor, guard: descriptor.guard || spec.requiredGuard === true },
             builtin: spec.builtin,
             ...(spec.inline ? { inline: spec.inline } : {}),
             ...(spec.assets ? { assets: spec.assets } : {}),
+            ...(spec.requiredGuard === true ? { requiredGuard: true } : {}),
+            ...(spec.requiredCapabilities
+              ? { requiredCapabilities: spec.requiredCapabilities }
+              : spec.manifest?.capabilities.required
+                ? { requiredCapabilities: spec.manifest.capabilities.required }
+                : {}),
           });
         } catch (error) {
           const descriptor: PluginDescriptor = {
@@ -198,7 +209,7 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
             name: spec.id,
             version: 'unknown',
             permissions: [],
-            guard: false,
+            guard: spec.requiredGuard === true,
             keys: [],
             actions: [],
             hooks: [],
@@ -207,6 +218,12 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
             descriptor,
             builtin: spec.builtin,
             loadError: error instanceof Error ? error.message : String(error),
+            ...(spec.requiredGuard === true ? { requiredGuard: true } : {}),
+            ...(spec.requiredCapabilities
+              ? { requiredCapabilities: spec.requiredCapabilities }
+              : spec.manifest?.capabilities.required
+                ? { requiredCapabilities: spec.manifest.capabilities.required }
+                : {}),
           });
         }
       }

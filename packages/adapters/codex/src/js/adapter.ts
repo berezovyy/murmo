@@ -11,6 +11,7 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
+import { BoundaryBook } from '@murmo/core';
 import { codexCaps } from './caps.ts';
 import type { HostBridge } from './host.ts';
 
@@ -20,6 +21,7 @@ export interface Snap {
   known: boolean;
   title: string;
   probed: boolean;
+  multiplexer: 'tmux' | 'zellij' | 'screen' | null;
 }
 
 function isAscii(s: string): boolean {
@@ -42,6 +44,8 @@ export function asSnap(value: unknown): Snap {
     known: v.known === true,
     title: String(v.title ?? ''),
     probed: v.probed === true,
+    multiplexer:
+      v.multiplexer === 'tmux' || v.multiplexer === 'zellij' || v.multiplexer === 'screen' ? v.multiplexer : null,
   };
 }
 
@@ -67,6 +71,7 @@ export interface CodexAdapter extends Adapter {
   snap: Snap;
   spans: Range[];
   notices: string[];
+  boundaries: BoundaryBook;
   pendingEdits: Map<number, PendingEdit>;
   lastPlan: InlineAnswer | null;
   applyNative(next: Snap): void;
@@ -77,6 +82,7 @@ export interface CodexAdapter extends Adapter {
   ackInline(commit: InlineCommit): void;
   startSubmit(gesture: 'send' | 'queue'): void;
   publish(change: Change): void;
+  noteWitnessMiss(key: KeyId): void;
 }
 
 export function createAdapter(
@@ -101,6 +107,7 @@ export function createAdapter(
     snap: asSnap(host('snapshot').snapshot),
     spans: [],
     notices: [],
+    boundaries: new BoundaryBook(),
     pendingEdits: new Map(),
     lastPlan: null,
     draft() {
@@ -158,12 +165,37 @@ export function createAdapter(
     publish(c) {
       change(c);
     },
+    noteWitnessMiss(key) {
+      const mux = self.snap.multiplexer;
+      if (!mux) return;
+      const text = self.boundaries.record({
+        boundary: 'outer-binding',
+        evidence: { kind: 'witness-key', multiplexer: mux, key },
+        action: 'compose',
+      });
+      if (text) self.notices.push(text);
+    },
     async ready() {
       self.snap = asSnap(host('snapshot').snapshot);
       if (!self.snap.probed) {
         self.notices.push('Murmo: native edit probe failed; edits/undo disabled');
         host('trace', { data: { event: 'capability-notice', text: self.notices.at(-1) } });
       }
+      const mux = self.snap.multiplexer;
+      if (mux) {
+        const text = self.boundaries.record({
+          boundary: 'outer-binding',
+          evidence: { kind: 'environment', multiplexer: mux },
+          action: 'compose',
+        });
+        if (text) self.notices.push(text);
+      }
+      const raw = self.boundaries.record({
+        boundary: 'raw-injection',
+        evidence: { kind: 'undetectable', detail: 'raw send-keys looks typed' },
+        action: 'compose',
+      });
+      if (raw) self.notices.push(raw);
       return caps;
     },
     getDraft: () => self.draft(),

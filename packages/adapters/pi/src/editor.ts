@@ -2,7 +2,7 @@
 // provider-transaction CAS, and the render override. No private Pi fields.
 
 import type { Range } from '@murmo/api';
-import { wrapDataProperty } from './callbacks.ts';
+import { tryWrapDataProperty } from './callbacks.ts';
 import { detectCursorFormat } from './cursor.ts';
 import { cursorOffset, offsetToPosition } from './keys.ts';
 import { decorateRows, type MenuPaint, type RenderPaint } from './render.ts';
@@ -47,6 +47,7 @@ export interface EditorHooks {
   onNativeSubmit(text: string): void;
   onNativeCompletion(): void;
   canCommit(): boolean;
+  onCallbackWrap?(result: { key: 'onChange' | 'onSubmit'; accessor: boolean } | { key: string; refused: true }): void;
 }
 
 export interface EditorHostOptions {
@@ -94,6 +95,8 @@ export class EditorHost {
   highlightTimer: ReturnType<typeof setTimeout> | undefined;
   disposed = false;
   overlay = false;
+  /** Phase 25: once exclusive, do not re-wrap on every key. */
+  exclusive = false;
   readonly #hooks: EditorHooks;
   readonly #Base: EditorBase;
   readonly #log: (event: Record<string, unknown>) => void;
@@ -243,6 +246,7 @@ export class EditorHost {
   }
 
   ensureEditor(): boolean {
+    if (this.exclusive) return false;
     if (this.disposed || this.hasOverlay() || this.ctx.ui.getEditorComponent() === this.factory) return false;
     if (this.operation) {
       this.aborted = this.operation;
@@ -349,7 +353,7 @@ export class EditorHost {
     const editor = this.editor;
     if (!editor) return;
     this.#unsub.push(
-      wrapDataProperty(editor, 'onChange', (original) => (text: string) => {
+      this.#wrapCallback(editor, 'onChange', (original) => (text: string) => {
         if (editor !== this.editor) {
           (original as ((t: string) => void) | undefined)?.(text);
           return;
@@ -359,7 +363,9 @@ export class EditorHost {
         const op = this.operation;
         if (op?.committing && text === op.text) this.finish(true);
       }),
-      wrapDataProperty(editor, 'onSubmit', (original) => (text: string) => {
+    );
+    this.#unsub.push(
+      this.#wrapCallback(editor, 'onSubmit', (original) => (text: string) => {
         if (editor !== this.editor) {
           (original as ((t: string) => void) | undefined)?.(text);
           return;
@@ -368,6 +374,16 @@ export class EditorHost {
         (original as ((t: string) => void) | undefined)?.(text);
       }),
     );
+  }
+
+  #wrapCallback(editor: PiEditor, key: 'onChange' | 'onSubmit', wrap: (original: unknown) => unknown): () => void {
+    const result = tryWrapDataProperty(editor, key, wrap);
+    if (!result.ok) {
+      this.#hooks.onCallbackWrap?.({ key, refused: true });
+      return () => {};
+    }
+    this.#hooks.onCallbackWrap?.({ key, accessor: result.accessor });
+    return result.unwrap;
   }
 
   #stackProvider(): void {

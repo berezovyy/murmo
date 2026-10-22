@@ -38,6 +38,7 @@ import type {
   Unsubscribe,
 } from '@murmo/api/adapter';
 import { validateClaims } from './claims.ts';
+import { BoundaryBook, bookOf, inspectGuardCoverage, nativeUiOpen } from './coexistence.ts';
 import { type Accepted, DraftState } from './draft-state.ts';
 import { type CommitGate, Edits, editable } from './edits.ts';
 import { applyEffects, type EffectDeps } from './effects.ts';
@@ -208,6 +209,8 @@ class CoreSession implements Session {
   #firstInlineFix = false;
   #disposing: Promise<void> | undefined;
   #killNotice: string | undefined;
+  /** Phase 25: one notice per boundary; doctor reads the records. */
+  #book = new BoundaryBook();
 
   constructor(options: SessionOptions) {
     this.#options = options;
@@ -237,6 +240,7 @@ class CoreSession implements Session {
     const adapter = this.#adapter;
     const hostCaps = await adapter.ready();
     if (this.#disposed) return;
+    this.#book = bookOf(adapter, this.#book);
     this.#hostCaps = hostCaps;
     this.#caps = { ...hostCaps, runtime: this.#runner.runtime };
     // Duplicate / missing / unknown IDs refuse before any executor load (r14 K1).
@@ -281,7 +285,26 @@ class CoreSession implements Session {
       counters,
     });
     this.#menu = menu;
-    const submitOpts = submitOptions(this.#options);
+    const coverage = inspectGuardCoverage(loaded, hostCaps);
+    for (const row of coverage.records) {
+      const text = this.#book.record(row);
+      if (text) notice(text);
+    }
+    for (const plugin of loaded) {
+      for (const path of plugin.missingOptional ?? []) {
+        if (!path.startsWith('runtime.')) continue;
+        const text = this.#book.record({
+          boundary: 'missing-hook',
+          evidence: { kind: 'measured-capability', detail: `${plugin.descriptor.id}:${path}` },
+          action: 'suppress',
+        });
+        if (text) notice(text);
+      }
+    }
+    const submitOpts = submitOptions({
+      ...this.#options,
+      guardPolicy: this.#options.guardPolicy ?? (coverage.block ? 'final-boundary' : 'managed'),
+    });
     // Phase 08: submit window is a live commit-path gate (r14 S1 last-moment).
     const submit = new SubmitController({
       host: () => ({
@@ -448,6 +471,15 @@ class CoreSession implements Session {
    */
   #key(key: KeyId): 'consume' | 'pass' {
     this.#submit?.noteKey();
+    const state = this.#adapter.getState();
+    if (nativeUiOpen(state)) {
+      const text = this.#book.record({
+        boundary: 'native-ui',
+        evidence: { kind: 'peer-declaration', detail: state.popup ? 'popup' : 'dialog' },
+        action: 'defer',
+      });
+      if (text) this.#presentation?.notice(text);
+    }
     const result = this.#router?.route(key).result ?? 'pass';
     this.#inline?.noteKey(key);
     return result;
@@ -881,6 +913,7 @@ class CoreSession implements Session {
       })),
       disabled: this.#plugins.filter((p) => p.disabled).map((p) => p.id),
       notices,
+      boundaries: this.#book.records,
       epoch: this.#intake?.epoch ?? 0,
       version: this.#intake?.draft.version ?? -1,
       undoDepth: this.#undo.depth + (this.#inline?.undoDepth() ?? 0),

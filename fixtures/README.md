@@ -31,6 +31,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `security/` | hostile plugins and third-party rules, with 2.0-pre verdicts | 09, 32 |
 | `autocorrect/` | round-4 50 prompts, r7 Unicode cases | 13 |
 | `config/` | r8 TOML corpus, r12 hostile files, schema v1 branches (`config.parse`); r8 trust attacks (`config.trust`, needs a file system) | 14 |
+| `coexist/` | recorded r14 peer cases (both orders, peer-only controls); skip until `adapter.coexist` / harness | 25 |
 | `shortcuts/` | r8 expansions, must-not-expand, size boundary, collisions; `replacements/` is the moved r8 project folder | 15 |
 | `menu/` | `;` menu ranking, width, open/never-open, Tab/Enter/Esc; r9 1,006-shortcut generator | 16 |
 | `names/` | splitter 29 cases (moved file read through a table) | 19, 36 |

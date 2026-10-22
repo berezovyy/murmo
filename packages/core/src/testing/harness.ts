@@ -265,6 +265,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
               ...(plugin.assets ? { assets: plugin.assets } : {}),
               ...(plugin.requiredGuard === undefined ? {} : { requiredGuard: plugin.requiredGuard }),
               ...(plugin.resources ? { resources: plugin.resources } : {}),
+              ...(plugin.manifest ? { manifest: plugin.manifest } : {}),
             }),
           ),
           executor:

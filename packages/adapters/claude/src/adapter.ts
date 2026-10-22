@@ -32,6 +32,7 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
+import { BoundaryBook } from '@murmo/core';
 import { applyChange, type TypingRules } from '@murmo/provenance';
 import { displayText, isSingleCodePoint } from '@murmo/text';
 import { claudeCaps, disableInline } from './caps.ts';
@@ -131,6 +132,7 @@ export class ClaudeAdapter implements Adapter {
   caps: HostCapabilities;
   readonly probes: ProbeFlags;
   readonly notices: string[] = [];
+  readonly boundaries = new BoundaryBook();
 
   #draft: Draft = emptyDraft();
   #state: HostState = emptyState();

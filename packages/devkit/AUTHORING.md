@@ -74,6 +74,12 @@ emit fresh JSON.
 | `opencode` | same-packet paste after following typed text; `dialogSafe: false`; status in a footer slot |
 | `pi` | one editor slot (`FakeEditorSlot`); a peer `replace()` displaces us; opaque pastes |
 
+## Murmo-compatible
+
+Declare whether you own or compose the editor, which keys you consume, and how to disable or rebind overlapping features. Preserve existing change/submit callbacks and render contributions; getters must not make a captured callback recurse after replacement. Do not take another editor's identity as evidence that its state was transferred safely. Respect native menus and dialogs, forward unclaimed keys, and provide teardown. Emit programmatic insertion as bracketed paste or an origin-tagged action; raw `send-keys` cannot promise paste protection. Never accept an invisible suggestion, and never let Enter accept a ghost. Describe the observed accept/undo behavior and submit boundary. State the tested host/Murmo versions and unsupported features; managed guards, isolated-runtime event support and fake-adapter results must be labeled accurately.
+
+Known peers (r14, never more than was run): see [docs/plan/25-coexistence.md](../../docs/plan/25-coexistence.md#known-peer-table). Pi prompt-autocomplete is exclusive; snippets/autocomplete are global Tab owners; tmux is an outer owner; editprompt's raw delivery lacks safe input origin. Zellij 0.45.1 and Prompt Line stay BLOCKED.
+
 ## Public driver
 
 `createFakeDriver(adapter, session)` from `@murmo/fake-host`: `type`, `key`,

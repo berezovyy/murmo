@@ -94,6 +94,7 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
       keys: [],
       submit: { gestures: ['send', 'queue'], guardPosition: 'managed', committed: 'none' },
       ui: { anchor: 'host-owned', normalization: 'NFC', dialogSafe: false, opaqueParts: false, statusMaxLength: 80 },
+      coexistence: { editorComposition: 'chainable', keyArbitration: 'host-coordinated', peerUiObservable: true },
     },
   },
   {
@@ -117,6 +118,7 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
       inline: { commitReceipt: 'transport-write', maxBytes: 800, nativeCompletion: false, attributed: false },
       submit: { gestures: ['send', 'queue', 'newline'], guardPosition: 'managed', committed: 'none' },
       ui: { anchor: 'overlay', statusMaxLength: 99, normalization: 'preserve', opaqueParts: true, dialogSafe: false },
+      coexistence: { editorComposition: 'unknown', keyArbitration: 'murmo-only', peerUiObservable: false },
     },
   },
   {
@@ -138,6 +140,7 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
         dialogSafe: false,
         namespace: 'murmo',
       },
+      coexistence: { editorComposition: 'unknown', keyArbitration: 'unknown', peerUiObservable: false },
     },
   },
   {
@@ -162,6 +165,7 @@ export const SEED_RECORDS: readonly CapabilityRecord[] = [
         committed: 'accepted-text',
       },
       ui: { dialogSafe: true, opaqueParts: true, statusMaxLength: 512, anchor: 'host-owned' },
+      coexistence: { editorComposition: 'exclusive', keyArbitration: 'unknown', peerUiObservable: false },
     },
   },
 ];

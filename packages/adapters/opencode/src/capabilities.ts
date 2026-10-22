@@ -3,6 +3,7 @@
 
 import { isCanonicalKey, type KeyId, NAMED_KEYS } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
+import { coexistenceFor } from '@murmo/core';
 import { extraUndoKeys } from './keys.ts';
 import type { ProbeResult } from './probes.ts';
 import { INLINE_MAX_BYTES, type OpenCodeApi } from './types.ts';
@@ -82,6 +83,7 @@ export function capabilitiesFromProbes(
       opaqueParts: probe.opaqueParts,
       namespace: 'murmo',
     },
+    coexistence: coexistenceFor('opencode'),
   };
 }
 

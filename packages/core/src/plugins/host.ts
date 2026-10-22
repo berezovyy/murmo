@@ -197,6 +197,8 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       builtin: spec.builtin,
       loadError: error instanceof Error ? error.message : String(error),
       granted: [],
+      ...(spec.requiredGuard === true ? { requiredGuard: true as const } : {}),
+      ...(spec.manifest?.capabilities.required ? { requiredCapabilities: spec.manifest.capabilities.required } : {}),
     });
     try {
       let negotiation: Negotiation | undefined;
@@ -251,7 +253,9 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
         descriptor: { ...descriptor, guard: descriptor.guard || spec.requiredGuard === true },
         builtin: spec.builtin,
         granted,
-        ...(negotiation ? { negotiation } : {}),
+        ...(spec.requiredGuard === true ? { requiredGuard: true as const } : {}),
+        ...(spec.manifest?.capabilities.required ? { requiredCapabilities: spec.manifest.capabilities.required } : {}),
+        ...(negotiation ? { negotiation, missingOptional: negotiation.missingOptional } : {}),
         ...(spec.inline ? { inline: spec.inline } : {}),
         ...(spec.assets ? { assets: spec.assets } : {}),
       };

@@ -1,0 +1,64 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "docs/plan/25 Tests and acceptance; recorded r14-ecosystem C2 verdicts (experiments/platform/ecosystem/evidence). Real peers run only in a Linux --network none container (E10).",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "requires": ["adapter.coexist"]
+  },
+  "cases": [
+    {
+      "id": "pi-autosuggestions-0.8.26",
+      "tags": ["pi", "peer", "both-orders"],
+      "note": "E1: pi-autosuggestions 0.8.26 crashed the signed r13 package in 2/2 orders (accessor recursion). Data-property wrap restores correction, revert and history acceptance. Peer-only control works. adapter.coexist / harness.",
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "the " } }
+    },
+    {
+      "id": "pi-prompt-autocomplete-0.3.0",
+      "tags": ["pi", "peer", "exclusive-editor"],
+      "note": "E1: exclusive editor. Both orders: one Murmo notice, working owner kept, Murmo correction/revert still work, no crash. adapter.coexist / harness.",
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "the " } }
+    },
+    {
+      "id": "opencode-snippets-3.3.2",
+      "tags": ["opencode", "peer", "priority"],
+      "note": "E4: snippets 3.3.2 fails alone (matter is not a function). Murmo correction/revert in both orders; after one murmo.prioritize, Tab accepts Murmo ghost; no peer listener removed. adapter.coexist / harness.",
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "the " } }
+    },
+    {
+      "id": "codex-tmux-3.3a",
+      "tags": ["codex", "tmux"],
+      "note": "E2: tmux 3.3a normal and prefix-Tab accept ;rvw and F6 undo; global bind-key -n Tab shows the outer-binding notice. adapter.coexist / harness.",
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "the " } }
+    },
+    {
+      "id": "codex-editprompt-1.6.0-bracketed",
+      "tags": ["codex", "editprompt", "origin"],
+      "note": "E2: bracketed paste leaves ecosystem teh  unchanged with empty imported typed spans. Raw send-keys is a documented limit, not a pass. adapter.coexist / harness.",
+      "steps": [{ "paste": "ecosystem teh " }],
+      "expect": { "draft": { "text": "ecosystem teh ", "typedSpans": [] } }
+    },
+    {
+      "id": "claude-peers-6-of-6",
+      "tags": ["claude", "peer", "orders"],
+      "note": "E3: Grammar Guard 0.2.0, prompt coach 0.1.2, Privacy Guard 0.3.0: 6/6 order cases keep correction/revert; Privacy Guard 0 fake requests. adapter.coexist / harness.",
+      "steps": [{ "type": "teh " }],
+      "expect": { "draft": { "text": "the " } }
+    },
+    {
+      "id": "zellij-0.45.1-blocked",
+      "tags": ["codex", "zellij", "blocked"],
+      "note": "E11: Zellij 0.45.1 BLOCKED — no recognizable bare Codex prompt through the pyte harness. Keep BLOCKED rather than imply support. adapter.coexist / harness.",
+      "steps": [{ "type": "x" }],
+      "expect": { "draft": { "text": "x" } }
+    }
+  ]
+}

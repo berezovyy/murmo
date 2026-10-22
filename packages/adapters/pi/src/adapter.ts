@@ -33,6 +33,7 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
+import { BoundaryBook, coexistenceFor } from '@murmo/core';
 import { applyChange, type TypingRules } from '@murmo/provenance';
 import { codePointBefore } from '@murmo/text';
 import { OBSERVED_KEYS, offCaps, piCaps } from './caps.ts';
@@ -129,6 +130,7 @@ export class PiAdapter implements Adapter {
   nativeInlineUndos = 0;
   patchInlineUndos = 0;
   readonly notices: string[] = [];
+  readonly boundaries = new BoundaryBook();
 
   constructor(options: PiAdapterOptions) {
     this.host = { name: 'pi', version: options.version ?? '1.3.0' };
@@ -157,6 +159,9 @@ export class PiAdapter implements Adapter {
         canCommit() {
           return self.#canCommit();
         },
+        onCallbackWrap(result) {
+          self.#onCallbackWrap(result);
+        },
       },
     };
     this.backend = new EditorHost(hostOptions);
@@ -180,9 +185,10 @@ export class PiAdapter implements Adapter {
           self.#ownershipLost = false;
           self.#syncDraft('unknown');
           self.#emit('unknown', { before: copy(self.#draft), deltas: [] });
+          if (self.#ctx.ui.getEditorComponent() !== self.backend.factory) self.#noteExclusive();
+          else self.#noteChainable();
         } else if (self.#ctx.ui.getEditorComponent() !== self.backend.factory) {
-          self.#ownershipLost = true;
-          self.#setStatus(OWNERSHIP_LOST);
+          self.#noteExclusive();
         }
       }),
     );
@@ -801,6 +807,62 @@ export class PiAdapter implements Adapter {
     this.backend.showStatus(text);
   }
 
+  #note(text: string | undefined): void {
+    if (!text) return;
+    this.#setStatus(text);
+  }
+
+  #onCallbackWrap(result: { key: 'onChange' | 'onSubmit'; accessor: boolean } | { key: string; refused: true }): void {
+    if ('refused' in result) {
+      this.#note(
+        this.boundaries.record({
+          boundary: 'unsafe-callback',
+          evidence: { kind: 'accessor-descriptor', configurable: false, accessor: true, detail: result.key },
+          action: 'refuse',
+        }),
+      );
+      return;
+    }
+    if (!result.accessor) return;
+    this.#note(
+      this.boundaries.record({
+        boundary: 'unsafe-callback',
+        evidence: { kind: 'accessor-descriptor', configurable: true, accessor: true, detail: result.key },
+        action: 'compose',
+      }),
+    );
+  }
+
+  #noteExclusive(): void {
+    const first = !this.#ownershipLost;
+    this.#ownershipLost = true;
+    this.backend.exclusive = true;
+    if (first) this.#setStatus(OWNERSHIP_LOST);
+    this.#note(
+      this.boundaries.record({
+        boundary: 'exclusive-editor',
+        evidence: { kind: 'factory-identity' },
+        action: 'suppress',
+      }),
+    );
+    const coexistence = coexistenceFor('pi', { editorComposition: 'exclusive' });
+    this.caps = {
+      ...this.caps,
+      inlineRewrite: 'unsupported',
+      inline: { ...this.caps.inline, nativeCompletion: false, commitReceipt: 'none' },
+      ghost: 'none',
+      highlight: 'none',
+      coexistence,
+    };
+  }
+
+  #noteChainable(): void {
+    this.caps = {
+      ...this.caps,
+      coexistence: coexistenceFor('pi', { editorComposition: 'chainable' }),
+    };
+  }
+
   #sub<T>(set: Set<T>, value: T): Unsubscribe {
     set.add(value);
     return () => {
@@ -894,6 +956,7 @@ export class PiAdapter implements Adapter {
 
     const slotOk = this.#ctx.ui.getEditorComponent() === this.backend.factory;
     if (!slotOk) notices.push('editor slot');
+    const coexistence = coexistenceFor('pi', { editorComposition: slotOk ? 'chainable' : 'exclusive' });
 
     const seen = new Set<KeyId>();
     const prev = [...this.#keys];
@@ -974,6 +1037,7 @@ export class PiAdapter implements Adapter {
         normalization: 'preserve',
         opaqueParts: true,
       },
+      coexistence,
     });
     if (!inlineEnd) this.caps = { ...this.caps, inlineRewrite: 'unsupported' };
     if (notices.length) {

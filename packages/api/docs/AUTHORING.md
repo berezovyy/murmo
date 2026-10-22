@@ -93,6 +93,12 @@ Ask for keys through capabilities, never by host name. What the round 13 and 14 
 - **Undo:** Backspace right after an edit works everywhere. Claude Code's undo key was seen 10 of 30 times, so don't rely on a second undo key there.
 - **Claude Code** can't label typed input, so a `draft:read` plugin sees the length but every unit masked. Ask for `draft:read:full` only if you really need the text.
 
+## Murmo-compatible (host plugins next to Murmo)
+
+Declare whether you own or compose the editor, which keys you consume, and how to disable or rebind overlapping features. Preserve existing change/submit callbacks and render contributions; getters must not make a captured callback recurse after replacement. Do not take another editor's identity as evidence that its state was transferred safely. Respect native menus and dialogs, forward unclaimed keys, and provide teardown. Emit programmatic insertion as bracketed paste or an origin-tagged action; raw `send-keys` cannot promise paste protection. Never accept an invisible suggestion, and never let Enter accept a ghost. Describe the observed accept/undo behavior and submit boundary. State the tested host/Murmo versions and unsupported features; managed guards, isolated-runtime event support and fake-adapter results must be labeled accurately.
+
+Tested peers, versions and remedies: [docs/plan/25-coexistence.md](../../../docs/plan/25-coexistence.md#known-peer-table).
+
 ## Not available yet
 
 These are out of the preview; don't work around them with guesses:
