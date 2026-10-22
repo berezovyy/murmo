@@ -3,7 +3,7 @@
 
 import { initCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
 import { dataCommand, openStore, privateCommand, storeRootsFromEnv } from '@murmo/store/node';
-import { vocabCommand, wordsCommand } from '@murmo/vocab/node';
+import { indexCommand, namesCommand, vocabCommand, wordsCommand } from '@murmo/vocab/node';
 
 export async function dispatchMounted(
   cmd: string,
@@ -34,6 +34,8 @@ export async function dispatchMounted(
   if (cmd === 'init') return initCommand(rest, ctx);
   if (cmd === 'vocab') return vocabCommand(rest, ctx);
   if (cmd === 'words') return wordsCommand(rest, ctx);
+  if (cmd === 'names') return namesCommand(rest, ctx);
+  if (cmd === 'index') return indexCommand(rest, ctx);
   if (cmd === 'data') return dataCommand(rest, ctx);
   if (cmd === 'private') return privateCommand(rest, ctx);
   return 2;

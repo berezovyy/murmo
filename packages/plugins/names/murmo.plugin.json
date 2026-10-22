@@ -1,0 +1,27 @@
+{
+  "name": "names",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/plugin.ts",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the code-like word under the cursor." },
+    { "name": "draft:write", "reason": "Replace a typed name with a real project name after you pick it." }
+  ],
+  "capabilities": {
+    "required": {},
+    "optional": {
+      "edit.atomic": true,
+      "inlineRewrite": "same-transaction",
+      "status": true
+    }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": { "type": "boolean", "default": true },
+      "key": { "type": "string", "default": "Tab", "maxLength": 32 },
+      "languages": { "type": "string", "maxLength": 128 }
+    },
+    "additionalProperties": false
+  }
+}

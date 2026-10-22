@@ -17,6 +17,7 @@ import hostile from '@murmo/fixtures/plugins/hostile';
 import keyhog from '@murmo/fixtures/plugins/keyhog';
 import looper from '@murmo/fixtures/plugins/looper';
 import memhog from '@murmo/fixtures/plugins/memhog';
+import namesClaim from '@murmo/fixtures/plugins/names-claim';
 import rules from '@murmo/fixtures/plugins/rules';
 import slow50 from '@murmo/fixtures/plugins/slow50';
 import stale from '@murmo/fixtures/plugins/stale';
@@ -48,6 +49,7 @@ export const plugins: Readonly<Record<string, RegisteredPlugin>> = {
   rules: fixture(rules),
   conflicts: fixture(conflicts),
   edits: fixture(edits),
+  'names-claim': fixture(namesClaim),
   autocorrect: release(autocorrectFactory),
   shortcuts: release(shortcutsFactory),
   snippets: release(menuFactory),

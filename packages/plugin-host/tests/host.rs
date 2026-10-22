@@ -404,3 +404,35 @@ fn malformed_lines_do_not_kill_the_supervisor() {
     let ping = host.rpc(json!({"op":"ping"}));
     assert_eq!(ping["status"], "ok", "{ping}");
 }
+
+#[test]
+fn names_search_returns_candidates_without_source_text() {
+    let recs = vec![murmo_indexer::NameRecord {
+        name: "OutboxWorker".into(),
+        kind: "class".into(),
+        file: "src/outbox/worker.rs".into(),
+        line: 12,
+        refs: 9,
+        owner: String::new(),
+    }];
+    let bytes = murmo_indexer::build_packed(&recs);
+    assert!(!bytes.windows(3).any(|w| w == b"fn "));
+    let dir = std::env::temp_dir().join(format!("murmo-names-host-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("names.bin");
+    std::fs::write(&path, &bytes).unwrap();
+    let mut host = Host::spawn();
+    let load = host.rpc(json!({"op":"names.load","path": path.to_str().unwrap()}));
+    assert_eq!(load["status"], "ok", "{load}");
+    let s = host.rpc(json!({
+        "op": "names.search",
+        "raw": "OutboxWorkr",
+        "key": "outbox workr",
+        "limit": 96,
+        "budgetUs": 300
+    }));
+    assert_eq!(s["status"], "ok", "{s}");
+    let rows = s["rows"].as_array().cloned().unwrap_or_default();
+    assert!(rows.iter().any(|r| r["name"] == "OutboxWorker"), "{rows:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

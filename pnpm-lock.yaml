@@ -366,6 +366,22 @@ importers:
         specifier: workspace:*
         version: link:../text
 
+  packages/plugins/names:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@murmo/vocab':
+        specifier: workspace:*
+        version: link:../../vocab
+    devDependencies:
+      '@murmo/fixtures':
+        specifier: workspace:*
+        version: link:../../../fixtures
+
   packages/plugins/rescue:
     dependencies:
       '@murmo/api':

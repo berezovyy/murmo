@@ -18,5 +18,6 @@ path = "src/lib.rs"
 libc.workspace = true
 murmo-js-runtime.workspace = true
 murmo-store.workspace = true
+murmo-indexer = { path = "../vocab/indexer", default-features = false }
 rquickjs.workspace = true
 serde_json.workspace = true

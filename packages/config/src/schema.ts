@@ -26,6 +26,15 @@ export interface PluginTable {
   readonly at: Position;
 }
 
+export const NAMES_LANGUAGES = ['rust', 'typescript', 'javascript', 'python', 'go'] as const;
+
+export interface NamesSettings {
+  readonly enabled?: boolean;
+  readonly key?: string;
+  readonly languages?: readonly string[];
+  readonly maxFileBytes?: number;
+}
+
 export interface ConfigFile {
   readonly file: string;
   readonly origin: ConfigOrigin;
@@ -38,6 +47,8 @@ export interface ConfigFile {
   readonly protect: readonly string[];
   /** `[autocorrect] enabled`. */
   readonly autocorrect?: boolean;
+  /** `[names]` on-request project-name menu (phase 36). */
+  readonly names?: NamesSettings;
   /** `[plugins] order`. */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, PluginTable>>;
@@ -244,6 +255,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
   let shortcuts: ShortcutEntry[] = [];
   let protect: string[] = [];
   let autocorrect: boolean | undefined;
+  let names: NamesSettings | undefined;
   let pluginOrder: string[] | undefined;
   let plugins: Record<string, PluginTable> = {};
   let privacy: boolean | undefined;
@@ -268,6 +280,9 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
       case 'autocorrect':
         autocorrect = checkSwitch(check, value, 'autocorrect', 'enabled');
         break;
+      case 'names':
+        names = checkNames(check, value);
+        break;
       case 'plugins':
         ({ order: pluginOrder, tables: plugins } = checkPlugins(check, value));
         break;
@@ -288,6 +303,16 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
         'a project file can only turn autocorrect off; "enabled = true" ignored',
       );
       autocorrect = undefined;
+    }
+    if (names?.enabled === true) {
+      check.report(
+        'warning',
+        'project-only-reduces',
+        ['names', 'enabled'],
+        'a project file can only turn names off; "enabled = true" ignored',
+      );
+      const { enabled: _ignored, ...rest } = names;
+      names = Object.keys(rest).length ? rest : undefined;
     }
     if (privacy === false) privacy = undefined;
     if (pluginOrder !== undefined) {
@@ -320,6 +345,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
     diagnostics: sortDiagnostics(check.diagnostics),
     ...(language === undefined ? {} : { language }),
     ...(autocorrect === undefined ? {} : { autocorrect }),
+    ...(names === undefined ? {} : { names }),
     ...(pluginOrder === undefined ? {} : { pluginOrder }),
     ...(privacy === undefined ? {} : { private: privacy }),
   };
@@ -435,6 +461,108 @@ function checkWords(check: FileChecker, value: unknown): string[] {
     }
   }
   return words;
+}
+
+const NAME_LANG = new Set<string>(NAMES_LANGUAGES);
+
+const NAMED_KEY = new Set([
+  'space',
+  'Tab',
+  'Enter',
+  'Backspace',
+  'Escape',
+  'Up',
+  'Down',
+  'Left',
+  'Right',
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+  'F10',
+  'F11',
+  'F12',
+]);
+
+/** Same grammar as `@murmo/api` `isCanonicalKey`, inlined so parse stays a data pass. */
+function namesKeyOk(id: string): boolean {
+  let rest = id;
+  const used: string[] = [];
+  for (const modifier of ['Ctrl', 'Alt', 'Shift'] as const) {
+    if (rest.startsWith(`${modifier}+`) && rest.length > modifier.length + 1) {
+      used.push(modifier);
+      rest = rest.slice(modifier.length + 1);
+    }
+  }
+  if (NAMED_KEY.has(rest)) return true;
+  if ([...rest].length !== 1 || used.includes('Shift')) return false;
+  if (/[\s\p{Cc}\p{Cf}\p{Cs}]/u.test(rest)) return false;
+  return used.length === 0 || rest.toLowerCase() === rest;
+}
+
+function checkNames(check: FileChecker, value: unknown): NamesSettings | undefined {
+  if (!isTable(value)) {
+    check.report('warning', 'invalid-type', ['names'], '[names] must be a table');
+    return undefined;
+  }
+  let enabled: boolean | undefined;
+  let key: string | undefined;
+  let languages: string[] | undefined;
+  let maxFileBytes: number | undefined;
+  for (const name of sortedKeys(value)) {
+    const path = ['names', name];
+    const entry = value[name];
+    switch (name) {
+      case 'enabled':
+        if (typeof entry === 'boolean') enabled = entry;
+        else check.report('warning', 'invalid-type', path, 'enabled must be true or false');
+        break;
+      case 'key':
+        if (typeof entry !== 'string') check.report('warning', 'invalid-type', path, 'key must be a string');
+        else if (!namesKeyOk(entry)) {
+          check.report('warning', 'invalid-value', path, `key "${entry}" is not a canonical key; skipped`);
+        } else key = entry;
+        break;
+      case 'languages':
+        if (!Array.isArray(entry)) {
+          check.report('warning', 'invalid-type', path, 'languages must be a list of language names');
+          break;
+        }
+        languages = [];
+        for (const item of entry) {
+          if (typeof item !== 'string' || !NAME_LANG.has(item)) {
+            check.report(
+              'warning',
+              'invalid-value',
+              path,
+              'languages must list rust, typescript, javascript, python or go; entry skipped',
+            );
+          } else if (!languages.includes(item)) languages.push(item);
+        }
+        break;
+      case 'maxFileBytes':
+        if (typeof entry !== 'number' || !Number.isInteger(entry) || entry < 1 || entry > 1_048_576) {
+          check.report('warning', 'invalid-value', path, 'maxFileBytes must be an integer from 1 to 1048576');
+        } else maxFileBytes = entry;
+        break;
+      default:
+        check.unknown(path, `"${name}" in [names]`);
+    }
+  }
+  if (enabled === undefined && key === undefined && languages === undefined && maxFileBytes === undefined) {
+    return undefined;
+  }
+  return {
+    ...(enabled === undefined ? {} : { enabled }),
+    ...(key === undefined ? {} : { key }),
+    ...(languages === undefined ? {} : { languages }),
+    ...(maxFileBytes === undefined ? {} : { maxFileBytes }),
+  };
 }
 
 function checkSwitch(check: FileChecker, value: unknown, table: string, name: string): boolean | undefined {

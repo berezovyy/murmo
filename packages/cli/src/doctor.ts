@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { DATA_DIR, loadTrustAnchor, npmPlatform, VerifyError, verifyPackage } from '@murmo/integrity';
 import { openLanguagePack } from '@murmo/lang/node';
 import { doctorLine } from '@murmo/plugin-autocorrect';
-import { tryReadProtection } from '@murmo/vocab/node';
+import { namesDoctorLine, tryReadProtection } from '@murmo/vocab/node';
 import { detectHosts, lookup } from './detect.ts';
 import { checkHelper } from './helper.ts';
 import { type HomeLayout, homeLayout, sha256Bytes } from './home.ts';
@@ -95,6 +95,12 @@ function vocabPartial(layout: HomeLayout): DoctorCheck[] {
           'partial',
           'file or byte limit stopped the walk; protection is incomplete',
         ),
+      );
+    }
+    const names = namesDoctorLine(dir);
+    if (names.detail !== 'no name index') {
+      checks.push(
+        check(`names:${name.slice(0, 12)}`, names.ok, names.detail, names.ok ? 'none' : 'murmo names rebuild'),
       );
     }
   }

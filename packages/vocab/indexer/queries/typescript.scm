@@ -1,0 +1,10 @@
+(class_declaration name: (_) @name) @definition.class
+(abstract_class_declaration name: (_) @name) @definition.class
+(interface_declaration name: (_) @name) @definition.type
+(type_alias_declaration name: (_) @name) @definition.type
+(enum_declaration name: (_) @name) @definition.type
+(function_declaration name: (_) @name) @definition.function
+(method_definition name: (_) @name) @definition.method
+(method_signature name: (_) @name) @definition.method
+(variable_declarator name: (identifier) @name) @definition.constant
+(internal_module name: (_) @name) @definition.module

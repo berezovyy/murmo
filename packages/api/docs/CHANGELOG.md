@@ -4,6 +4,10 @@ Every change to the API surface lands here: the API report gate (`pnpm check:api
 
 Earlier drafts (0, 1.1, 1.2, 1.3 and the prototype's 2.0-pre) are recorded in the prototype's changelog, [`experiments/platform/shared-v2/CHANGELOG.md`](../../../experiments/platform/shared-v2/CHANGELOG.md) (the experiments folder is git-ignored, so the link works in the research checkout only).
 
+## 2.0-pre.0 (2026-10-22)
+
+Additive after v1: `KEY_CONDITIONS` gains `at-code-like-word` (phase 36). Old claims are unchanged.
+
 ## 2.0-pre.0 (2026-10-21)
 
 The first release-code draft, ported from the prototype's 2.0-pre with its round 14 security defaults. Breaking relative to the prototype:

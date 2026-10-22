@@ -167,6 +167,16 @@ test('excerpts are escaped and cut to 120 code points', () => {
   assert.ok(long?.excerpt?.endsWith('\u{2026}'));
 });
 
+test('[names] loads enabled, key and languages; unknown keys warn', () => {
+  const file = parse('[names]\nenabled = true\nkey = "Tab"\nlanguages = ["rust", "go"]\n');
+  assert.equal(file.names?.enabled, true);
+  assert.equal(file.names?.key, 'Tab');
+  assert.deepEqual(file.names?.languages, ['rust', 'go']);
+  const bad = parse('[names]\nkey = "Not A Key"\nextra = 1\n');
+  assert.ok(codes(bad).includes('invalid-value'));
+  assert.ok(codes(bad).includes('unknown-key'));
+});
+
 test('a project file can only make Murmo do less', () => {
   // Catches an untrusted repository turning autocorrect, a plugin or the plugin order on.
   assert.equal(named('autocorrect-project').autocorrect, undefined);

@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 
 use crate::faults::{error_reply, FaultKind};
 use crate::limits::{watchdog_ms, INIT_WAIT_MS};
+use crate::names::{handle as names_handle, is_names_op};
 use crate::protocol::{line_too_large, ready_message};
 use crate::store::{handle as store_handle, is_store_op};
 
@@ -260,6 +261,11 @@ impl Supervisor {
         }
         if is_store_op(op) {
             let mut response = store_handle(&self.store, &q);
+            response["id"] = id;
+            return Some(response);
+        }
+        if is_names_op(op) {
+            let mut response = names_handle(&q);
             response["id"] = id;
             return Some(response);
         }

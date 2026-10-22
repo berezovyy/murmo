@@ -1,0 +1,41 @@
+[package]
+name = "murmo-indexer"
+version = "0.1.0"
+description = "Idle project-name indexer and packed names-v1 search (phase 36)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license = "MIT OR Apache-2.0"
+
+[features]
+default = ["extract"]
+extract = [
+    "dep:tree-sitter",
+    "dep:tree-sitter-rust",
+    "dep:tree-sitter-typescript",
+    "dep:tree-sitter-python",
+    "dep:tree-sitter-go",
+    "dep:tree-sitter-javascript",
+]
+
+[lib]
+name = "murmo_indexer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "murmo-index"
+path = "src/bin/murmo-index.rs"
+required-features = ["extract"]
+
+[dependencies]
+libc.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+unicode-segmentation.workspace = true
+unicode-normalization = "=0.1.24"
+tree-sitter = { version = "=0.25.10", optional = true }
+tree-sitter-rust = { version = "=0.24.2", optional = true }
+tree-sitter-typescript = { version = "=0.23.2", optional = true }
+tree-sitter-python = { version = "=0.25.0", optional = true }
+tree-sitter-go = { version = "=0.25.0", optional = true }
+tree-sitter-javascript = { version = "=0.25.0", optional = true }

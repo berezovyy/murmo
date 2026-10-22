@@ -4,6 +4,7 @@
 import type { Draft, HostState, KeyCondition, KeyId, MenuItem } from '@murmo/api';
 import type { HostCapabilities } from '@murmo/api/adapter';
 import { claimWrites, type ValidatedClaim } from './claims.ts';
+import { atCodeLikeWord } from './code-like.ts';
 import type { PluginEntry } from './hooks.ts';
 import type { Menu } from './menu.ts';
 import type { VisibleGhost } from './present.ts';
@@ -46,8 +47,8 @@ interface ConditionCtx {
 }
 
 /**
- * The six conditions, one table, so a later condition (e.g. `at-code-like-word`)
- * is a data change. Evaluated on cached state only.
+ * Conditions are a data table (lesson 46). `at-code-like-word` is the same
+ * `codeLike` rule the names plugin uses (docs/plan/36).
  */
 export const CONDITIONS: { readonly [K in KeyCondition]: (ctx: ConditionCtx) => boolean } = {
   always: () => true,
@@ -56,6 +57,7 @@ export const CONDITIONS: { readonly [K in KeyCondition]: (ctx: ConditionCtx) => 
   'menu-open': (ctx) => ctx.menuOpen,
   'at-word-start': (ctx) => ctx.cursor === 0 || /\s/.test(ctx.text[ctx.cursor - 1] ?? ''),
   'after-my-edit': (ctx) => ctx.afterMyEdit === ctx.pluginId,
+  'at-code-like-word': (ctx) => atCodeLikeWord(ctx.text, ctx.cursor),
 };
 
 function matches(claim: ValidatedClaim, ctx: ConditionCtx, interceptable: boolean): boolean {

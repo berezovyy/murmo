@@ -53,9 +53,9 @@
     },
     {
       "file": "core/keys/cases.json",
-      "owner": "06",
-      "cases": 11,
-      "variants": 11
+      "owner": "06, 36",
+      "cases": 14,
+      "variants": 14
     },
     {
       "file": "core/keys/normalization.json",

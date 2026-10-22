@@ -3,7 +3,7 @@
 // file still turns things off; it never turns anything on.
 import { type Diagnostic, makeDiagnostic } from './diagnostics.ts';
 import type { LoadedConfig, Shortcut } from './references.ts';
-import { compareCodePoints, type JsonValue, put, sortDiagnostics } from './schema.ts';
+import { compareCodePoints, type JsonValue, type NamesSettings, put, sortDiagnostics } from './schema.ts';
 
 export interface EffectivePlugin {
   /** Absent: the plugin's own default (phase 28's plugin list decides what is installed). */
@@ -21,6 +21,8 @@ export interface EffectiveConfig {
   readonly protect: readonly string[];
   /** Autocorrect is opt-in: false unless the user file turns it on. */
   readonly autocorrect: boolean;
+  /** `[names]` from the user file; a project file may only set enabled = false. */
+  readonly names?: NamesSettings;
   /** Only from the user file; overrides the order `murmo plugin` keeps (phase 28). */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, EffectivePlugin>>;
@@ -114,12 +116,17 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
   }
 
   const language = projectFile?.language ?? userFile?.language;
+  let names = userFile?.names;
+  if (projectFile?.names?.enabled === false) {
+    names = { ...(names ?? {}), enabled: false };
+  }
   return {
     ...(language === undefined ? {} : { language }),
     replacements: [...replacements.values()].sort((a, b) => compareCodePoints(a.shortcut, b.shortcut)),
     overrides: overrides.sort(compareCodePoints),
     protect,
     autocorrect,
+    ...(names === undefined ? {} : { names }),
     ...(userFile?.pluginOrder ? { pluginOrder: userFile.pluginOrder } : {}),
     plugins,
     private: isPrivate,

@@ -10,11 +10,20 @@ export type { PluginSettingsResult } from './plugins.ts';
 export { HOST_OWNED_PLUGIN_KEYS, pluginSettings } from './plugins.ts';
 export type { LoadedConfig, ReferenceProblem, ReferenceRead, Shortcut } from './references.ts';
 export { dropOneNewline, REFERENCE_PROBLEMS, referencedPaths, resolveShortcuts } from './references.ts';
-export type { ConfigFile, ConfigOrigin, ConfigSource, JsonValue, PluginTable, ShortcutEntry } from './schema.ts';
+export type {
+  ConfigFile,
+  ConfigOrigin,
+  ConfigSource,
+  JsonValue,
+  NamesSettings,
+  PluginTable,
+  ShortcutEntry,
+} from './schema.ts';
 export {
   compareCodePoints,
   expansionProblem,
   ignoredFile,
+  NAMES_LANGUAGES,
   parseConfig,
   referencePathProblem,
   shortcutProblem,

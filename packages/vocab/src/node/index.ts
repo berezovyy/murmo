@@ -14,6 +14,15 @@ export {
   readProtectionFile,
   tryReadProtection,
 } from './load.ts';
+export {
+  INDEX_USAGE,
+  indexCommand,
+  indexerBin,
+  NAMES_USAGE,
+  type NamesContext,
+  namesCommand,
+  namesDoctorLine,
+} from './names.ts';
 export type { ProtectionLive } from './session.ts';
 export { createProtectionLive, registerProtectedInline, swapProtectedInline } from './session.ts';
 export type { TrackedListing } from './tracked.ts';

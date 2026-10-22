@@ -35,7 +35,44 @@ export {
   MAX_READ_BYTES,
   MAX_TRACKED_FILES,
 } from './limits.ts';
+export {
+  bareName,
+  editDistance,
+  formatNameRow,
+  isCodeLike,
+  MAX_QUERY_UNITS,
+  MENU_ROWS,
+  NATIVE_BUDGET_US,
+  NATIVE_CANDIDATES,
+  type NameCandidate,
+  type NameLocation,
+  type RankedName,
+  type RankOptions,
+  rankNames,
+  TOTAL_BUDGET_MS,
+  wordKey,
+} from './match.ts';
 export { MAX_KEY_LENGTH, MIN_KEY_LENGTH, NORMALIZE_VERSION, normalizeKey } from './normalize.ts';
+export {
+  type BuildRecord,
+  bloomCreate,
+  bloomHas,
+  bloomHashes,
+  buildPacked,
+  candidatesFrom,
+  gramCodes,
+  INDEXER_VERSION,
+  loadPacked,
+  NAMES_BIN,
+  NAMES_CURRENT,
+  NAMES_DIR,
+  NAMES_FILES,
+  NAMES_HEADER_BYTES,
+  NAMES_MAGIC,
+  NAMES_META,
+  type PackedEntry,
+  type PackedIndex,
+} from './packed.ts';
 export { splitWords } from './split.ts';
 export {
   decodeProtection,

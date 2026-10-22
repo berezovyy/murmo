@@ -20,6 +20,7 @@ pub struct EffectiveConfig {
     pub overrides: Vec<String>,
     pub protect: Vec<String>,
     pub autocorrect: bool,
+    pub names: Option<crate::schema::NamesSettings>,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, EffectivePlugin>,
     pub private: bool,
@@ -50,6 +51,9 @@ impl EffectiveConfig {
         }
         if let Some(o) = &self.plugin_order {
             v["pluginOrder"] = json!(o);
+        }
+        if let Some(n) = &self.names {
+            v["names"] = n.to_json();
         }
         v
     }
@@ -210,6 +214,22 @@ pub fn merge_config(
         overrides,
         protect,
         autocorrect,
+        names: {
+            let mut names = user_file.and_then(|u| u.config.names.clone());
+            if project_file.and_then(|p| p.config.names.as_ref().and_then(|n| n.enabled))
+                == Some(false)
+            {
+                let mut n = names.unwrap_or(crate::schema::NamesSettings {
+                    enabled: None,
+                    key: None,
+                    languages: None,
+                    max_file_bytes: None,
+                });
+                n.enabled = Some(false);
+                names = Some(n);
+            }
+            names
+        },
         plugin_order: user_file.and_then(|u| u.config.plugin_order.clone()),
         plugins,
         private,

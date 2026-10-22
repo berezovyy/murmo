@@ -15,9 +15,8 @@ export declare const KEY_MODIFIERS: readonly ['Ctrl', 'Alt', 'Shift'];
  */
 export declare const SHARED_KEYS: readonly ['Tab', 'Enter', 'Escape', 'Up', 'Down', 'Left', 'Right'];
 /**
- * Claim conditions, a fixed vocabulary combined with AND. The six stay fixed for
- * the preview; new ones (e.g. `at-code-like-word`) come after v1 as a minor
- * release.
+ * Claim conditions, a fixed vocabulary combined with AND. The six preview
+ * conditions stay; `at-code-like-word` is the phase 36 addition (after v1).
  *
  * - `always`: true.
  * - `editable`: prose mode, insert editor mode, not busy, no dialog, no popup,
@@ -27,8 +26,10 @@ export declare const SHARED_KEYS: readonly ['Tab', 'Enter', 'Escape', 'Up', 'Dow
  * - `at-word-start`: exactly `cursor === 0 || /\s/.test(text[cursor - 1])`;
  *   punctuation alone does not match, the selection is not inspected.
  * - `after-my-edit`: the latest undo record belongs to this plugin.
+ * - `at-code-like-word`: cursor at the end of a code-like token (camelCase,
+ *   snake, path, `a.b` / `A::b`); prose and mid-word do not match.
  */
-export declare const KEY_CONDITIONS: readonly ['always', 'editable', 'ghost-visible-by-me', 'menu-open', 'at-word-start', 'after-my-edit'];
+export declare const KEY_CONDITIONS: readonly ['always', 'editable', 'ghost-visible-by-me', 'menu-open', 'at-word-start', 'after-my-edit', 'at-code-like-word'];
 export type KeyCondition = (typeof KEY_CONDITIONS)[number];
 /**
  * A canonical key ID (see `isCanonicalKey`). Typed as a string so plugins can

@@ -45,9 +45,8 @@ export const KEY_MODIFIERS = ['Ctrl', 'Alt', 'Shift'] as const;
 export const SHARED_KEYS = ['Tab', 'Enter', 'Escape', 'Up', 'Down', 'Left', 'Right'] as const;
 
 /**
- * Claim conditions, a fixed vocabulary combined with AND. The six stay fixed for
- * the preview; new ones (e.g. `at-code-like-word`) come after v1 as a minor
- * release.
+ * Claim conditions, a fixed vocabulary combined with AND. The six preview
+ * conditions stay; `at-code-like-word` is the phase 36 addition (after v1).
  *
  * - `always`: true.
  * - `editable`: prose mode, insert editor mode, not busy, no dialog, no popup,
@@ -57,6 +56,8 @@ export const SHARED_KEYS = ['Tab', 'Enter', 'Escape', 'Up', 'Down', 'Left', 'Rig
  * - `at-word-start`: exactly `cursor === 0 || /\s/.test(text[cursor - 1])`;
  *   punctuation alone does not match, the selection is not inspected.
  * - `after-my-edit`: the latest undo record belongs to this plugin.
+ * - `at-code-like-word`: cursor at the end of a code-like token (camelCase,
+ *   snake, path, `a.b` / `A::b`); prose and mid-word do not match.
  */
 export const KEY_CONDITIONS = [
   'always',
@@ -65,6 +66,7 @@ export const KEY_CONDITIONS = [
   'menu-open',
   'at-word-start',
   'after-my-edit',
+  'at-code-like-word',
 ] as const;
 
 export type KeyCondition = (typeof KEY_CONDITIONS)[number];

@@ -4,6 +4,7 @@ pub mod cpu;
 pub mod faults;
 pub mod http;
 pub mod limits;
+pub mod names;
 pub mod protocol;
 pub mod store;
 pub mod supervisor;

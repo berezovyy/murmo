@@ -31,7 +31,7 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo codex [args...]
   murmo plugin new|test|dev
   murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
-  murmo trust | init | vocab | words | data | private
+  murmo trust | init | vocab | words | names | index | data | private
 `;
 
 export interface MainOptions {
@@ -136,7 +136,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         rest,
       );
     }
-    if (['trust', 'init', 'vocab', 'words', 'data', 'private'].includes(cmd)) {
+    if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'data', 'private'].includes(cmd)) {
       return dispatchMounted(cmd, rest, env, cwd, err);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);

@@ -1,0 +1,10 @@
+(struct_item name: (_) @name) @definition.class
+(enum_item name: (_) @name) @definition.class
+(union_item name: (_) @name) @definition.class
+(trait_item name: (_) @name) @definition.type
+(type_item name: (_) @name) @definition.type
+(function_item name: (_) @name) @definition.function
+(function_signature_item name: (_) @name) @definition.function
+(const_item name: (_) @name) @definition.constant
+(static_item name: (_) @name) @definition.constant
+(mod_item name: (_) @name) @definition.module

@@ -87,10 +87,38 @@ pub struct ConfigFile {
     pub shortcuts: Vec<ShortcutEntry>,
     pub protect: Vec<String>,
     pub autocorrect: Option<bool>,
+    pub names: Option<NamesSettings>,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, PluginTable>,
     pub private: Option<bool>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamesSettings {
+    pub enabled: Option<bool>,
+    pub key: Option<String>,
+    pub languages: Option<Vec<String>>,
+    pub max_file_bytes: Option<u64>,
+}
+
+impl NamesSettings {
+    pub fn to_json(&self) -> Json {
+        let mut v = Map::new();
+        if let Some(e) = self.enabled {
+            v.insert("enabled".into(), Json::Bool(e));
+        }
+        if let Some(k) = &self.key {
+            v.insert("key".into(), Json::String(k.clone()));
+        }
+        if let Some(l) = &self.languages {
+            v.insert("languages".into(), json!(l));
+        }
+        if let Some(n) = self.max_file_bytes {
+            v.insert("maxFileBytes".into(), json!(n));
+        }
+        Json::Object(v)
+    }
 }
 
 impl ConfigFile {
@@ -119,6 +147,9 @@ impl ConfigFile {
         if let Some(a) = self.autocorrect {
             v["autocorrect"] = json!(a);
         }
+        if let Some(n) = &self.names {
+            v["names"] = n.to_json();
+        }
         if let Some(o) = &self.plugin_order {
             v["pluginOrder"] = json!(o);
         }
@@ -146,6 +177,7 @@ pub fn ignored_file(
         shortcuts: Vec::new(),
         protect: Vec::new(),
         autocorrect: None,
+        names: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -412,6 +444,7 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
         shortcuts: Vec::new(),
         protect: Vec::new(),
         autocorrect: None,
+        names: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -436,6 +469,7 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
             "autocorrect" => {
                 config.autocorrect = check_switch(&mut check, value, "autocorrect", "enabled")
             }
+            "names" => config.names = check_names(&mut check, value),
             "plugins" => (config.plugin_order, config.plugins) = check_plugins(&mut check, value),
             "privacy" => config.private = check_switch(&mut check, value, "privacy", "private"),
             _ => check.unknown(&[key], &format!("\"{key}\"")),
@@ -449,6 +483,16 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
                 "a project file can only turn autocorrect off; \"enabled = true\" ignored",
             );
             config.autocorrect = None;
+        }
+        if let Some(names) = config.names.as_mut() {
+            if names.enabled == Some(true) {
+                check.warn(
+                    "project-only-reduces",
+                    &["names", "enabled"],
+                    "a project file can only turn names off; \"enabled = true\" ignored",
+                );
+                names.enabled = None;
+            }
         }
         if config.private == Some(false) {
             config.private = None;
@@ -574,6 +618,128 @@ fn check_words(check: &mut Checker, value: &Value) -> Vec<String> {
         }
     }
     words
+}
+
+fn is_canonical_key(id: &str) -> bool {
+    const NAMED: &[&str] = &[
+        "space",
+        "Tab",
+        "Enter",
+        "Backspace",
+        "Escape",
+        "Up",
+        "Down",
+        "Left",
+        "Right",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
+    ];
+    let mut rest = id;
+    let mut used: Vec<&str> = Vec::new();
+    for modifier in ["Ctrl", "Alt", "Shift"] {
+        let prefix = format!("{modifier}+");
+        if rest.starts_with(&prefix) && rest.len() > prefix.len() {
+            used.push(modifier);
+            rest = &rest[prefix.len()..];
+        }
+    }
+    if NAMED.contains(&rest) {
+        return true;
+    }
+    let chars: Vec<char> = rest.chars().collect();
+    if chars.len() != 1 {
+        return false;
+    }
+    let c = chars[0];
+    if c.is_whitespace() || c.is_control() {
+        return false;
+    }
+    if used.contains(&"Shift") {
+        return false;
+    }
+    used.is_empty() || rest.chars().all(|ch| !ch.is_uppercase())
+}
+
+fn name_language(s: &str) -> bool {
+    matches!(s, "rust" | "typescript" | "javascript" | "python" | "go")
+}
+
+fn check_names(check: &mut Checker, value: &Value) -> Option<NamesSettings> {
+    let Value::Table(table) = value else {
+        check.warn("invalid-type", &["names"], "[names] must be a table");
+        return None;
+    };
+    let mut enabled = None;
+    let mut key = None;
+    let mut languages: Option<Vec<String>> = None;
+    let mut max_file_bytes = None;
+    for (name, entry) in table {
+        let path = ["names", name.as_str()];
+        match name.as_str() {
+            "enabled" => match entry {
+                Value::Boolean(b) => enabled = Some(*b),
+                _ => check.warn("invalid-type", &path, "enabled must be true or false"),
+            },
+            "key" => match entry {
+                Value::String(s) if is_canonical_key(s) => key = Some(s.clone()),
+                Value::String(s) => check.warn(
+                    "invalid-value",
+                    &path,
+                    &format!("key \"{s}\" is not a canonical key; skipped"),
+                ),
+                _ => check.warn("invalid-type", &path, "key must be a string"),
+            },
+            "languages" => match entry {
+                Value::Array(list) => {
+                    let mut out = Vec::new();
+                    for item in list {
+                        match item {
+                            Value::String(s) if name_language(s) && !out.contains(s) => out.push(s.clone()),
+                            _ => check.warn(
+                                "invalid-value",
+                                &path,
+                                "languages must list rust, typescript, javascript, python or go; entry skipped",
+                            ),
+                        }
+                    }
+                    languages = Some(out);
+                }
+                _ => check.warn(
+                    "invalid-type",
+                    &path,
+                    "languages must be a list of language names",
+                ),
+            },
+            "maxFileBytes" => match entry {
+                Value::Integer(n) if *n >= 1 && *n <= 1_048_576 => max_file_bytes = Some(*n as u64),
+                _ => check.warn(
+                    "invalid-value",
+                    &path,
+                    "maxFileBytes must be an integer from 1 to 1048576",
+                ),
+            },
+            _ => check.unknown(&path, &format!("\"{name}\" in [names]")),
+        }
+    }
+    if enabled.is_none() && key.is_none() && languages.is_none() && max_file_bytes.is_none() {
+        return None;
+    }
+    Some(NamesSettings {
+        enabled,
+        key,
+        languages,
+        max_file_bytes,
+    })
 }
 
 fn check_switch(check: &mut Checker, value: &Value, table: &str, name: &str) -> Option<bool> {

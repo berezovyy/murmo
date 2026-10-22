@@ -135,6 +135,31 @@
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
       "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "names-tab-code-like",
+      "note": "Tab on a camelCase token is consumed (at-code-like-word); the word is unchanged until accept (phase 36).",
+      "plugins": ["names-claim"],
+      "steps": [{ "type": "OutboxWorkr" }, { "key": "Tab", "routing": "consume" }],
+      "expect": { "draft": { "text": "OutboxWorkr" }, "requests": [] }
+    },
+    {
+      "id": "names-tab-prose-passes",
+      "note": "Tab on prose is not consumed, so a literal tab still belongs to the host.",
+      "plugins": ["names-claim"],
+      "steps": [{ "type": "hello" }, { "key": "Tab", "routing": "pass" }],
+      "expect": { "draft": { "text": "hello" }, "requests": [] }
+    },
+    {
+      "id": "names-tab-native-popup",
+      "note": "A host popup still owns Tab on a code-like word (E14).",
+      "plugins": ["names-claim"],
+      "steps": [
+        { "type": "OutboxWorkr" },
+        { "state": { "popup": { "owner": "host" } } },
+        { "key": "Tab", "routing": "pass" }
+      ],
+      "expect": { "requests": [] }
     }
   ]
 }

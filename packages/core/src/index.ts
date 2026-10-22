@@ -18,6 +18,7 @@ export {
   type StorageBroker,
 } from './brokers/index.ts';
 export { type ClaimValidation, claimWrites, isSharedKey, type ValidatedClaim, validateClaims } from './claims.ts';
+export { atCodeLikeWord, isCodeLike, wordAtCursor } from './code-like.ts';
 export {
   type BoundaryAction,
   BoundaryBook,

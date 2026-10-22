@@ -75,6 +75,10 @@ export class Counters {
   shortcutExpanded = 0;
   /** Immediate Backspace or Murmo undo of a shortcut expansion (roadmap metric). */
   shortcutUndone = 0;
+  /** Names accepted from the project-name menu (phase 36). Numbers only. */
+  nameAccepted = 0;
+  /** Those accepts reverted by the immediate Backspace or Murmo undo. */
+  nameReverted = 0;
 }
 
 export interface PluginHealth {
@@ -143,4 +147,8 @@ export interface SessionStats {
   readonly shortcutUndone: number;
   /** Per shortcut name (a config key), counts only: never expansion or draft text. */
   readonly shortcutByName: Readonly<Record<string, { readonly expanded: number; readonly undone: number }>>;
+  /** Project-name menu accepts (phase 36). Never the name text. */
+  readonly nameAccepted: number;
+  /** Accepts reverted by immediate Backspace or Murmo undo. */
+  readonly nameReverted: number;
 }

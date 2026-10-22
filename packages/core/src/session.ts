@@ -349,6 +349,7 @@ class CoreSession implements Session {
       publish: (accepted) => this.#publish(accepted),
       noteApplied: (plugin) => {
         rate.noteApplied(plugin.id, plugin.builtin);
+        if (plugin.id === 'names' || plugin.name === 'names') counters.nameAccepted++;
       },
     });
     this.#edits = edits;
@@ -378,6 +379,7 @@ class CoreSession implements Session {
       counters,
       bumpEpoch: () => intake.bumpEpoch(),
       restore: (record, gesture) => {
+        if (record.owner === 'names') counters.nameReverted++;
         const epoch = intake.epoch;
         this.#enqueue(() => this.#edits?.restore(record, gesture, epoch) ?? Promise.resolve());
       },
@@ -604,6 +606,7 @@ class CoreSession implements Session {
       if (!record || !caps.edit.exactRestore || !editable(state, draft)) return;
       intake.bumpEpoch();
       this.#undo.pop();
+      if (record.owner === 'names') this.#counters.nameReverted++;
       const epoch = intake.epoch;
       this.#enqueue(() => this.#edits?.restore(record, 'undo-key', epoch) ?? Promise.resolve());
       return;
@@ -921,6 +924,8 @@ class CoreSession implements Session {
       shortcutExpanded: c.shortcutExpanded,
       shortcutUndone: c.shortcutUndone,
       shortcutByName: byName(this.#inline?.shortcutCounts()),
+      nameAccepted: c.nameAccepted,
+      nameReverted: c.nameReverted,
       resyncs: this.#intake?.resyncs ?? 0,
       ledgerChecks: this.#intake?.ledgerChecks ?? 0,
       keys: c.keys,

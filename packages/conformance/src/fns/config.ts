@@ -53,6 +53,7 @@ export function configSummary(file: ConfigFile): unknown {
   if (file.language !== undefined) out.language = file.language;
   if (file.protect.length) out.protect = file.protect;
   if (file.autocorrect !== undefined) out.autocorrect = file.autocorrect;
+  if (file.names !== undefined) out.names = file.names;
   if (file.pluginOrder !== undefined) out.pluginOrder = file.pluginOrder;
   if (file.private !== undefined) out.private = file.private;
   const plugins = Object.entries(file.plugins);
