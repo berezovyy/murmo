@@ -39,6 +39,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `generators/` | seeded generators (code) and their run files | 02 |
 | `hosts/` | real-host contract cases (round 14 follow-up fixes) | 20, 29 |
 | `rescue/` | idle-save lifecycle for the real-host harness (SIGKILL, submit, private; skips until adapters) | 17, 21–24 |
+| `history/` | r9 29-query search oracle (brute scan); provenance cases live in the history plugin tests | 35 |
 
 Every file carries `provenance` (source, license, author). All fixture text is our own: nothing from the typos list or other CC BY-SA data.
 

@@ -1,0 +1,31 @@
+{
+  "name": "history",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/plugin.ts",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the ;? query you type so history can be filtered." },
+    { "name": "draft:write", "reason": "Insert a chosen prompt as one undoable edit that never submits." },
+    { "name": "submit:observe", "reason": "Record only a confirmed send of fully typed text." }
+  ],
+  "capabilities": {
+    "required": {},
+    "optional": {
+      "menu": true,
+      "status": true,
+      "edit.atomic": true,
+      "edit.exactRestore": true
+    }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. Off until you set [history] enabled = true. Stores sent prompts as typed, keys and passwords included."
+      }
+    },
+    "additionalProperties": false
+  }
+}

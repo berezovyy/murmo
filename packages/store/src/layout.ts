@@ -156,6 +156,15 @@ export function phraseMetricsPath(layout: StoreLayout): string {
   return `${layout.store}/phrases/metrics.json`;
 }
 
+/** Packed history snapshot set (phase 35): `<data>/store/v1/history/` with `current`. */
+export function historyDirectory(layout: StoreLayout): string {
+  return `${layout.store}/history`;
+}
+
+export function historyMetricsPath(layout: StoreLayout): string {
+  return `${layout.store}/history/metrics.json`;
+}
+
 const PROJECT_ID = /^[0-9a-f]{64}$/;
 
 /** A project ID is a SHA-256 hex digest; anything else would let a caller escape the layout. */

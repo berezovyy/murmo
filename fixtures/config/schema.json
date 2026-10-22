@@ -753,6 +753,50 @@
       }
     },
     {
+      "id": "history-enabled",
+      "input": {
+        "source": "[history]\nenabled = true\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "historyEnabled": true
+      }
+    },
+    {
+      "id": "history-enabled-project",
+      "input": {
+        "source": "[history]\nenabled = true\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "history-off-project",
+      "input": {
+        "source": "[history]\nenabled = false\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "historyEnabled": false
+      }
+    },
+    {
       "id": "privacy",
       "input": {
         "source": "[privacy]\nprivate = true\n"

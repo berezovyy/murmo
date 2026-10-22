@@ -1,6 +1,7 @@
 // Mount commands owned by other packages (handoffs 11, 14, 15, 19).
 // plugin enable/disable/add/remove is phase 28.
 
+import { historyCommand } from '@murmo/plugin-history/node';
 import { phrasesCommand } from '@murmo/plugin-phrases/node';
 import { initCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
 import { dataCommand, openStore, privateCommand, storeRootsFromEnv } from '@murmo/store/node';
@@ -40,5 +41,6 @@ export async function dispatchMounted(
   if (cmd === 'data') return dataCommand(rest, ctx);
   if (cmd === 'private') return privateCommand(rest, ctx);
   if (cmd === 'phrases') return phrasesCommand(rest, ctx);
+  if (cmd === 'history') return historyCommand(rest, ctx);
   return 2;
 }

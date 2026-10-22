@@ -21,7 +21,7 @@
     {
       "file": "config/schema.json",
       "owner": "14",
-      "cases": 63
+      "cases": 66
     },
     {
       "file": "config/toml-corpus.json",
@@ -111,6 +111,11 @@
       "owner": "20",
       "cases": 5,
       "variants": 5
+    },
+    {
+      "file": "history/queries.json",
+      "owner": "35",
+      "cases": 1
     },
     {
       "file": "menu/enter.json",

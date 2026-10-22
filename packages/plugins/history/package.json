@@ -1,0 +1,38 @@
+{
+  "name": "@murmo/plugin-history",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/text": "workspace:*",
+    "@murmo/plugin-shortcuts": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/core": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "nodeOnly": [
+      "src/node"
+    ],
+    "bundles": [
+      {
+        "name": "plugin-history",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoPluginHistory"
+      }
+    ]
+  }
+}

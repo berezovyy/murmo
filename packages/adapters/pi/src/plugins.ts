@@ -6,6 +6,8 @@ import type { EffectiveConfig } from '@murmo/config';
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
+import { historyPlugin } from '@murmo/plugin-history';
+import { persistEvents as persistHistory } from '@murmo/plugin-history/node';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { persistEvents } from '@murmo/plugin-phrases/node';
 import { rescuePlugin } from '@murmo/plugin-rescue';
@@ -13,7 +15,7 @@ import { compileShortcuts, menuPlugin, SAMPLE_SHORTCUTS, shortcutsPlugin } from 
 import type { DraftIdentity, Drafts } from '@murmo/store';
 import type { Store } from '@murmo/store/node';
 
-export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases'] as const;
+export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history'] as const;
 
 export interface BuiltinLoad {
   readonly specs: HostPluginSpec[];
@@ -76,7 +78,8 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
   }
 
   if (ids.has('menu')) {
-    const menu = menuPlugin(compiled);
+    const historyOn = config?.historyEnabled === true;
+    const menu = menuPlugin(compiled, { history: historyOn });
     specs.push({ id: menu.id, builtin: true, factory: menu.factory });
   }
 
@@ -101,6 +104,22 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
           ...(store && identity ? { persist: (events) => void persistEvents(store, identity.session, events) } : {}),
         },
         { learn: config?.phrasesLearn === true },
+      ),
+    );
+  }
+
+  if (ids.has('history')) {
+    const identity = options.identity;
+    const store = options.store;
+    const historyOn = config?.historyEnabled === true;
+    specs.push(
+      historyPlugin(
+        {
+          ...(identity ? { identity: { project: identity.project, host: 'pi', session: identity.session } } : {}),
+          isPrivate: async () => config?.private === true,
+          ...(store && identity ? { persist: (events) => void persistHistory(store, identity.session, events) } : {}),
+        },
+        { enabled: historyOn },
       ),
     );
   }

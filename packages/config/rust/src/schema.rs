@@ -89,6 +89,7 @@ pub struct ConfigFile {
     pub autocorrect: Option<bool>,
     pub names: Option<NamesSettings>,
     pub phrases_learn: Option<bool>,
+    pub history_enabled: Option<bool>,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, PluginTable>,
     pub private: Option<bool>,
@@ -156,6 +157,9 @@ impl ConfigFile {
         if let Some(p) = self.phrases_learn {
             v["phrasesLearn"] = json!(p);
         }
+        if let Some(h) = self.history_enabled {
+            v["historyEnabled"] = json!(h);
+        }
         if let Some(o) = &self.plugin_order {
             v["pluginOrder"] = json!(o);
         }
@@ -191,6 +195,7 @@ pub fn ignored_file(
         autocorrect: None,
         names: None,
         phrases_learn: None,
+        history_enabled: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -461,6 +466,7 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
         autocorrect: None,
         names: None,
         phrases_learn: None,
+        history_enabled: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -489,6 +495,9 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
             }
             "names" => config.names = check_names(&mut check, value),
             "phrases" => config.phrases_learn = check_switch(&mut check, value, "phrases", "learn"),
+            "history" => {
+                config.history_enabled = check_switch(&mut check, value, "history", "enabled")
+            }
             "plugins" => (config.plugin_order, config.plugins) = check_plugins(&mut check, value),
             "privacy" => config.private = check_switch(&mut check, value, "privacy", "private"),
             "events" => {
@@ -525,6 +534,14 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
                 "a project file can only turn phrase learning off; \"learn = true\" ignored",
             );
             config.phrases_learn = None;
+        }
+        if config.history_enabled == Some(true) {
+            check.warn(
+                "project-only-reduces",
+                &["history", "enabled"],
+                "a project file can only turn history off; \"enabled = true\" ignored",
+            );
+            config.history_enabled = None;
         }
         if config.private == Some(false) {
             config.private = None;

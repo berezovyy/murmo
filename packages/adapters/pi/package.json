@@ -18,6 +18,7 @@
     "@murmo/executor": "workspace:*",
     "@murmo/plugin-autocorrect": "workspace:*",
     "@murmo/plugin-events": "workspace:*",
+    "@murmo/plugin-history": "workspace:*",
     "@murmo/plugin-phrases": "workspace:*",
     "@murmo/plugin-rescue": "workspace:*",
     "@murmo/plugin-shortcuts": "workspace:*",

@@ -22,6 +22,7 @@ pub struct EffectiveConfig {
     pub autocorrect: bool,
     pub names: Option<crate::schema::NamesSettings>,
     pub phrases_learn: bool,
+    pub history_enabled: bool,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, EffectivePlugin>,
     pub private: bool,
@@ -46,6 +47,7 @@ impl EffectiveConfig {
             "protect": self.protect,
             "autocorrect": self.autocorrect,
             "phrasesLearn": self.phrases_learn,
+            "historyEnabled": self.history_enabled,
             "plugins": plugins,
             "private": self.private,
             "events": self.events,
@@ -137,6 +139,13 @@ pub fn merge_config(
     } else {
         user_file
             .and_then(|u| u.config.phrases_learn)
+            .unwrap_or(false)
+    };
+    let history_enabled = if project_file.and_then(|p| p.config.history_enabled) == Some(false) {
+        false
+    } else {
+        user_file
+            .and_then(|u| u.config.history_enabled)
             .unwrap_or(false)
     };
     let private = project_file.and_then(|p| p.config.private) == Some(true)
@@ -252,6 +261,7 @@ pub fn merge_config(
             names
         },
         phrases_learn,
+        history_enabled,
         plugin_order: user_file.and_then(|u| u.config.plugin_order.clone()),
         plugins,
         private,

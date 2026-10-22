@@ -17,6 +17,7 @@
     "@murmo/executor": "workspace:*",
     "@murmo/fixtures": "workspace:*",
     "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/plugin-history": "workspace:*",
     "@murmo/plugin-rescue": "workspace:*",
     "@murmo/plugin-shortcuts": "workspace:*",
     "@murmo/provenance": "workspace:*",

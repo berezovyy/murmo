@@ -51,6 +51,8 @@ export interface ConfigFile {
   readonly names?: NamesSettings;
   /** `[phrases] learn`. Opt-in; default is off. */
   readonly phrasesLearn?: boolean;
+  /** `[history] enabled`. Opt-in; default is off. */
+  readonly historyEnabled?: boolean;
   /** `[plugins] order`. */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, PluginTable>>;
@@ -263,6 +265,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
   let autocorrect: boolean | undefined;
   let names: NamesSettings | undefined;
   let phrasesLearn: boolean | undefined;
+  let historyEnabled: boolean | undefined;
   let pluginOrder: string[] | undefined;
   let plugins: Record<string, PluginTable> = {};
   let privacy: boolean | undefined;
@@ -294,6 +297,9 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
         break;
       case 'phrases':
         phrasesLearn = checkSwitch(check, value, 'phrases', 'learn');
+        break;
+      case 'history':
+        historyEnabled = checkSwitch(check, value, 'history', 'enabled');
         break;
       case 'plugins':
         ({ order: pluginOrder, tables: plugins } = checkPlugins(check, value));
@@ -338,6 +344,15 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
       );
       phrasesLearn = undefined;
     }
+    if (historyEnabled === true) {
+      check.report(
+        'warning',
+        'project-only-reduces',
+        ['history', 'enabled'],
+        'a project file can only turn history off; "enabled = true" ignored',
+      );
+      historyEnabled = undefined;
+    }
     if (privacy === false) privacy = undefined;
     if (events === true) {
       check.report(
@@ -380,6 +395,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
     ...(autocorrect === undefined ? {} : { autocorrect }),
     ...(names === undefined ? {} : { names }),
     ...(phrasesLearn === undefined ? {} : { phrasesLearn }),
+    ...(historyEnabled === undefined ? {} : { historyEnabled }),
     ...(pluginOrder === undefined ? {} : { pluginOrder }),
     ...(privacy === undefined ? {} : { private: privacy }),
     ...(events === undefined ? {} : { events }),

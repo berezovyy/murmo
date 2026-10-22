@@ -49,6 +49,9 @@ importers:
       '@murmo/plugin-events':
         specifier: workspace:*
         version: link:../../plugins/events
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../../plugins/history
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -85,6 +88,9 @@ importers:
       '@murmo/plugin-events':
         specifier: workspace:*
         version: link:../../plugins/events
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../../plugins/history
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -125,6 +131,9 @@ importers:
       '@murmo/plugin-events':
         specifier: workspace:*
         version: link:../../plugins/events
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../../plugins/history
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -164,6 +173,9 @@ importers:
       '@murmo/plugin-events':
         specifier: workspace:*
         version: link:../../plugins/events
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../../plugins/history
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -211,6 +223,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../plugin-autocorrect
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../plugins/history
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../plugins/phrases
@@ -263,6 +278,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../plugin-autocorrect
+      '@murmo/plugin-history':
+        specifier: workspace:*
+        version: link:../plugins/history
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../plugins/rescue
@@ -398,6 +416,25 @@ importers:
       '@murmo/api':
         specifier: workspace:*
         version: link:../../api
+    devDependencies:
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/plugins/history:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/plugin-shortcuts':
+        specifier: workspace:*
+        version: link:../shortcuts
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../../store
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../../text
     devDependencies:
       '@murmo/core':
         specifier: workspace:*

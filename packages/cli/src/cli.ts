@@ -32,7 +32,7 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo codex [args...]
   murmo plugin new|test|dev
   murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
-  murmo trust | init | vocab | words | names | index | phrases | data | private
+  murmo trust | init | vocab | words | names | index | phrases | history | data | private
   murmo hook codex <event>
 `;
 
@@ -144,7 +144,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
       const stdin = env.MURMO_HOOK_STDIN ?? (process.stdin.isTTY ? '{}' : await readStdin());
       return hookCommand(rest, env, stdin, out);
     }
-    if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'phrases', 'data', 'private'].includes(cmd)) {
+    if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'phrases', 'history', 'data', 'private'].includes(cmd)) {
       return dispatchMounted(cmd, rest, env, cwd, err);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);

@@ -34,6 +34,8 @@ export {
   draftFile,
   draftLockFile,
   extensionsDir,
+  historyDirectory,
+  historyMetricsPath,
   LOG_KINDS,
   lastRollbackPath,
   logDirectory,
@@ -54,6 +56,7 @@ export {
   storeLayout,
   updateJournalPath,
 } from './layout.ts';
+
 export type { MemoryDraftsOptions } from './memory-drafts.ts';
 export { createMemoryDrafts } from './memory-drafts.ts';
 export type { NamespaceChange, NamespaceData } from './plugin-namespace.ts';

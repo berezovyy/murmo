@@ -25,6 +25,8 @@ export interface EffectiveConfig {
   readonly names?: NamesSettings;
   /** Phrase learning is opt-in: false unless the user file turns it on. */
   readonly phrasesLearn: boolean;
+  /** History is opt-in: false unless the user file turns it on. */
+  readonly historyEnabled: boolean;
   /** Only from the user file; overrides the order `murmo plugin` keeps (phase 28). */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, EffectivePlugin>>;
@@ -79,6 +81,7 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
   // a plugin, `private = false`, `[plugins] order`), with a warning for each.
   const autocorrect = projectFile?.autocorrect === false ? false : (userFile?.autocorrect ?? false);
   const phrasesLearn = projectFile?.phrasesLearn === false ? false : (userFile?.phrasesLearn ?? false);
+  const historyEnabled = projectFile?.historyEnabled === false ? false : (userFile?.historyEnabled ?? false);
   const isPrivate = projectFile?.private === true || (userFile?.private ?? false);
   const events = projectFile?.events === false ? false : (userFile?.events ?? false);
   const eventsFailOpen = userFile?.eventsFailOpen ?? false;
@@ -137,6 +140,7 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
     autocorrect,
     ...(names === undefined ? {} : { names }),
     phrasesLearn,
+    historyEnabled,
     ...(userFile?.pluginOrder ? { pluginOrder: userFile.pluginOrder } : {}),
     plugins,
     private: isPrivate,

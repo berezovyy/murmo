@@ -1,0 +1,50 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "r9 history verify.mjs 29 queries; packed search must match a brute scan (docs/plan/35 E3)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "fn": "history.search",
+  "cases": [
+    {
+      "id": "r9-queries",
+      "note": "Oracle is bruteSearch in packages/plugins/history/test/search.test.ts, not a stored ranking.",
+      "input": {
+        "queries": [
+          "r",
+          "review",
+          "outboxworker",
+          "drain_",
+          "review auth",
+          "test timeout",
+          "fix src/",
+          "case 179",
+          "unicode offsets",
+          "nonexistent_symbol",
+          "api_key",
+          "request",
+          "session",
+          "in src/",
+          "the",
+          "a",
+          "s",
+          "c",
+          "review outboxworker",
+          "Case 1",
+          "1",
+          "17",
+          "sr",
+          "in",
+          "ou",
+          "dr",
+          "re",
+          "no",
+          "zz"
+        ]
+      },
+      "output": { "n": 29 }
+    }
+  ]
+}

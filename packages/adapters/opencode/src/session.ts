@@ -7,6 +7,7 @@ import { createMemoryStorage, createPluginHost, createSession, type HostPluginSp
 import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
+import { historyPlugin } from '@murmo/plugin-history';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
@@ -59,7 +60,8 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
     allow: (options.config?.protect ?? []).join(' '),
   });
   const shortcuts = shortcutsPlugin(compiled);
-  const menu = menuPlugin(compiled);
+  const historyOn = options.config?.historyEnabled === true;
+  const menu = menuPlugin(compiled, { history: historyOn });
   const specs: HostPluginSpec[] = [
     {
       id: autocorrect.id,
@@ -78,6 +80,10 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
     phrasesPlugin(
       { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
       { learn: options.config?.phrasesLearn === true },
+    ),
+    historyPlugin(
+      { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
+      { enabled: historyOn },
     ),
   ];
   return specs;

@@ -4,10 +4,13 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { loadSessionConfig } from '@murmo/config/node';
 import { claudeEventCaps, codexEventCaps, doctorLinesFor, opencodeEventCaps, piEventCaps } from '@murmo/core';
 import { DATA_DIR, loadTrustAnchor, npmPlatform, VerifyError, verifyPackage } from '@murmo/integrity';
 import { openLanguagePack } from '@murmo/lang/node';
 import { doctorLine } from '@murmo/plugin-autocorrect';
+import { doctorLine as historyDoctorLine } from '@murmo/plugin-history';
+import { lastMerge, loadRecords, readMetrics as readHistoryMetrics } from '@murmo/plugin-history/node';
 import { doctorLine as phrasesDoctorLine } from '@murmo/plugin-phrases';
 import { readMetrics } from '@murmo/plugin-phrases/node';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
@@ -304,6 +307,38 @@ export async function doctorCommand(options: DoctorOptions = {}): Promise<Doctor
   }
 
   checks.push(...vocabPartial(layout));
+
+  let historyEnabled = false;
+  try {
+    const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
+    const cwd = env.PWD || process.cwd();
+    const session = await loadSessionConfig({ cwd, store, env, ...(env.HOME ? { home: env.HOME } : {}) });
+    historyEnabled = session.effective.historyEnabled === true;
+    const records = await loadRecords(store);
+    const merged = await lastMerge(store);
+    const metrics = await readHistoryMetrics(store);
+    checks.push(
+      check(
+        'history',
+        true,
+        historyDoctorLine(metrics, {
+          enabled: historyEnabled,
+          prompts: records.length,
+          ...(merged ? { merged: String(merged.generation) } : {}),
+        }),
+        historyEnabled ? 'none' : 'set [history] enabled = true to record sent prompts (stored as typed)',
+      ),
+    );
+  } catch (error) {
+    checks.push(
+      check(
+        'history',
+        true,
+        historyDoctorLine(undefined, { enabled: historyEnabled }),
+        error instanceof Error ? error.message : 'none',
+      ),
+    );
+  }
 
   if (options.stats) {
     try {

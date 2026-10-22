@@ -84,6 +84,8 @@ function buildItems(
   options: MenuOptions,
 ): MenuItem[] {
   const width = options.width ?? 87;
+  // `;?…` is history search; this plugin yields so history owns the rows.
+  if (options.history === true && trigger.query.startsWith(HISTORY_ID)) return [];
   const history = options.history === true && historyQuery(trigger.query);
   const room = history ? MENU_ROWS - 1 : MENU_ROWS;
   const native = caps.inline.nativeCompletion;
@@ -108,7 +110,21 @@ function buildItems(
       });
     } else items.push(item);
   }
-  if (history) items.push({ id: HISTORY_ID, label: ';?', detail: 'Search prompt history' });
+  if (history) {
+    const row: MenuItem = { id: HISTORY_ID, label: ';?', detail: 'Search prompt history' };
+    if (native) {
+      items.push({
+        ...row,
+        inlineEdit: {
+          baseVersion: draft.version,
+          from: draft.cursor,
+          to: draft.cursor,
+          insert: '?',
+          undoable: true,
+        },
+      });
+    } else items.push(row);
+  }
   return items;
 }
 
@@ -150,7 +166,21 @@ function createPlugin(state: MenuState): Plugin {
     onMenuSelect(item, ctx) {
       // Claude commits the row's `inlineEdit`; an imperative edit cannot (lesson 47).
       if (ctx.host.caps.inline.nativeCompletion) return [];
-      if (item.id === HISTORY_ID) return [];
+      if (item.id === HISTORY_ID) {
+        return [
+          {
+            type: 'edit',
+            edit: {
+              from: ctx.draft.cursor,
+              to: ctx.draft.cursor,
+              insert: '?',
+              baseVersion: ctx.draft.version,
+              undoable: true,
+              label: 'history',
+            },
+          },
+        ];
+      }
       if (start < 0 || ctx.draft.version !== shownVersion) return [];
       const insert = state.table.expansions[item.id];
       if (insert === undefined) return [];

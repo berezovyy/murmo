@@ -3,6 +3,7 @@
 
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec, provideEnglishPack } from '@murmo/plugin-autocorrect';
+import { historyPlugin } from '@murmo/plugin-history';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
@@ -18,6 +19,7 @@ export interface EngineConfig {
   readonly overlay?: boolean;
   readonly hide?: string;
   readonly events?: boolean;
+  readonly history?: boolean;
 }
 
 export interface TableMeta {
@@ -65,7 +67,10 @@ export function builtinSpecs(config: EngineConfig): HostPluginSpec[] {
     },
     shortcutsPlugin(compiled, { asyncEdits: true, inlineMaxBytes: INLINE_MAX_BYTES }),
     (() => {
-      const menu = menuPlugin(compiled, { width: 80 });
+      const menu = menuPlugin(compiled, {
+        width: 80,
+        history: config.history === true,
+      });
       return { id: menu.id, builtin: true as const, factory: menu.factory };
     })(),
     rescuePlugin({
@@ -73,6 +78,10 @@ export function builtinSpecs(config: EngineConfig): HostPluginSpec[] {
       identity: { project: '0'.repeat(64), host: 'codex', session: 'session' },
     }),
     phrasesPlugin({ identity: { project: '0'.repeat(64), host: 'codex', session: 'session' } }, { ghost: false }),
+    historyPlugin(
+      { identity: { project: '0'.repeat(64), host: 'codex', session: 'session' } },
+      { enabled: config.history === true },
+    ),
   ];
   const order = config.pluginOrder;
   if (!order?.length) return specs;

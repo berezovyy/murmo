@@ -7,6 +7,7 @@
 import fsp from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import {
+  historyDirectory,
   LOG_KINDS,
   type LogKind,
   phraseDirectory,
@@ -83,6 +84,9 @@ function classify(layout: StoreLayout, path: string): Omit<InventoryRow, 'files'
     if (first === 'plugins') return { kind: 'plugins', scope: 'global', path: layout.plugins };
     if (first === 'phrases') {
       return { kind: 'logs', scope: 'global', label: 'phrases', path: phraseDirectory(layout) };
+    }
+    if (first === 'history') {
+      return { kind: 'logs', scope: 'global', label: 'history', path: historyDirectory(layout) };
     }
     if (first === 'logs' && second && (LOG_KINDS as readonly string[]).includes(second)) {
       return { kind: 'logs', scope: 'global', label: second, path: join(layout.logs, second) };

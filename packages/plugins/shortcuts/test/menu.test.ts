@@ -158,3 +158,12 @@ test('filtering 1,006 shortcuts stays ≤ 1 ms p99', () => {
   const p99 = samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.99))] ?? 0;
   assert.ok(p99 <= 1, `p99 ${p99.toFixed(3)} ms exceeds 1 ms`);
 });
+
+test('history option adds a ;? last row (E10)', async () => {
+  const h = await createHarness({ plugins: [menuOf(SAMPLE_SHORTCUTS, { history: true })] });
+  await h.driver.type(';');
+  const last = h.adapter.menu?.[h.adapter.menu.length - 1];
+  assert.equal(last?.id, '?');
+  assert.equal(last?.detail, 'Search prompt history');
+  await h.session?.dispose();
+});

@@ -55,6 +55,7 @@ export function configSummary(file: ConfigFile): unknown {
   if (file.autocorrect !== undefined) out.autocorrect = file.autocorrect;
   if (file.names !== undefined) out.names = file.names;
   if (file.phrasesLearn !== undefined) out.phrasesLearn = file.phrasesLearn;
+  if (file.historyEnabled !== undefined) out.historyEnabled = file.historyEnabled;
   if (file.pluginOrder !== undefined) out.pluginOrder = file.pluginOrder;
   if (file.private !== undefined) out.private = file.private;
   if (file.events !== undefined) out.events = file.events;
