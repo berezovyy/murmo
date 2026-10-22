@@ -163,9 +163,27 @@ importers:
 
   packages/cli:
     dependencies:
+      '@murmo/devkit':
+        specifier: workspace:*
+        version: link:../devkit
       '@murmo/integrity':
         specifier: workspace:*
         version: link:../integrity
+      '@murmo/lang':
+        specifier: workspace:*
+        version: link:../lang
+      '@murmo/plugin-autocorrect':
+        specifier: workspace:*
+        version: link:../plugin-autocorrect
+      '@murmo/plugin-shortcuts':
+        specifier: workspace:*
+        version: link:../plugins/shortcuts
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../store
+      '@murmo/vocab':
+        specifier: workspace:*
+        version: link:../vocab
 
   packages/config:
     dependencies:

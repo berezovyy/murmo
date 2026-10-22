@@ -10,7 +10,13 @@
     ".": "./src/cli.ts"
   },
   "dependencies": {
-    "@murmo/integrity": "workspace:*"
+    "@murmo/devkit": "workspace:*",
+    "@murmo/integrity": "workspace:*",
+    "@murmo/lang": "workspace:*",
+    "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/plugin-shortcuts": "workspace:*",
+    "@murmo/store": "workspace:*",
+    "@murmo/vocab": "workspace:*"
   },
   "murmo": {
     "runtime": "node",
@@ -20,6 +26,10 @@
         "entry": "src/cli.ts",
         "targets": [
           "node"
+        ],
+        "external": [
+          "@murmo/devkit",
+          "quickjs-emscripten"
         ]
       }
     ]
