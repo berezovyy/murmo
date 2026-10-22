@@ -3,7 +3,7 @@
 // Bun file system side in `@murmo/config/node`.
 export type { Diagnostic, DiagnosticCode, DiagnosticSeverity, Position } from './diagnostics.ts';
 export { formatDiagnostic, makeDiagnostic } from './diagnostics.ts';
-export { CONFIG_LIMITS } from './limits.ts';
+export { CONFIG_LIMITS, FIELD_NAME } from './limits.ts';
 export type { EffectiveConfig, EffectivePlugin, MergeInput } from './merge.ts';
 export { mergeConfig } from './merge.ts';
 export type { PluginSettingsResult } from './plugins.ts';
@@ -14,11 +14,13 @@ export type {
   ConfigFile,
   ConfigOrigin,
   ConfigSource,
+  FieldDefault,
   JsonValue,
   NamesLspSettings,
   NamesSettings,
   PluginTable,
   ShortcutEntry,
+  ShortcutMeta,
 } from './schema.ts';
 export {
   compareCodePoints,

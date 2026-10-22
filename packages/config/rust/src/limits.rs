@@ -10,3 +10,5 @@ pub const SNAPSHOT_READS: u32 = 128;
 pub const NESTING_DEPTH: usize = 32;
 pub const WORD_CODE_POINTS: usize = 64;
 pub const EXCERPT_CODE_POINTS: usize = 120;
+pub const FIELDS_PER_TEMPLATE: usize = 16;
+pub const ALIASES_PER_SHORTCUT: usize = 8;

@@ -8,6 +8,7 @@
 import { type Effect, type EffectType, LIMITS, type Range, type ResultCode } from '@murmo/api';
 import { EFFECT_ROUTES } from '@murmo/api/adapter';
 import type { Edits } from './edits.ts';
+import type { FieldSessions } from './fields.ts';
 import type { PluginEntry } from './hooks.ts';
 import type { Menu } from './menu.ts';
 import type { Presentation } from './present.ts';
@@ -22,6 +23,7 @@ export interface EffectDeps {
   readonly counters: Counters;
   readonly editable: () => boolean;
   readonly notice: (text: string) => void;
+  readonly fields?: FieldSessions;
 }
 
 const effectTypes: ReadonlySet<string> = new Set(Object.keys(EFFECT_ROUTES));
@@ -101,5 +103,12 @@ function present(plugin: PluginEntry, effect: Exclude<Effect, { type: 'edit' }>,
     case 'menu':
       if (effect.items !== null && effect.items.length > 0 && !deps.editable()) return 'denied';
       return deps.menu.setItems(plugin, effect.items, effect.baseVersion);
+    case 'field-session': {
+      deps.fields?.set(plugin.id, effect.ranges, effect.baseVersion, effect.active ?? 0);
+      const picked = effect.ranges?.[effect.active ?? 0] ?? effect.ranges?.[0];
+      const active = picked ? [picked] : null;
+      if (active?.length && !deps.editable()) return 'denied';
+      return presentation.setHighlight(plugin, active, effect.baseVersion);
+    }
   }
 }

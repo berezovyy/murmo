@@ -10,6 +10,7 @@ import {
   compareCodePoints,
   expansionProblem,
   type ShortcutEntry,
+  type ShortcutMeta,
   sortDiagnostics,
 } from './schema.ts';
 
@@ -46,13 +47,25 @@ export type ReferenceRead =
   | { readonly status: 'ok'; readonly text: string }
   | { readonly status: 'refused'; readonly problem: ReferenceProblem };
 
-export interface Shortcut {
+export interface Shortcut extends ShortcutMeta {
   readonly shortcut: string;
   /** Exactly the text that is inserted. */
   readonly text: string;
   readonly origin: ConfigOrigin;
   /** The `file` it came from, as written. */
   readonly reference?: string;
+}
+
+function withMeta(
+  base: { shortcut: string; text: string; origin: ConfigOrigin; reference?: string },
+  entry: ShortcutEntry,
+): Shortcut {
+  return {
+    ...base,
+    ...(entry.description === undefined ? {} : { description: entry.description }),
+    ...(entry.aliases?.length ? { aliases: entry.aliases } : {}),
+    ...(entry.fields ? { fields: entry.fields } : {}),
+  };
 }
 
 export interface LoadedConfig extends ConfigFile {
@@ -85,7 +98,7 @@ export function resolveShortcuts(config: ConfigFile, reads: ReadonlyMap<string, 
     diagnostics.push(makeDiagnostic('warning', code, config.file, entry.at, message));
   for (const entry of config.shortcuts) {
     if (entry.kind === 'text') {
-      replacements.push({ shortcut: entry.shortcut, text: entry.text, origin: config.origin });
+      replacements.push(withMeta({ shortcut: entry.shortcut, text: entry.text, origin: config.origin }, entry));
       continue;
     }
     const read = reads.get(entry.path) ?? { status: 'refused', problem: 'unreadable' };
@@ -103,7 +116,9 @@ export function resolveShortcuts(config: ConfigFile, reads: ReadonlyMap<string, 
       skip(entry, refused.code, `file "${entry.path}" of "${entry.shortcut}" ${refused.message}; skipped`);
       continue;
     }
-    replacements.push({ shortcut: entry.shortcut, text, origin: config.origin, reference: entry.path });
+    replacements.push(
+      withMeta({ shortcut: entry.shortcut, text, origin: config.origin, reference: entry.path }, entry),
+    );
   }
   return { ...config, replacements, diagnostics: sortDiagnostics(diagnostics) };
 }

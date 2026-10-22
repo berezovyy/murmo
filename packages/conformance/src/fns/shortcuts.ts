@@ -1,4 +1,4 @@
-import { collisionKind, lexiconFromSets } from '@murmo/plugin-shortcuts';
+import { collisionKind, lexiconFromSets, parseTemplate } from '@murmo/plugin-shortcuts';
 import type { PureEntry } from '../pure.ts';
 
 interface CollisionInput {
@@ -21,6 +21,13 @@ function collisions(input: unknown): unknown {
   return { bareWarned, prefixedWarned };
 }
 
+function parse(input: unknown): unknown {
+  const value = input as { source: string; defaults?: Record<string, string> };
+  const parsed = parseTemplate(value.source, value.defaults ?? {});
+  return { expansion: parsed.expansion, names: [...parsed.names] };
+}
+
 export const shortcutsFunctions: Readonly<Record<string, PureEntry>> = {
   'shortcuts.collisions': collisions,
+  'templates.parse': parse,
 };

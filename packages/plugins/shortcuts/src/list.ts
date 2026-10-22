@@ -9,6 +9,9 @@ export interface ShortcutListItem {
   readonly firstLine: string;
   readonly source: ShortcutSource;
   readonly bytes: number;
+  readonly description?: string;
+  readonly aliases: readonly string[];
+  readonly fields: readonly string[];
 }
 
 function firstLine(text: string): string {
@@ -19,21 +22,34 @@ function firstLine(text: string): string {
   return '';
 }
 
-function item(name: string, text: string, source: ShortcutSource): ShortcutListItem {
-  return { name, firstLine: firstLine(text), source, bytes: utf8Length(text) };
+function item(name: string, text: string, compiled: CompiledShortcuts): ShortcutListItem {
+  const template = compiled.templates[name];
+  const description = compiled.descriptions[name];
+  return {
+    name,
+    firstLine: firstLine(text),
+    source: compiled.sources[name] ?? 'personal',
+    bytes: utf8Length(text),
+    ...(description === undefined ? {} : { description }),
+    aliases: compiled.aliasesOf[name] ?? template?.aliases ?? [],
+    fields: template?.names ?? [],
+  };
 }
 
 /** Every compiled shortcut, inline and long, including Claude's menu-only oversized entries. */
 export function listShortcuts(compiled: CompiledShortcuts): readonly ShortcutListItem[] {
   const out: ShortcutListItem[] = [];
   const seen = new Set<string>();
+  const aliasNames = new Set<string>();
+  for (const aliases of Object.values(compiled.aliasesOf)) for (const a of aliases) aliasNames.add(a);
   for (const [name, text] of Object.entries(compiled.inline.entries)) {
+    if (aliasNames.has(name)) continue;
     seen.add(name);
-    out.push(item(name, text, compiled.sources[name] ?? 'personal'));
+    out.push(item(name, text, compiled));
   }
   for (const [name, text] of Object.entries(compiled.long)) {
-    if (seen.has(name)) continue;
-    out.push(item(name, text, compiled.sources[name] ?? 'personal'));
+    if (seen.has(name) || aliasNames.has(name)) continue;
+    out.push(item(name, text, compiled));
   }
   return out;
 }

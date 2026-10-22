@@ -99,6 +99,7 @@ export function planWalk(
   prior: WalkState | null,
   rejected: ReadonlySet<string>,
   allowBackspace: boolean,
+  skipShortcut: readonly Range[] = [],
 ): WalkResult | { action: 'native' } {
   let source = snapshot;
   if (source.deferred) {
@@ -263,7 +264,7 @@ export function planWalk(
       if (priorPending && priorPending.text === w.text && priorPending.cursor === at && !letterOrDigit.test(char)) {
         proposal = priorPending;
       } else if (POLICY_BOUNDARIES.includes(char)) {
-        proposal = lookupAtBoundary(rule, w, at, char, rejected);
+        proposal = lookupAtBoundary(rule, w, at, char, rejected, skipShortcut);
       }
       spliceText(at, at, char, 'typed');
       if (proposal?.word && char === '.' && !priorPending) {
@@ -283,7 +284,11 @@ export function planWalk(
         return left < right ? [[left - proposal.from, right - proposal.from] as Range] : [];
       });
       spliceText(proposal.from, proposal.to, proposal.insert, 'plugin');
-      w.cursor = oldCursor + proposal.insert.length - (proposal.to - proposal.from);
+      const fieldAt = !proposal.word ? rule.fieldCursors.get(proposal.original) : undefined;
+      w.cursor =
+        fieldAt !== undefined
+          ? proposal.from + fieldAt
+          : oldCursor + proposal.insert.length - (proposal.to - proposal.from);
       if (map) map = mapAfterCorrection(map, proposal.from, proposal.to, proposal.insert.length);
       w.undo.push({
         from: proposal.from,
@@ -311,12 +316,17 @@ export function planWalk(
   return { state: w, replay: finalReplay(), corrections, deferred };
 }
 
+function inSkip(skip: readonly Range[], from: number, to: number): boolean {
+  return skip.some(([a, b]) => from < b && to > a);
+}
+
 function lookupAtBoundary(
   rule: RegisteredInline,
   w: WalkState,
   at: number,
   char: string,
   rejected: ReadonlySet<string>,
+  skipShortcut: readonly Range[],
 ): Proposal | null {
   const prefix = w.text.slice(0, at);
   // Tokens are short; `\S+$` on a 1.1M-character prefix of `x`s then ` teh` is O(n²).
@@ -327,7 +337,13 @@ function lookupAtBoundary(
   // Exact match only (phase 15): a declared `rvw` does not expand `;rvw`.
   const shortcut = rule.replacements.get(raw);
   const from = at - raw.length;
-  if (char !== '.' && shortcut !== undefined && typedCovers(w.spans, from, at) && !rule.policy.inCode(prefix)) {
+  if (
+    char !== '.' &&
+    shortcut !== undefined &&
+    typedCovers(w.spans, from, at) &&
+    !rule.policy.inCode(prefix) &&
+    !inSkip(skipShortcut, from, at)
+  ) {
     return { from, to: at, insert: shortcut, original: raw, word: false };
   }
   const p = rule.policy.propose({

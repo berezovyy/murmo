@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use serde_json::{json, Value as Json};
 
 use crate::diagnostics::{sort_diagnostics, Diagnostic, Severity};
-use crate::schema::{expansion_problem, ConfigFile, Origin, ShortcutEntry};
+use crate::schema::{expansion_problem, ConfigFile, Origin, ShortcutEntry, ShortcutMeta};
 
 /// Why a reference was not loaded; the same codes and words as JS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,6 +65,7 @@ pub struct Shortcut {
     pub text: String,
     pub origin: Origin,
     pub reference: Option<String>,
+    pub meta: ShortcutMeta,
 }
 
 impl Shortcut {
@@ -74,6 +75,7 @@ impl Shortcut {
         if let Some(r) = &self.reference {
             v["reference"] = json!(r);
         }
+        self.meta.to_json_fields(&mut v);
         v
     }
 }
@@ -121,13 +123,24 @@ pub fn resolve_shortcuts(
     let mut diagnostics = config.diagnostics.clone();
     for entry in &config.shortcuts {
         match entry {
-            ShortcutEntry::Text { shortcut, text, .. } => replacements.push(Shortcut {
+            ShortcutEntry::Text {
+                shortcut,
+                text,
+                meta,
+                ..
+            } => replacements.push(Shortcut {
                 shortcut: shortcut.clone(),
                 text: text.clone(),
                 origin: config.origin,
                 reference: None,
+                meta: meta.clone(),
             }),
-            ShortcutEntry::File { shortcut, path, at } => {
+            ShortcutEntry::File {
+                shortcut,
+                path,
+                at,
+                meta,
+            } => {
                 let skip = |code, message: String| {
                     Diagnostic::new(Severity::Warning, code, &config.file, *at, &message, None)
                 };
@@ -156,6 +169,7 @@ pub fn resolve_shortcuts(
                                 text: text.to_string(),
                                 origin: config.origin,
                                 reference: Some(path.clone()),
+                                meta: meta.clone(),
                             }),
                         }
                     }

@@ -4,6 +4,7 @@
 
 import { displayText, utf8Length } from '@murmo/text';
 import { type CollisionKind, type CollisionLexicon, collisionKind, collisionNotice } from './collisions.ts';
+import { defaultsOf, type ParsedTemplate, parseTemplate } from './fields.ts';
 
 export const INLINE_MAX_BYTES = 1024;
 export const MAX_INSERT_BYTES = 16_384;
@@ -14,17 +15,32 @@ export const SHORTCUTS_PRIORITY = 0;
 
 export type ShortcutSource = 'personal' | 'project';
 
-export type NoticeKind = 'trust' | 'override' | 'collision' | 'skipped' | 'claude-size';
+export type NoticeKind = 'trust' | 'override' | 'collision' | 'skipped' | 'claude-size' | 'alias';
 
 export interface ShortcutNotice {
   readonly kind: NoticeKind;
   readonly text: string;
 }
 
+export interface CompiledTemplate {
+  readonly names: readonly string[];
+  readonly fields: ParsedTemplate['fields'];
+  readonly firstField: number | null;
+  readonly description?: string;
+  readonly aliases: readonly string[];
+}
+
 export interface CompiledShortcuts {
-  readonly inline: { readonly format: 'literal-utf8-v1'; readonly entries: Readonly<Record<string, string>> };
+  readonly inline: {
+    readonly format: 'literal-utf8-v1';
+    readonly entries: Readonly<Record<string, string>>;
+    readonly cursors: Readonly<Record<string, number>>;
+  };
   readonly long: Readonly<Record<string, string>>;
   readonly sources: Readonly<Record<string, ShortcutSource>>;
+  readonly templates: Readonly<Record<string, CompiledTemplate>>;
+  readonly descriptions: Readonly<Record<string, string>>;
+  readonly aliasesOf: Readonly<Record<string, readonly string[]>>;
   readonly fingerprint: string | null;
   readonly notices: readonly ShortcutNotice[];
 }
@@ -33,6 +49,9 @@ export interface CompileShortcut {
   readonly shortcut: string;
   readonly text: string;
   readonly origin: 'user' | 'project';
+  readonly description?: string;
+  readonly aliases?: readonly string[];
+  readonly fields?: Readonly<Record<string, { readonly default?: string }>>;
 }
 
 export interface CompileDiagnostic {
@@ -90,8 +109,13 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
   const inlineMax = input.inlineMaxBytes ?? INLINE_MAX_BYTES;
   const asyncEdits = input.asyncEdits ?? true;
   const inlineEntries: Record<string, string> = Object.create(null);
+  const cursors: Record<string, number> = Object.create(null);
   const long: Record<string, string> = Object.create(null);
   const sources: Record<string, ShortcutSource> = Object.create(null);
+  const templates: Record<string, CompiledTemplate> = Object.create(null);
+  const descriptions: Record<string, string> = Object.create(null);
+  const aliasesOf: Record<string, readonly string[]> = Object.create(null);
+  const taken = new Set<string>();
   const notices: ShortcutNotice[] = [];
 
   const projectCount = input.projectShortcutCount ?? 0;
@@ -135,19 +159,60 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
   }
 
   const lexicon = input.lexicon;
+  for (const entry of input.replacements) taken.add(entry.shortcut);
+
   for (const entry of input.replacements) {
     const source: ShortcutSource = entry.origin === 'project' ? 'project' : 'personal';
     put(sources, entry.shortcut, source);
-    const bytes = utf8Length(entry.text);
-    if (bytes <= inlineMax) put(inlineEntries, entry.shortcut, entry.text);
-    else if (bytes <= MAX_INSERT_BYTES) {
-      put(long, entry.shortcut, entry.text);
-      if (!asyncEdits) {
+    const parsed = parseTemplate(entry.text, defaultsOf(entry.fields));
+    const text = parsed.expansion;
+    if (!asyncEdits && text.includes('\t')) {
+      notices.push({
+        kind: 'skipped',
+        text: displayText(`${entry.shortcut} contains a tab character; skipped on Claude (cursor drift)`),
+      });
+      continue;
+    }
+    if (parsed.names.length) {
+      put(templates, entry.shortcut, {
+        names: parsed.names,
+        fields: parsed.fields,
+        firstField: parsed.firstField,
+        ...(entry.description === undefined ? {} : { description: entry.description }),
+        aliases: entry.aliases ?? [],
+      });
+      if (parsed.firstField !== null) put(cursors, entry.shortcut, parsed.firstField);
+    }
+    if (entry.description) put(descriptions, entry.shortcut, entry.description);
+    const aliases: string[] = [];
+    for (const alias of entry.aliases ?? []) {
+      if (taken.has(alias)) {
         notices.push({
-          kind: 'claude-size',
-          text: displayText(`${entry.shortcut} is over 1 KiB: in Claude Code, insert it from the ; menu with Tab`),
+          kind: 'alias',
+          text: displayText(`Alias ${alias} of ${entry.shortcut} collides with another shortcut; skipped.`),
         });
+        continue;
       }
+      taken.add(alias);
+      aliases.push(alias);
+      put(sources, alias, source);
+      if (parsed.firstField !== null) put(cursors, alias, parsed.firstField);
+      if (parsed.names.length) put(templates, alias, templates[entry.shortcut] as CompiledTemplate);
+      if (entry.description) put(descriptions, alias, entry.description);
+    }
+    if (aliases.length) put(aliasesOf, entry.shortcut, aliases);
+    const bytes = utf8Length(text);
+    const store = (name: string) => {
+      if (bytes <= inlineMax) put(inlineEntries, name, text);
+      else if (bytes <= MAX_INSERT_BYTES) put(long, name, text);
+    };
+    store(entry.shortcut);
+    for (const alias of aliases) store(alias);
+    if (bytes > inlineMax && bytes <= MAX_INSERT_BYTES && !asyncEdits) {
+      notices.push({
+        kind: 'claude-size',
+        text: displayText(`${entry.shortcut} is over 1 KiB: in Claude Code, insert it from the ; menu with Tab`),
+      });
     }
     if (lexicon) {
       const kind: CollisionKind | null = collisionKind(entry.shortcut, lexicon);
@@ -156,9 +221,12 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
   }
 
   return {
-    inline: { format: 'literal-utf8-v1', entries: inlineEntries },
+    inline: { format: 'literal-utf8-v1', entries: inlineEntries, cursors },
     long,
     sources,
+    templates,
+    descriptions,
+    aliasesOf,
     fingerprint: input.fingerprint ?? null,
     notices,
   };

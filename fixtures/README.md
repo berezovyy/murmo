@@ -35,6 +35,9 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `shortcuts/` | r8 expansions, must-not-expand, size boundary, collisions; `replacements/` is the moved r8 project folder | 15 |
 | `menu/` | `;` menu ranking, width, open/never-open, Tab/Enter/Esc; r9 1,006-shortcut generator | 16 |
 | `names/` | splitter 29 cases (moved file read through a table); phase 36 ranking uses the same split; phase 38 docs/alias cases live next to the indexer and names plugin tests | 19, 36, 38 |
+| `shortcuts/` | r8 expansions, must-not-expand, size boundary, collisions; `replacements/` is the moved r8 project folder; `templates.json` is the phase 37 placeholder grammar | 15, 37 |
+| `menu/` | `;` menu ranking, width, open/never-open, Tab/Enter/Esc; r9 1,006-shortcut generator; template picker tiers in `templates-ranking.json` | 16, 37 |
+| `names/` | splitter 29 cases (moved file read through a table) | 19, 36 |
 | `stress/` | huge paste, regex-heavy inputs, IME and normalization stand-ins | 02 |
 | `generators/` | seeded generators (code) and their run files | 02 |
 | `hosts/` | real-host contract cases (round 14 follow-up fixes) | 20, 29 |

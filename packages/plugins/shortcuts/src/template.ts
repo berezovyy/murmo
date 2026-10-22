@@ -11,4 +11,12 @@ version = 1
 Review this change for bugs, edge cases and missing tests.
 List issues by severity. Be concise.
 '''
+# Templates: lowercase <field> placeholders. Tab moves between them.
+# [replace.";review"]
+# text = '''
+# Review <change> for correctness.
+# Pay particular attention to <concern>.
+# '''
+# description = "Code review request"
+# fields.change = { default = "this change" }
 `;

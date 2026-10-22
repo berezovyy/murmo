@@ -25,7 +25,7 @@ export async function socketDir($: ClaudeRuntime): Promise<string> {
 
 export async function spawnHelper($: ClaudeRuntime, binary: string, clock: Clock): Promise<HelperHandle> {
   const socketPath = `${await socketDir($)}/murmo-${shortId()}.sock`;
-  const hostProcess = $['process'];
+  const hostProcess = $.process;
   const stream: SpawnStream = hostProcess.spawn({ argv: [binary, '--http', '--socket', socketPath] });
   let settled = false;
   let resolveReady: (info: { pid?: number }) => void = () => {};

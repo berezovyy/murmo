@@ -6,6 +6,8 @@ import type { CompiledShortcuts, ShortcutSource } from '../compile.ts';
 import { listShortcuts, type ShortcutListItem } from '../list.ts';
 
 export const MENU_ROWS = 8;
+/** Template picker cap (opencode-snippets, phase 37). */
+export const TEMPLATE_ROWS = 10;
 
 export interface PackedEntry {
   readonly name: string;
@@ -14,6 +16,9 @@ export interface PackedEntry {
   readonly firstLine: string;
   readonly source: ShortcutSource;
   readonly override: boolean;
+  readonly description: string;
+  readonly aliases: readonly string[];
+  readonly fields: readonly string[];
 }
 
 export interface RankedRow {
@@ -62,6 +67,9 @@ function packItem(item: ShortcutListItem, overrides: ReadonlySet<string>): Packe
     firstLine: item.firstLine,
     source: item.source,
     override: overrides.has(item.name) || overrides.has(keyOf(item.name)),
+    description: item.description ?? '',
+    aliases: item.aliases,
+    fields: item.fields,
   };
 }
 
@@ -110,6 +118,73 @@ export function filterNames(table: NameTable, query: string, limit = MENU_ROWS):
   const ranked: RankedRow[] = [];
   for (const entry of table.entries) {
     const tier = matchTier(entry, query, compact);
+    if (tier === null) continue;
+    ranked.push({ entry, tier });
+  }
+  ranked.sort(compareRows);
+  return ranked.slice(0, limit);
+}
+
+function subsequenceTier(haystack: string, needle: string): number | null {
+  if (needle.length === 0) return null;
+  let i = 0;
+  let start = -1;
+  let gaps = 0;
+  for (let h = 0; h < haystack.length && i < needle.length; h++) {
+    if (haystack[h] === needle[i]) {
+      if (start < 0) start = h;
+      i++;
+    } else if (start >= 0) gaps++;
+  }
+  if (i < needle.length || start < 0) return null;
+  const L = Math.max(haystack.length, 1);
+  return 6 + Math.min(0.99, (0.8 * start) / L + (0.19 * gaps) / L);
+}
+
+function matchTemplateTier(entry: PackedEntry, query: string, compact: string): number | null {
+  let best: number | null = null;
+  const consider = (tier: number) => {
+    if (best === null || tier < best) best = tier;
+  };
+  const names = [entry.name, entry.key, ...entry.aliases];
+  const q = query.toLowerCase();
+  for (const name of names) {
+    const key = name.startsWith(';') ? name.slice(1) : name;
+    const folded = key.toLowerCase();
+    const compactKey = compactName(key);
+    if (name === query || key === query || folded === q) consider(0);
+    else if (compact.length > 0 && compactKey === compact) consider(1);
+    else if (name.startsWith(query) || key.startsWith(query) || folded.startsWith(q)) consider(2);
+    else if (compact.length > 0 && compactKey.startsWith(compact)) consider(3);
+    else if (query.length > 0 && (name.includes(query) || key.includes(query) || folded.includes(q))) consider(4);
+    else if (compact.length > 0 && compactKey.includes(compact)) consider(5);
+    else {
+      const sub = subsequenceTier(folded, q);
+      if (sub !== null) consider(sub);
+    }
+  }
+  if (entry.description && query.length > 0) {
+    const d = entry.description.toLowerCase();
+    if (d.split(/\s+/).some((word) => word.startsWith(q))) consider(7);
+    else if (d.includes(q)) consider(8);
+  }
+  return best;
+}
+
+export function tableHasTemplates(table: NameTable): boolean {
+  return table.entries.some((e) => e.description.length > 0 || e.aliases.length > 0 || e.fields.length > 0);
+}
+
+/** opencode-snippets tiers 0–8; ties project before personal, then name. */
+export function rankTemplates(table: NameTable, query: string, limit = TEMPLATE_ROWS): RankedRow[] {
+  table.lookups++;
+  if (query.length === 0) {
+    return table.entries.slice(0, limit).map((entry) => ({ entry, tier: 2 }));
+  }
+  const compact = compactName(query);
+  const ranked: RankedRow[] = [];
+  for (const entry of table.entries) {
+    const tier = matchTemplateTier(entry, query, compact);
     if (tier === null) continue;
     ranked.push({ entry, tier });
   }

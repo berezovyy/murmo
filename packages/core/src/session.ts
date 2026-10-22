@@ -44,6 +44,7 @@ import { BoundaryBook, bookOf, inspectGuardCoverage, nativeUiOpen } from './coex
 import { type Accepted, DraftState } from './draft-state.ts';
 import { type CommitGate, Edits, editable } from './edits.ts';
 import { applyEffects, type EffectDeps } from './effects.ts';
+import { FieldSessions } from './fields.ts';
 import { FAILURE_LIMIT, FailOpen } from './guard.ts';
 import {
   entryOf,
@@ -232,6 +233,8 @@ class CoreSession implements Session {
   #submit: SubmitController | undefined;
   /** Phase 07. */
   #inline: InlineStage | undefined;
+  /** Phase 37. Cached field ranges for `in-my-field-session`. */
+  readonly #fields = new FieldSessions();
   #queue: Promise<void> = Promise.resolve();
   #seq = 0;
   #settled = 0;
@@ -415,7 +418,16 @@ class CoreSession implements Session {
       },
     });
     this.#edits = edits;
-    this.#effects = { view, edits, presentation, menu, counters, editable: isEditable, notice };
+    this.#effects = {
+      view,
+      edits,
+      presentation,
+      menu,
+      counters,
+      editable: isEditable,
+      notice,
+      fields: this.#fields,
+    };
 
     // Phase 07: register built-in inline data after permissions, before keys.
     this.#inline = this.#registerInline(loaded, hostCaps, notice);
@@ -455,6 +467,7 @@ class CoreSession implements Session {
         presentation.render();
         menu.render();
       },
+      fields: this.#fields,
     });
 
     const guard = this.#guard;
@@ -589,7 +602,7 @@ class CoreSession implements Session {
       }
     }
     if (!registered.length) return undefined;
-    return createInlineStage(registered, hostCaps);
+    return createInlineStage(registered, hostCaps, () => this.#fields.frozen());
   }
 
   #planInline(snapshot: InlineSnapshot): InlineAnswer {

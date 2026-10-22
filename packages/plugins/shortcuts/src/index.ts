@@ -14,6 +14,7 @@ export {
 export {
   type CompileDiagnostic,
   type CompiledShortcuts,
+  type CompiledTemplate,
   type CompileInput,
   type CompileShortcut,
   compileShortcuts,
@@ -27,6 +28,17 @@ export {
   type ShortcutNotice,
   type ShortcutSource,
 } from './compile.ts';
+export {
+  defaultsOf,
+  FIELD_NAME,
+  type FieldOccurrence,
+  MAX_FIELDS,
+  type ParsedTemplate,
+  parseTemplate,
+  placeholderOf,
+  unfilledCount,
+  unfilledMessage,
+} from './fields.ts';
 export { listShortcuts, type ShortcutListItem } from './list.ts';
 export { r9MenuShortcuts, SAMPLE_SHORTCUTS, syntheticShortcut } from './menu/catalog.ts';
 export {
@@ -38,6 +50,9 @@ export {
   type PackedEntry,
   packNames,
   type RankedRow,
+  rankTemplates,
+  TEMPLATE_ROWS,
+  tableHasTemplates,
 } from './menu/pack.ts';
 export {
   createMenuState,
@@ -52,4 +67,11 @@ export {
 export { defaultCellMeasure, formatRow } from './menu/rows.ts';
 export { commandPrefix, findTrigger, hostBlocksMenu, inCode, type Trigger } from './menu/trigger.ts';
 export { type InlineCapOptions, shortcutsFactory, shortcutsInlineRules, shortcutsPlugin } from './rules.ts';
+export {
+  DEFAULT_PREVIOUS_FIELD,
+  fieldClaims,
+  offerShortcut,
+  remapFields,
+  remapRange,
+} from './session.ts';
 export { INIT_TEMPLATE } from './template.ts';

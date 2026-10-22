@@ -140,8 +140,9 @@ test('1,000 shortcuts load and 1,001 load none, with one error', () => {
 test('bad entries are skipped one by one; unknown keys warn and are ignored', () => {
   // Catches one typo disabling the whole file, and a newer file breaking an older Murmo.
   const entries = named('entry-type');
-  assert.equal(entries.shortcuts.length, 0);
-  assert.deepEqual(codes(entries), ['invalid-type', 'invalid-type', 'invalid-type']);
+  assert.equal(entries.shortcuts.length, 1);
+  assert.equal(entries.shortcuts[0]?.kind === 'text' ? entries.shortcuts[0].text : '', 'a');
+  assert.deepEqual(codes(entries), ['invalid-type', 'invalid-type']);
   const files = named('entry-file');
   assert.deepEqual(
     files.shortcuts.map((s) => [s.shortcut, s.kind]),
@@ -232,6 +233,35 @@ test('plugin settings are JSON data; enabled is split off as host-owned', () => 
   assert.equal(proto.shortcuts[0]?.shortcut, ';__proto__');
   assert.ok(Object.hasOwn(proto.plugins.menu?.settings ?? {}, '__proto__'));
   assert.equal(Object.getPrototypeOf(proto.plugins.menu?.settings), Object.prototype);
+});
+
+test('a template table loads text, description, aliases and field defaults, fail-open per entry', () => {
+  // Catches { text = "a" } still being refused, or one bad field disabling the file (E3).
+  const file = parse(`
+[replace.";review"]
+text = '''Review <change>.'''
+description = "Code review request"
+aliases = [";rv"]
+fields.change = { default = "this change" }
+
+[replace.bad]
+text = 3
+
+[replace.";ok"]
+text = "plain"
+`);
+  assert.deepEqual(
+    file.shortcuts.map((s) => s.shortcut),
+    [';ok', ';review'],
+  );
+  const review = file.shortcuts.find((s) => s.shortcut === ';review');
+  assert.ok(review?.kind === 'text');
+  assert.equal(review.description, 'Code review request');
+  assert.deepEqual(review.aliases, [';rv']);
+  assert.equal(review.fields?.change?.default, 'this change');
+  assert.ok(codes(file).includes('invalid-type'));
+  const vec = parse(`[replace]\n";t" = 'Vec<T> and <<div>'`);
+  assert.ok(vec.shortcuts[0]?.kind === 'text' && vec.shortcuts[0].text.includes('Vec<T>'));
 });
 
 test('a file reference drops exactly one trailing newline and refuses unsafe text', () => {

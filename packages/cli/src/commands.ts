@@ -3,7 +3,7 @@
 
 import { historyCommand } from '@murmo/plugin-history/node';
 import { phrasesCommand } from '@murmo/plugin-phrases/node';
-import { initCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
+import { initCommand, saveCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
 import { dataCommand, openStore, privateCommand, storeRootsFromEnv } from '@murmo/store/node';
 import { indexCommand, namesCommand, vocabCommand, wordsCommand } from '@murmo/vocab/node';
 
@@ -34,6 +34,12 @@ export async function dispatchMounted(
   };
   if (cmd === 'trust') return trustCommand(rest, ctx);
   if (cmd === 'init') return initCommand(rest, ctx);
+  if (cmd === 'shortcuts') {
+    const [sub, ...args] = rest;
+    if (sub === 'save') return saveCommand(args, ctx);
+    ctx.err('usage: murmo shortcuts save [--name NAME] [--text TEXT] [--yes]');
+    return 2;
+  }
   if (cmd === 'vocab') return vocabCommand(rest, ctx);
   if (cmd === 'words') return wordsCommand(rest, ctx);
   if (cmd === 'names') return namesCommand(rest, ctx);

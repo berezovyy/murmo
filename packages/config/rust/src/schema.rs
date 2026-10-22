@@ -8,7 +8,8 @@ use toml::Value;
 
 use crate::diagnostics::{sort_diagnostics, Diagnostic, Position, Severity, FILE_START};
 use crate::limits::{
-    CONFIG_FILE_BYTES, EXPANSION_BYTES, SHORTCUTS_PER_FILE, SHORTCUT_CODE_POINTS, WORD_CODE_POINTS,
+    ALIASES_PER_SHORTCUT, CONFIG_FILE_BYTES, EXPANSION_BYTES, FIELDS_PER_TEMPLATE,
+    SHORTCUTS_PER_FILE, SHORTCUT_CODE_POINTS, WORD_CODE_POINTS,
 };
 use crate::source::{
     code_point_length, excerpt_at, normalize_toml, parser_position, scan_source, Locator,
@@ -30,17 +31,49 @@ impl Origin {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ShortcutMeta {
+    pub description: Option<String>,
+    pub aliases: Vec<String>,
+    /// Field name → optional default.
+    pub fields: BTreeMap<String, Option<String>>,
+}
+
+impl ShortcutMeta {
+    pub fn to_json_fields(&self, v: &mut Json) {
+        if let Some(d) = &self.description {
+            v["description"] = json!(d);
+        }
+        if !self.aliases.is_empty() {
+            v["aliases"] = json!(self.aliases);
+        }
+        if !self.fields.is_empty() {
+            let mut fields = Map::new();
+            for (name, default) in &self.fields {
+                let mut t = Map::new();
+                if let Some(d) = default {
+                    t.insert("default".into(), json!(d));
+                }
+                fields.insert(name.clone(), Json::Object(t));
+            }
+            v["fields"] = Json::Object(fields);
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ShortcutEntry {
     Text {
         shortcut: String,
         text: String,
         at: Position,
+        meta: ShortcutMeta,
     },
     File {
         shortcut: String,
         path: String,
         at: Position,
+        meta: ShortcutMeta,
     },
 }
 
@@ -57,13 +90,33 @@ impl ShortcutEntry {
         }
     }
 
+    pub fn meta(&self) -> &ShortcutMeta {
+        match self {
+            ShortcutEntry::Text { meta, .. } | ShortcutEntry::File { meta, .. } => meta,
+        }
+    }
+
     pub fn to_json(&self) -> Json {
         match self {
-            ShortcutEntry::Text { shortcut, text, at } => {
-                json!({ "kind": "text", "shortcut": shortcut, "text": text, "at": at.to_json() })
+            ShortcutEntry::Text {
+                shortcut,
+                text,
+                at,
+                meta,
+            } => {
+                let mut v = json!({ "kind": "text", "shortcut": shortcut, "text": text, "at": at.to_json() });
+                meta.to_json_fields(&mut v);
+                v
             }
-            ShortcutEntry::File { shortcut, path, at } => {
-                json!({ "kind": "file", "shortcut": shortcut, "path": path, "at": at.to_json() })
+            ShortcutEntry::File {
+                shortcut,
+                path,
+                at,
+                meta,
+            } => {
+                let mut v = json!({ "kind": "file", "shortcut": shortcut, "path": path, "at": at.to_json() });
+                meta.to_json_fields(&mut v);
+                v
             }
         }
     }
@@ -291,6 +344,15 @@ pub fn shortcut_problem(key: &str) -> Option<&'static str> {
         return Some("contains whitespace");
     }
     None
+}
+
+/// `[a-z][a-z0-9_-]{0,31}` — lowercase placeholder names only.
+fn field_name(s: &str) -> bool {
+    let b = s.as_bytes();
+    (1..=32).contains(&b.len())
+        && b[0].is_ascii_lowercase()
+        && b.iter()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_' || *c == b'-')
 }
 
 fn word_problem(word: &str) -> Option<&'static str> {
@@ -633,32 +695,280 @@ fn check_replace(check: &mut Checker, value: &Value) -> Vec<ShortcutEntry> {
             );
             continue;
         }
-        match entry {
-            Value::String(text) => match expansion_problem(text) {
-                Some((code, message)) => {
-                    check.warn(code, &path, &format!("expansion of \"{shortcut}\" {message}; skipped"));
-                }
-                None => entries.push(ShortcutEntry::Text { shortcut: shortcut.clone(), text: text.clone(), at: check.at(&path) }),
-            },
-            Value::Table(t) if t.contains_key("file") => {
-                for extra in t.keys().filter(|k| *k != "file") {
-                    check.unknown(&["replace", shortcut, extra], &format!("\"{extra}\" in \"{shortcut}\""));
-                }
-                match &t["file"] {
-                    Value::String(file) => {
-                        entries.push(ShortcutEntry::File { shortcut: shortcut.clone(), path: file.clone(), at: check.at(&path) });
-                    }
-                    _ => check.warn("invalid-type", &path, &format!("file of \"{shortcut}\" must be a string; skipped")),
-                }
-            }
-            _ => check.warn(
-                "invalid-type",
-                &path,
-                &format!("shortcut \"{shortcut}\" must be a string or {{ file = \"\u{2026}\" }}; skipped"),
-            ),
+        if let Some(loaded) = check_replace_entry(check, shortcut, &path, entry) {
+            entries.push(loaded);
         }
     }
     entries
+}
+
+fn check_replace_entry(
+    check: &mut Checker,
+    shortcut: &str,
+    path: &[&str],
+    entry: &Value,
+) -> Option<ShortcutEntry> {
+    match entry {
+        Value::String(text) => match expansion_problem(text) {
+            Some((code, message)) => {
+                check.warn(
+                    code,
+                    path,
+                    &format!("expansion of \"{shortcut}\" {message}; skipped"),
+                );
+                None
+            }
+            None => Some(ShortcutEntry::Text {
+                shortcut: shortcut.to_string(),
+                text: text.clone(),
+                at: check.at(path),
+                meta: ShortcutMeta::default(),
+            }),
+        },
+        Value::Table(t) => {
+            let mut text: Option<String> = None;
+            let mut file: Option<String> = None;
+            let mut meta = ShortcutMeta::default();
+            let mut skip = false;
+            for (extra, value) in t {
+                let extra_path = ["replace", shortcut, extra.as_str()];
+                match extra.as_str() {
+                    "text" => match value {
+                        Value::String(s) => text = Some(s.clone()),
+                        _ => {
+                            check.warn(
+                                "invalid-type",
+                                &extra_path,
+                                &format!("text of \"{shortcut}\" must be a string; skipped"),
+                            );
+                            skip = true;
+                        }
+                    },
+                    "file" => match value {
+                        Value::String(s) => file = Some(s.clone()),
+                        _ => {
+                            check.warn(
+                                "invalid-type",
+                                &extra_path,
+                                &format!("file of \"{shortcut}\" must be a string; skipped"),
+                            );
+                            skip = true;
+                        }
+                    },
+                    "description" => match value {
+                        Value::String(s) => meta.description = Some(s.clone()),
+                        _ => check.warn(
+                            "invalid-type",
+                            &extra_path,
+                            &format!("description of \"{shortcut}\" must be a string"),
+                        ),
+                    },
+                    "aliases" => meta.aliases = check_aliases(check, &extra_path, shortcut, value),
+                    "fields" => {
+                        if let Some(fields) = check_fields(check, &extra_path, shortcut, value) {
+                            meta.fields = fields;
+                        }
+                    }
+                    _ => check.unknown(&extra_path, &format!("\"{extra}\" in \"{shortcut}\"")),
+                }
+            }
+            if skip {
+                return None;
+            }
+            if text.is_some() && file.is_some() {
+                check.warn(
+                    "invalid-type",
+                    path,
+                    &format!("shortcut \"{shortcut}\" cannot have both text and file; skipped"),
+                );
+                return None;
+            }
+            match (text, file) {
+                (Some(text), None) => match expansion_problem(&text) {
+                    Some((code, message)) => {
+                        check.warn(
+                            code,
+                            path,
+                            &format!("expansion of \"{shortcut}\" {message}; skipped"),
+                        );
+                        None
+                    }
+                    None => Some(ShortcutEntry::Text {
+                        shortcut: shortcut.to_string(),
+                        text,
+                        at: check.at(path),
+                        meta,
+                    }),
+                },
+                (None, Some(file)) => Some(ShortcutEntry::File {
+                    shortcut: shortcut.to_string(),
+                    path: file,
+                    at: check.at(path),
+                    meta,
+                }),
+                _ => {
+                    check.warn(
+                        "invalid-type",
+                        path,
+                        &format!(
+                            "shortcut \"{shortcut}\" must be a string or a table with text or file; skipped"
+                        ),
+                    );
+                    None
+                }
+            }
+        }
+        _ => {
+            check.warn(
+                "invalid-type",
+                path,
+                &format!(
+                    "shortcut \"{shortcut}\" must be a string or a table with text or file; skipped"
+                ),
+            );
+            None
+        }
+    }
+}
+
+fn check_aliases(check: &mut Checker, path: &[&str], shortcut: &str, value: &Value) -> Vec<String> {
+    let Value::Array(list) = value else {
+        check.warn(
+            "invalid-type",
+            path,
+            &format!("aliases of \"{shortcut}\" must be a list of strings"),
+        );
+        return Vec::new();
+    };
+    let mut out: Vec<String> = Vec::new();
+    let mut extra = false;
+    for alias in list {
+        let Value::String(alias) = alias else {
+            check.warn(
+                "invalid-type",
+                path,
+                &format!("aliases of \"{shortcut}\" must be a list of strings"),
+            );
+            continue;
+        };
+        if let Some(problem) = shortcut_problem(alias) {
+            check.warn(
+                "invalid-shortcut",
+                path,
+                &format!("alias \"{alias}\" of \"{shortcut}\" {problem}; skipped"),
+            );
+            continue;
+        }
+        if alias == shortcut {
+            check.warn(
+                "invalid-value",
+                path,
+                &format!("alias \"{alias}\" of \"{shortcut}\" repeats the shortcut; skipped"),
+            );
+            continue;
+        }
+        if out.iter().any(|a| a == alias) {
+            continue;
+        }
+        if out.len() >= ALIASES_PER_SHORTCUT {
+            if !extra {
+                extra = true;
+                check.warn(
+                    "invalid-value",
+                    path,
+                    &format!(
+                        "shortcut \"{shortcut}\" has more than {ALIASES_PER_SHORTCUT} aliases; extras skipped"
+                    ),
+                );
+            }
+            continue;
+        }
+        out.push(alias.clone());
+    }
+    out
+}
+
+fn check_fields(
+    check: &mut Checker,
+    path: &[&str],
+    shortcut: &str,
+    value: &Value,
+) -> Option<BTreeMap<String, Option<String>>> {
+    let Value::Table(table) = value else {
+        check.warn(
+            "invalid-type",
+            path,
+            &format!("fields of \"{shortcut}\" must be a table"),
+        );
+        return None;
+    };
+    let mut fields = BTreeMap::new();
+    let mut extra = false;
+    for (name, spec) in table {
+        let field_path = [path[0], path[1], path[2], name.as_str()];
+        if !field_name(name) {
+            check.warn(
+                "invalid-value",
+                &field_path,
+                &format!("field \"{name}\" of \"{shortcut}\" is not a lowercase name; skipped"),
+            );
+            continue;
+        }
+        if fields.len() >= FIELDS_PER_TEMPLATE {
+            if !extra {
+                extra = true;
+                check.warn(
+                    "invalid-value",
+                    &field_path,
+                    &format!(
+                        "template \"{shortcut}\" has more than {FIELDS_PER_TEMPLATE} fields; extras skipped"
+                    ),
+                );
+            }
+            continue;
+        }
+        let Value::Table(spec) = spec else {
+            check.warn(
+                "invalid-type",
+                &field_path,
+                &format!("field \"{name}\" of \"{shortcut}\" must be a table"),
+            );
+            continue;
+        };
+        let mut default_text: Option<String> = None;
+        for (key, val) in spec {
+            let key_path = ["replace", shortcut, "fields", name, key];
+            if key != "default" {
+                check.unknown(
+                    &key_path,
+                    &format!("\"{key}\" in field \"{name}\" of \"{shortcut}\""),
+                );
+                continue;
+            }
+            let Value::String(s) = val else {
+                check.warn(
+                    "invalid-type",
+                    &key_path,
+                    &format!("default of field \"{name}\" in \"{shortcut}\" must be a string"),
+                );
+                continue;
+            };
+            match expansion_problem(s) {
+                Some((code, message)) => check.warn(
+                    code,
+                    &key_path,
+                    &format!("default of field \"{name}\" in \"{shortcut}\" {message}; skipped"),
+                ),
+                None => default_text = Some(s.clone()),
+            }
+        }
+        fields.insert(name.clone(), default_text);
+    }
+    if fields.is_empty() {
+        None
+    } else {
+        Some(fields)
+    }
 }
 
 fn check_words(check: &mut Checker, value: &Value) -> Vec<String> {

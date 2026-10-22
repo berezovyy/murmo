@@ -146,6 +146,11 @@
       "cases": 11
     },
     {
+      "file": "menu/templates-ranking.json",
+      "owner": "37",
+      "cases": 30
+    },
+    {
       "file": "menu/width.json",
       "owner": "16",
       "cases": 4
@@ -227,6 +232,11 @@
       "owner": "15",
       "cases": 2,
       "variants": 2
+    },
+    {
+      "file": "shortcuts/templates.json",
+      "owner": "37",
+      "cases": 40
     },
     {
       "file": "stress/huge-paste.json",

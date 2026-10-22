@@ -1,0 +1,165 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "fn": "templates.parse",
+  "provenance": {
+    "source": "docs/plan/37-templates.md placeholder grammar",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "cases": [
+    {
+      "id": "plain",
+      "note": "No placeholders.",
+      "input": { "source": "hello" },
+      "output": { "expansion": "hello", "names": [] }
+    },
+    {
+      "id": "one-field",
+      "note": "A used lowercase name is a field.",
+      "input": { "source": "Review <change>." },
+      "output": { "expansion": "Review <change>.", "names": ["change"] }
+    },
+    {
+      "id": "two-fields",
+      "input": { "source": "Review <change> for <concern>." },
+      "output": { "expansion": "Review <change> for <concern>.", "names": ["change", "concern"] }
+    },
+    {
+      "id": "same-name",
+      "note": "The same name is one field, filled together.",
+      "input": { "source": "<x> and <x>" },
+      "output": { "expansion": "<x> and <x>", "names": ["x"] }
+    },
+    {
+      "id": "vec-t",
+      "note": "Vec<T> stays literal.",
+      "input": { "source": "Vec<T>" },
+      "output": { "expansion": "Vec<T>", "names": [] }
+    },
+    {
+      "id": "html-escape",
+      "note": "<<div> yields literal <div>.",
+      "input": { "source": "<<div>" },
+      "output": { "expansion": "<div>", "names": [] }
+    },
+    { "id": "escape-lt", "input": { "source": "a << b" }, "output": { "expansion": "a < b", "names": [] } },
+    { "id": "crlf", "input": { "source": "a\r\n<b>\r\n" }, "output": { "expansion": "a\r\n<b>\r\n", "names": ["b"] } },
+    {
+      "id": "file-body",
+      "note": "File-based template body uses the same grammar.",
+      "input": { "source": "From file: <name>" },
+      "output": { "expansion": "From file: <name>", "names": ["name"] }
+    },
+    { "id": "uppercase-t", "input": { "source": "see <T>" }, "output": { "expansion": "see <T>", "names": [] } },
+    { "id": "close-div", "input": { "source": "</div>" }, "output": { "expansion": "</div>", "names": [] } },
+    { "id": "html-attr", "input": { "source": "<div class=" }, "output": { "expansion": "<div class=", "names": [] } },
+    {
+      "id": "default",
+      "input": { "source": "Review <change>.", "defaults": { "change": "this change" } },
+      "output": { "expansion": "Review this change.", "names": ["change"] }
+    },
+    {
+      "id": "default-shortcut",
+      "note": "A default holding a shortcut stays literal.",
+      "input": { "source": "<body>", "defaults": { "body": "run tst please" } },
+      "output": { "expansion": "run tst please", "names": ["body"] }
+    },
+    {
+      "id": "default-placeholder",
+      "input": { "source": "<body>", "defaults": { "body": "see <field>" } },
+      "output": { "expansion": "see <field>", "names": ["body"] }
+    },
+    {
+      "id": "underscore",
+      "input": { "source": "<change_id>" },
+      "output": { "expansion": "<change_id>", "names": ["change_id"] }
+    },
+    {
+      "id": "hyphen",
+      "input": { "source": "<change-id>" },
+      "output": { "expansion": "<change-id>", "names": ["change-id"] }
+    },
+    { "id": "digit-in-name", "input": { "source": "<a1>" }, "output": { "expansion": "<a1>", "names": ["a1"] } },
+    { "id": "leading-digit", "input": { "source": "<1a>" }, "output": { "expansion": "<1a>", "names": [] } },
+    { "id": "empty-angles", "input": { "source": "<>" }, "output": { "expansion": "<>", "names": [] } },
+    { "id": "trailing-lt", "input": { "source": "foo <" }, "output": { "expansion": "foo <", "names": [] } },
+    {
+      "id": "escaped-placeholder",
+      "input": { "source": "<<change>" },
+      "output": { "expansion": "<change>", "names": [] }
+    },
+    {
+      "id": "field-at-start",
+      "input": { "source": "<x> rest" },
+      "output": { "expansion": "<x> rest", "names": ["x"] }
+    },
+    { "id": "field-at-end", "input": { "source": "rest <x>" }, "output": { "expansion": "rest <x>", "names": ["x"] } },
+    { "id": "only-field", "input": { "source": "<x>" }, "output": { "expansion": "<x>", "names": ["x"] } },
+    { "id": "a-b-c", "input": { "source": "a<b>c" }, "output": { "expansion": "a<b>c", "names": ["b"] } },
+    {
+      "id": "mixed-generic",
+      "input": { "source": "Vec<T> and <item>" },
+      "output": { "expansion": "Vec<T> and <item>", "names": ["item"] }
+    },
+    { "id": "triple-lt", "input": { "source": "<<<x>" }, "output": { "expansion": "<<x>", "names": ["x"] } },
+    { "id": "field-then-gt", "input": { "source": "<x>>" }, "output": { "expansion": "<x>>", "names": ["x"] } },
+    {
+      "id": "html-escaped-attr",
+      "input": { "source": "<<div class=\"x\">" },
+      "output": { "expansion": "<div class=\"x\">", "names": [] }
+    },
+    { "id": "see-escaped-t", "input": { "source": "see <<T>" }, "output": { "expansion": "see <T>", "names": [] } },
+    {
+      "id": "empty-default",
+      "input": { "source": "<x>", "defaults": { "x": "" } },
+      "output": { "expansion": "", "names": ["x"] }
+    },
+    {
+      "id": "unused-default",
+      "input": { "source": "plain", "defaults": { "x": "nope" } },
+      "output": { "expansion": "plain", "names": [] }
+    },
+    {
+      "id": "newline-default",
+      "input": { "source": "<x>", "defaults": { "x": "a\nb" } },
+      "output": { "expansion": "a\nb", "names": ["x"] }
+    },
+    {
+      "id": "concern-sentence",
+      "input": { "source": "Pay <concern>." },
+      "output": { "expansion": "Pay <concern>.", "names": ["concern"] }
+    },
+    {
+      "id": "name-32",
+      "input": { "source": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>" },
+      "output": { "expansion": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>", "names": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] }
+    },
+    {
+      "id": "name-33-literal",
+      "input": { "source": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>" },
+      "output": { "expansion": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>", "names": [] }
+    },
+    {
+      "id": "sixteen-fields",
+      "input": { "source": "<f0><f1><f2><f3><f4><f5><f6><f7><f8><f9><fa><fb><fc><fd><fe><ff>" },
+      "output": {
+        "expansion": "<f0><f1><f2><f3><f4><f5><f6><f7><f8><f9><fa><fb><fc><fd><fe><ff>",
+        "names": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "fa", "fb", "fc", "fd", "fe", "ff"]
+      }
+    },
+    {
+      "id": "seventeenth-literal",
+      "input": { "source": "<a0><a1><a2><a3><a4><a5><a6><a7><a8><a9><a10><a11><a12><a13><a14><a15><z>" },
+      "output": {
+        "expansion": "<a0><a1><a2><a3><a4><a5><a6><a7><a8><a9><a10><a11><a12><a13><a14><a15><z>",
+        "names": ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11", "a12", "a13", "a14", "a15"]
+      }
+    },
+    {
+      "id": "space-in-angles",
+      "input": { "source": "<not a field>" },
+      "output": { "expansion": "<not a field>", "names": [] }
+    }
+  ]
+}

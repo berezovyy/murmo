@@ -2,7 +2,7 @@
 // arm undo/pending-dot only on a matching applied commit, queue oversized
 // shortcuts as deferred versioned edits.
 
-import type { Change, KeyId } from '@murmo/api';
+import type { Change, KeyId, Range } from '@murmo/api';
 import type { InlineAnswer, InlineCommit, InlineReplay, InlineSnapshot } from '@murmo/api/adapter';
 import { commitArms } from './commit.ts';
 import { cloneState, type DeferredEdit, planWalk, replaceAnswer, type WalkState } from './interpreter.ts';
@@ -33,7 +33,11 @@ export interface InlineRewriter {
   shortcutCounts(): ShortcutCounts;
 }
 
-export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boolean): InlineRewriter {
+export function createInlineRewriter(
+  rule: RegisteredInline,
+  allowBackspace: boolean,
+  skipShortcut: () => readonly Range[] = () => [],
+): InlineRewriter {
   const rejected = new Set<string>();
   let current: WalkState | null = null;
   let version = -1;
@@ -75,7 +79,7 @@ export function createInlineRewriter(rule: RegisteredInline, allowBackspace: boo
       readyDeferred = [];
       if (!rule.enabled) return { action: 'native' };
       const prior = current && version === snapshot.version ? current : null;
-      const result = planWalk(rule, snapshot, prior, rejected, allowBackspace);
+      const result = planWalk(rule, snapshot, prior, rejected, allowBackspace, skipShortcut());
       if ('action' in result) return result;
       const { state, replay, corrections, deferred, rejected: rejectedWord } = result;
       awaiting = {

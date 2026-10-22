@@ -5,6 +5,7 @@ import {
   formatRow,
   packNames,
   r9MenuShortcuts,
+  rankTemplates,
 } from '@murmo/plugin-shortcuts';
 import type { PureEntry } from '../pure.ts';
 
@@ -64,8 +65,35 @@ function r9Count(input: unknown): unknown {
   return Object.keys(r9MenuShortcuts(fixture)).length;
 }
 
+interface TemplateRankShortcut {
+  readonly name: string;
+  readonly text?: string;
+  readonly description?: string;
+  readonly aliases?: readonly string[];
+  readonly source?: 'personal' | 'project';
+}
+
+function rankTemplate(input: unknown): unknown {
+  const value = input as {
+    readonly shortcuts: readonly TemplateRankShortcut[];
+    readonly query: string;
+    readonly limit?: number;
+  };
+  const compiled = compileShortcuts({
+    replacements: value.shortcuts.map((row) => ({
+      shortcut: row.name,
+      text: row.text ?? row.description ?? row.name,
+      origin: row.source === 'project' ? 'project' : 'user',
+      ...(row.description ? { description: row.description } : {}),
+      ...(row.aliases ? { aliases: row.aliases } : {}),
+    })),
+  });
+  return rankTemplates(packNames(compiled), value.query, value.limit).map((row) => row.entry.name);
+}
+
 export const menuFunctions: Readonly<Record<string, PureEntry>> = {
   'menu.rank': rank,
   'menu.formatRow': format,
   'menu.r9Count': r9Count,
+  'menu.rankTemplates': rankTemplate,
 };

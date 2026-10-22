@@ -22,4 +22,11 @@ export const CONFIG_LIMITS = {
   wordCodePoints: 64,
   /** Code points of source shown in a diagnostic excerpt. */
   excerptCodePoints: 120,
+  /** Unique `<field>` names in one template (phase 37). */
+  fieldsPerTemplate: 16,
+  /** Extra trigger names on one shortcut. */
+  aliasesPerShortcut: 8,
 } as const;
+
+/** Lowercase placeholder name: `<change>`, not `<T>` or `<div class=`. */
+export const FIELD_NAME = /^[a-z][a-z0-9_-]{0,31}$/;

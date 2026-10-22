@@ -2,7 +2,7 @@
 // expansions. The adapter calls `plan` inside the native transaction; no
 // executor, timer or host read runs here.
 
-import type { Change, Edit, KeyId } from '@murmo/api';
+import type { Change, Edit, KeyId, Range } from '@murmo/api';
 import type { HostCapabilities, InlineAnswer, InlineCommit, InlineSnapshot } from '@murmo/api/adapter';
 import { unsafeText } from '@murmo/text';
 import type { RegisteredInline } from './registry.ts';
@@ -53,12 +53,16 @@ function mergeCounts(interpreters: readonly InlineRewriter[]): ShortcutCounts {
   return { expanded, undone };
 }
 
-export function createInlineStage(rules: readonly RegisteredInline[], caps: HostCapabilities): InlineStage {
+export function createInlineStage(
+  rules: readonly RegisteredInline[],
+  caps: HostCapabilities,
+  skipShortcut: () => readonly Range[] = () => [],
+): InlineStage {
   const allowBackspace = caps.inline.allKeysObserved && caps.inline.observedKeys.includes('Backspace');
   let ordered = [...rules]
     .filter((r) => r.enabled)
     .sort((a, b) => a.priority - b.priority)
-    .map((r) => createInlineRewriter(r, allowBackspace));
+    .map((r) => createInlineRewriter(r, allowBackspace, skipShortcut));
   /** Previous rewriters kept until their in-flight plan commits (idle table swap). */
   let retiring: InlineRewriter[] = [];
   const live = () =>
@@ -164,7 +168,7 @@ export function createInlineStage(rules: readonly RegisteredInline[], caps: Host
         ordered = ordered.filter((r) => r.owner !== rule.owner || r.id !== rule.id);
         return;
       }
-      const next = createInlineRewriter(rule, allowBackspace);
+      const next = createInlineRewriter(rule, allowBackspace, skipShortcut);
       const index = ordered.findIndex((r) => r.owner === rule.owner && r.id === rule.id);
       if (index < 0) {
         ordered = [...ordered, next].sort((a, b) => a.priority - b.priority);

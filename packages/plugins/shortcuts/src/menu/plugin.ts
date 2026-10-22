@@ -6,7 +6,17 @@
 import type { Capabilities, Draft, Effect, HostState, KeyClaim, MenuItem, Plugin, PluginFactory } from '@murmo/api';
 import { type CompiledShortcuts, compileShortcuts } from '../compile.ts';
 import { SAMPLE_SHORTCUTS } from './catalog.ts';
-import { displayName, filterNames, MENU_ROWS, type NameTable, packNames, type RankedRow } from './pack.ts';
+import {
+  displayName,
+  filterNames,
+  MENU_ROWS,
+  type NameTable,
+  packNames,
+  type RankedRow,
+  rankTemplates,
+  TEMPLATE_ROWS,
+  tableHasTemplates,
+} from './pack.ts';
 import { defaultCellMeasure, formatRow } from './rows.ts';
 import { findTrigger, hostBlocksMenu, type Trigger } from './trigger.ts';
 
@@ -87,15 +97,18 @@ function buildItems(
   // `;?…` is history search; this plugin yields so history owns the rows.
   if (options.history === true && trigger.query.startsWith(HISTORY_ID)) return [];
   const history = options.history === true && historyQuery(trigger.query);
-  const room = history ? MENU_ROWS - 1 : MENU_ROWS;
+  const cap = tableHasTemplates(table) ? TEMPLATE_ROWS : MENU_ROWS;
+  const room = history ? cap - 1 : cap;
   const native = caps.inline.nativeCompletion;
   const items: MenuItem[] = [];
   for (const { entry } of ranked.slice(0, room)) {
     const insert = table.expansions[entry.name];
+    const fieldHint = native && entry.fields.length > 0 ? `fields: ${entry.fields.join(', ')}` : undefined;
+    const detail = fieldHint ?? (entry.description || entry.firstLine || undefined);
     const item: MenuItem = {
       id: entry.name,
       label: native ? displayName(entry.name) : formatRow(entry, width, defaultCellMeasure),
-      ...(entry.firstLine ? { detail: entry.firstLine } : {}),
+      ...(detail ? { detail } : {}),
     };
     if (native && insert !== undefined) {
       items.push({
@@ -142,7 +155,9 @@ function createPlugin(state: MenuState): Plugin {
     if (hostBlocksMenu(hostState) || !usable(caps)) return close(draft.version);
     const trigger = findTrigger(draft);
     if (!trigger) return close(draft.version);
-    const ranked = filterNames(state.table, trigger.query);
+    const ranked = tableHasTemplates(state.table)
+      ? rankTemplates(state.table, trigger.query)
+      : filterNames(state.table, trigger.query);
     const items = buildItems(ranked, draft, trigger, caps, state.table, state.options);
     if (items.length === 0) return close(draft.version);
     start = trigger.start;

@@ -458,15 +458,9 @@
             "severity": "warning",
             "line": 3,
             "column": 1
-          },
-          {
-            "code": "invalid-type",
-            "severity": "warning",
-            "line": 4,
-            "column": 1
           }
         ],
-        "shortcuts": []
+        "shortcuts": [["z", "a"]]
       }
     },
     {
@@ -524,6 +518,18 @@
             "code": "invalid-type",
             "severity": "warning",
             "line": 1,
+            "column": 1
+          },
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          },
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 3,
             "column": 1
           }
         ],

@@ -36,6 +36,8 @@ export interface RegisteredInline {
   readonly policy: WordPolicy;
   readonly table: PackedTable | undefined;
   readonly replacements: ReadonlyMap<string, string>;
+  /** First-field UTF-16 offset in the expansion, when the shortcut is a template. */
+  readonly fieldCursors: ReadonlyMap<string, number>;
   readonly vocabulary: ReadonlySet<string>;
   readonly inlineMaxBytes: number;
   readonly maxInsertBytes: number;
@@ -193,6 +195,10 @@ export function registerRuleSet(raw: InlineRules, ctx: RegisterContext): Registe
     throw new InlineRegistrationError('inline table entry count does not match the descriptor');
   }
   const replacements = replacementsOf(rule, rule.maxInsertBytes);
+  const fieldCursors = new Map<string, number>();
+  for (const [name, offset] of Object.entries(rule.replacements?.cursors ?? {})) {
+    if (replacements.has(name) && Number.isInteger(offset) && offset >= 0) fieldCursors.set(name, offset);
+  }
   const vocabulary = new Set((rule.vocabulary ?? []).map((word) => word.toLowerCase()));
   const transport = ctx.transportMaxBytes > 0 ? ctx.transportMaxBytes : inlineLimit;
   return {
@@ -203,6 +209,7 @@ export function registerRuleSet(raw: InlineRules, ctx: RegisterContext): Registe
     policy,
     table,
     replacements,
+    fieldCursors,
     vocabulary,
     inlineMaxBytes: Math.min(inlineLimit, transport),
     maxInsertBytes: rule.maxInsertBytes,

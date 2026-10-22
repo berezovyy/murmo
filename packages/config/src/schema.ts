@@ -4,16 +4,29 @@
 // where it is. The Rust twin (rust/src/schema.rs) must give the same result and
 // the same diagnostics for every fixture.
 import { type Diagnostic, type DiagnosticCode, makeDiagnostic, type Position } from './diagnostics.ts';
-import { CONFIG_LIMITS } from './limits.ts';
+import { CONFIG_LIMITS, FIELD_NAME } from './limits.ts';
 import { codePointLength, excerptAt, type Locator, normalizeToml, scanSource, utf8Length } from './source.ts';
 import { unsafeText } from './text-policy.ts';
 import { parseToml, type TomlTable } from './toml.ts';
 
 export type ConfigOrigin = 'user' | 'project';
 
-export type ShortcutEntry =
-  | { readonly kind: 'text'; readonly shortcut: string; readonly text: string; readonly at: Position }
-  | { readonly kind: 'file'; readonly shortcut: string; readonly path: string; readonly at: Position };
+export interface FieldDefault {
+  readonly default?: string;
+}
+
+/** Optional keys of a `[replace.<shortcut>]` table (phase 37 templates). */
+export interface ShortcutMeta {
+  readonly description?: string;
+  readonly aliases?: readonly string[];
+  readonly fields?: Readonly<Record<string, FieldDefault>>;
+}
+
+export type ShortcutEntry = ShortcutMeta &
+  (
+    | { readonly kind: 'text'; readonly shortcut: string; readonly text: string; readonly at: Position }
+    | { readonly kind: 'file'; readonly shortcut: string; readonly path: string; readonly at: Position }
+  );
 
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
@@ -464,32 +477,209 @@ function checkReplace(check: FileChecker, value: unknown): ShortcutEntry[] {
       check.report('warning', 'invalid-shortcut', path, `shortcut "${shortcut}" ${problem}; skipped`);
       continue;
     }
-    const entry = value[shortcut];
-    if (typeof entry === 'string') {
-      const refused = expansionProblem(entry);
-      if (refused)
-        check.report('warning', refused.code, path, `expansion of "${shortcut}" ${refused.message}; skipped`);
-      else entries.push({ kind: 'text', shortcut, text: entry, at: check.at(path) });
-    } else if (isTable(entry) && Object.hasOwn(entry, 'file')) {
-      for (const extra of sortedKeys(entry)) {
-        if (extra !== 'file') check.unknown([...path, extra], `"${extra}" in "${shortcut}"`);
-      }
-      const file = entry.file;
-      if (typeof file !== 'string') {
-        check.report('warning', 'invalid-type', path, `file of "${shortcut}" must be a string; skipped`);
-      } else {
-        entries.push({ kind: 'file', shortcut, path: file, at: check.at(path) });
-      }
-    } else {
-      check.report(
-        'warning',
-        'invalid-type',
-        path,
-        `shortcut "${shortcut}" must be a string or { file = "\u{2026}" }; skipped`,
-      );
-    }
+    const loaded = checkReplaceEntry(check, shortcut, path, value[shortcut]);
+    if (loaded) entries.push(loaded);
   }
   return entries;
+}
+
+function checkReplaceEntry(
+  check: FileChecker,
+  shortcut: string,
+  path: readonly string[],
+  entry: unknown,
+): ShortcutEntry | null {
+  if (typeof entry === 'string') {
+    const refused = expansionProblem(entry);
+    if (refused) {
+      check.report('warning', refused.code, path, `expansion of "${shortcut}" ${refused.message}; skipped`);
+      return null;
+    }
+    return { kind: 'text', shortcut, text: entry, at: check.at(path) };
+  }
+  if (!isTable(entry)) {
+    check.report(
+      'warning',
+      'invalid-type',
+      path,
+      `shortcut "${shortcut}" must be a string or a table with text or file; skipped`,
+    );
+    return null;
+  }
+  let text: string | undefined;
+  let file: string | undefined;
+  let description: string | undefined;
+  let aliases: string[] | undefined;
+  let fields: Record<string, FieldDefault> | undefined;
+  let skip = false;
+  for (const extra of sortedKeys(entry)) {
+    const value = entry[extra];
+    const extraPath = [...path, extra];
+    switch (extra) {
+      case 'text':
+        if (typeof value !== 'string') {
+          check.report('warning', 'invalid-type', extraPath, `text of "${shortcut}" must be a string; skipped`);
+          skip = true;
+        } else text = value;
+        break;
+      case 'file':
+        if (typeof value !== 'string') {
+          check.report('warning', 'invalid-type', extraPath, `file of "${shortcut}" must be a string; skipped`);
+          skip = true;
+        } else file = value;
+        break;
+      case 'description':
+        if (typeof value !== 'string') {
+          check.report('warning', 'invalid-type', extraPath, `description of "${shortcut}" must be a string`);
+        } else description = value;
+        break;
+      case 'aliases':
+        aliases = checkAliases(check, extraPath, shortcut, value);
+        break;
+      case 'fields':
+        fields = checkFields(check, extraPath, shortcut, value);
+        break;
+      default:
+        check.unknown(extraPath, `"${extra}" in "${shortcut}"`);
+    }
+  }
+  if (skip) return null;
+  if (text !== undefined && file !== undefined) {
+    check.report('warning', 'invalid-type', path, `shortcut "${shortcut}" cannot have both text and file; skipped`);
+    return null;
+  }
+  if (text === undefined && file === undefined) {
+    check.report(
+      'warning',
+      'invalid-type',
+      path,
+      `shortcut "${shortcut}" must be a string or a table with text or file; skipped`,
+    );
+    return null;
+  }
+  const meta: ShortcutMeta = {
+    ...(description === undefined ? {} : { description }),
+    ...(aliases?.length ? { aliases } : {}),
+    ...(fields && Object.keys(fields).length ? { fields } : {}),
+  };
+  if (file !== undefined) return { kind: 'file', shortcut, path: file, at: check.at(path), ...meta };
+  const refused = expansionProblem(text as string);
+  if (refused) {
+    check.report('warning', refused.code, path, `expansion of "${shortcut}" ${refused.message}; skipped`);
+    return null;
+  }
+  return { kind: 'text', shortcut, text: text as string, at: check.at(path), ...meta };
+}
+
+function checkAliases(check: FileChecker, path: readonly string[], shortcut: string, value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    check.report('warning', 'invalid-type', path, `aliases of "${shortcut}" must be a list of strings`);
+    return [];
+  }
+  const out: string[] = [];
+  let extra = false;
+  for (const alias of value) {
+    if (typeof alias !== 'string') {
+      check.report('warning', 'invalid-type', path, `aliases of "${shortcut}" must be a list of strings`);
+      continue;
+    }
+    const problem = shortcutProblem(alias);
+    if (problem) {
+      check.report('warning', 'invalid-shortcut', path, `alias "${alias}" of "${shortcut}" ${problem}; skipped`);
+      continue;
+    }
+    if (alias === shortcut) {
+      check.report('warning', 'invalid-value', path, `alias "${alias}" of "${shortcut}" repeats the shortcut; skipped`);
+      continue;
+    }
+    if (out.includes(alias)) continue;
+    if (out.length >= CONFIG_LIMITS.aliasesPerShortcut) {
+      if (!extra) {
+        extra = true;
+        check.report(
+          'warning',
+          'invalid-value',
+          path,
+          `shortcut "${shortcut}" has more than ${CONFIG_LIMITS.aliasesPerShortcut} aliases; extras skipped`,
+        );
+      }
+      continue;
+    }
+    out.push(alias);
+  }
+  return out;
+}
+
+function checkFields(
+  check: FileChecker,
+  path: readonly string[],
+  shortcut: string,
+  value: unknown,
+): Record<string, FieldDefault> | undefined {
+  if (!isTable(value)) {
+    check.report('warning', 'invalid-type', path, `fields of "${shortcut}" must be a table`);
+    return undefined;
+  }
+  const fields: Record<string, FieldDefault> = {};
+  let extra = false;
+  for (const name of sortedKeys(value)) {
+    const fieldPath = [...path, name];
+    if (!FIELD_NAME.test(name)) {
+      check.report(
+        'warning',
+        'invalid-value',
+        fieldPath,
+        `field "${name}" of "${shortcut}" is not a lowercase name; skipped`,
+      );
+      continue;
+    }
+    if (Object.keys(fields).length >= CONFIG_LIMITS.fieldsPerTemplate) {
+      if (!extra) {
+        extra = true;
+        check.report(
+          'warning',
+          'invalid-value',
+          fieldPath,
+          `template "${shortcut}" has more than ${CONFIG_LIMITS.fieldsPerTemplate} fields; extras skipped`,
+        );
+      }
+      continue;
+    }
+    const spec = value[name];
+    if (!isTable(spec)) {
+      check.report('warning', 'invalid-type', fieldPath, `field "${name}" of "${shortcut}" must be a table`);
+      continue;
+    }
+    let defaultText: string | undefined;
+    for (const key of sortedKeys(spec)) {
+      if (key !== 'default') {
+        check.unknown([...fieldPath, key], `"${key}" in field "${name}" of "${shortcut}"`);
+        continue;
+      }
+      if (typeof spec[key] !== 'string') {
+        check.report(
+          'warning',
+          'invalid-type',
+          [...fieldPath, key],
+          `default of field "${name}" in "${shortcut}" must be a string`,
+        );
+        continue;
+      }
+      const refused = expansionProblem(spec[key]);
+      if (refused) {
+        check.report(
+          'warning',
+          refused.code,
+          [...fieldPath, key],
+          `default of field "${name}" in "${shortcut}" ${refused.message}; skipped`,
+        );
+        continue;
+      }
+      defaultText = spec[key];
+    }
+    put(fields, name, defaultText === undefined ? {} : { default: defaultText });
+  }
+  return Object.keys(fields).length ? fields : undefined;
 }
 
 /** Why an expansion can't be inserted, or null: 16 KiB of UTF-8 and the text policy (r12 K3). */

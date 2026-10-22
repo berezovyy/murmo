@@ -1,0 +1,157 @@
+{
+  "kind": "pure-fn/v1",
+  "offsets": "utf16",
+  "fn": "menu.rankTemplates",
+  "provenance": {
+    "source": "docs/plan/37-templates.md picker tiers; knowledge § 5 opencode-snippets",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "cases": [
+    {
+      "id": "exact-beats-prefix",
+      "input": { "shortcuts": [{ "name": "rvw" }, { "name": "rvwx" }], "query": "rvw" },
+      "output": ["rvw", "rvwx"]
+    },
+    { "id": "compact-exact", "input": { "shortcuts": [{ "name": "r-v-w" }], "query": "rvw" }, "output": ["r-v-w"] },
+    {
+      "id": "prefix-beats-contains",
+      "input": { "shortcuts": [{ "name": "rvw" }, { "name": "xrv" }], "query": "rv" },
+      "output": ["rvw", "xrv"]
+    },
+    { "id": "substring", "input": { "shortcuts": [{ "name": "xrvw" }], "query": "rvw" }, "output": ["xrvw"] },
+    {
+      "id": "compact-substring",
+      "input": { "shortcuts": [{ "name": "r-v-wx" }], "query": "rvw" },
+      "output": ["r-v-wx"]
+    },
+    { "id": "subsequence", "input": { "shortcuts": [{ "name": "aXbYc" }], "query": "abc" }, "output": ["aXbYc"] },
+    {
+      "id": "exact-beats-description",
+      "input": {
+        "shortcuts": [{ "name": "zz", "description": "Code review request" }, { "name": "review" }],
+        "query": "review"
+      },
+      "output": ["review", "zz"]
+    },
+    {
+      "id": "description-word",
+      "input": { "shortcuts": [{ "name": "aa", "description": "Code review request" }], "query": "request" },
+      "output": ["aa"]
+    },
+    {
+      "id": "project-first",
+      "input": {
+        "shortcuts": [{ "name": "zz", "source": "project" }, { "name": "aa", "source": "personal" }],
+        "query": ""
+      },
+      "output": ["zz", "aa"]
+    },
+    {
+      "id": "alias-exact",
+      "input": { "shortcuts": [{ "name": ";review", "aliases": [";rv"] }, { "name": "rvw" }], "query": "rv" },
+      "output": [";review", "rvw"]
+    },
+    { "id": "no-match", "input": { "shortcuts": [{ "name": "rvw" }], "query": "nope" }, "output": [] },
+    {
+      "id": "exact-beats-desc-substr",
+      "input": { "shortcuts": [{ "name": "fix", "description": "change helper" }, { "name": "chg" }], "query": "ch" },
+      "output": ["chg", "fix"]
+    },
+    {
+      "id": "desc-prefix-beats-contains",
+      "input": {
+        "shortcuts": [{ "name": "aa", "description": "code review" }, { "name": "bb", "description": "decode" }],
+        "query": "code"
+      },
+      "output": ["aa", "bb"]
+    },
+    {
+      "id": "project-exact",
+      "input": {
+        "shortcuts": [{ "name": "review", "source": "personal" }, { "name": "rev", "source": "project" }],
+        "query": "rev"
+      },
+      "output": ["rev", "review"]
+    },
+    {
+      "id": "name-order",
+      "input": { "shortcuts": [{ "name": ";s0001" }, { "name": ";s0000" }], "query": "s" },
+      "output": [";s0000", ";s0001"]
+    },
+    {
+      "id": "prefix-beats-substr-ab",
+      "input": { "shortcuts": [{ "name": "cab" }, { "name": "abc" }], "query": "ab" },
+      "output": ["abc", "cab"]
+    },
+    {
+      "id": "exact-short",
+      "input": { "shortcuts": [{ "name": "qq" }, { "name": "q" }], "query": "q" },
+      "output": ["q", "qq"]
+    },
+    {
+      "id": "alias-name",
+      "input": { "shortcuts": [{ "name": "x", "aliases": ["tmpl"] }], "query": "tmpl" },
+      "output": ["x"]
+    },
+    {
+      "id": "prefix-za",
+      "input": { "shortcuts": [{ "name": "az" }, { "name": "za" }], "query": "z" },
+      "output": ["za", "az"]
+    },
+    {
+      "id": "desc-bug",
+      "input": { "shortcuts": [{ "name": "rvw", "description": "bugs and tests" }], "query": "bug" },
+      "output": ["rvw"]
+    },
+    {
+      "id": "compact-underscore",
+      "input": { "shortcuts": [{ "name": "r_v_w" }], "query": "r_v" },
+      "output": ["r_v_w"]
+    },
+    {
+      "id": "digits",
+      "input": { "shortcuts": [{ "name": "a12" }, { "name": "12" }], "query": "12" },
+      "output": ["12", "a12"]
+    },
+    {
+      "id": "desc-fields",
+      "input": { "shortcuts": [{ "name": "t", "description": "fields: change, concern" }], "query": "field" },
+      "output": ["t"]
+    },
+    { "id": "compact-xyz", "input": { "shortcuts": [{ "name": "x-y-z" }], "query": "xyz" }, "output": ["x-y-z"] },
+    {
+      "id": "exact-m",
+      "input": { "shortcuts": [{ "name": "am" }, { "name": "ma" }, { "name": "m" }], "query": "m" },
+      "output": ["m", "ma", "am"]
+    },
+    {
+      "id": "project-prefix",
+      "input": {
+        "shortcuts": [{ "name": "prod", "source": "project" }, { "name": "pr", "source": "personal" }],
+        "query": "pr"
+      },
+      "output": ["pr", "prod"]
+    },
+    {
+      "id": "ok-family",
+      "input": { "shortcuts": [{ "name": "ok" }, { "name": "okay" }, { "name": "book" }], "query": "ok" },
+      "output": ["ok", "okay", "book"]
+    },
+    {
+      "id": "semicolon-dc",
+      "input": { "shortcuts": [{ "name": ";dc" }, { "name": "dc" }], "query": "dc" },
+      "output": ["dc", ";dc"]
+    },
+    {
+      "id": "wxyz",
+      "input": { "shortcuts": [{ "name": "wxyzz" }, { "name": "wxyz" }], "query": "wxyz" },
+      "output": ["wxyz", "wxyzz"]
+    },
+    {
+      "id": "des-exact",
+      "input": { "shortcuts": [{ "name": "n", "description": "design notes" }, { "name": "des" }], "query": "des" },
+      "output": ["des", "n"]
+    }
+  ]
+}

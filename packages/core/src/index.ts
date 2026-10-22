@@ -79,6 +79,7 @@ export {
   opencodeEventCaps,
   piEventCaps,
 } from './events/index.ts';
+export { type FieldSession, FieldSessions } from './fields.ts';
 export { FAILURE_LIMIT, FailOpen } from './guard.ts';
 export {
   disablesPlugin,

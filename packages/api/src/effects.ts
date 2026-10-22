@@ -81,6 +81,17 @@ export type Effect =
       readonly baseVersion: number;
       readonly marks?: readonly HighlightMark[];
     }
-  | { readonly type: 'status'; readonly text: string | null; readonly baseVersion: number };
+  | { readonly type: 'status'; readonly text: string | null; readonly baseVersion: number }
+  /**
+   * Cached field ranges for `in-my-field-session`. `null` ends the session.
+   * The core evaluates the claim from this cache; plugin code does not run on
+   * the key path. `active` is the selected field index.
+   */
+  | {
+      readonly type: 'field-session';
+      readonly ranges: readonly Range[] | null;
+      readonly active?: number;
+      readonly baseVersion: number;
+    };
 
 export type EffectType = Effect['type'];

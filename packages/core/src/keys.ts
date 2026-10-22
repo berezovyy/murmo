@@ -5,6 +5,7 @@ import type { Draft, HostState, KeyCondition, KeyId, MenuItem } from '@murmo/api
 import type { HostCapabilities } from '@murmo/api/adapter';
 import { claimWrites, type ValidatedClaim } from './claims.ts';
 import { atCodeLikeWord } from './code-like.ts';
+import type { FieldSessions } from './fields.ts';
 import type { PluginEntry } from './hooks.ts';
 import type { Menu } from './menu.ts';
 import type { VisibleGhost } from './present.ts';
@@ -34,6 +35,7 @@ export interface KeyRouterDeps {
   readonly dispatch: (plugin: PluginEntry, key: KeyId) => void;
   readonly menuSelect: (plugin: PluginEntry, item: MenuItem) => void;
   readonly render: () => void;
+  readonly fields?: FieldSessions;
 }
 
 interface ConditionCtx {
@@ -44,11 +46,14 @@ interface ConditionCtx {
   readonly text: string;
   readonly cursor: number;
   readonly afterMyEdit: string | undefined;
+  readonly inFieldSession: boolean;
 }
 
 /**
  * Conditions are a data table (lesson 46). `at-code-like-word` is the same
  * `codeLike` rule the names plugin uses (docs/plan/36).
+ * Key-claim conditions, one table, evaluated on cached state only. Additive
+ * `in-my-field-session` is phase 37.
  */
 export const CONDITIONS: { readonly [K in KeyCondition]: (ctx: ConditionCtx) => boolean } = {
   always: () => true,
@@ -58,6 +63,7 @@ export const CONDITIONS: { readonly [K in KeyCondition]: (ctx: ConditionCtx) => 
   'at-word-start': (ctx) => ctx.cursor === 0 || /\s/.test(ctx.text[ctx.cursor - 1] ?? ''),
   'after-my-edit': (ctx) => ctx.afterMyEdit === ctx.pluginId,
   'at-code-like-word': (ctx) => atCodeLikeWord(ctx.text, ctx.cursor),
+  'in-my-field-session': (ctx) => ctx.inFieldSession,
 };
 
 function matches(claim: ValidatedClaim, ctx: ConditionCtx, interceptable: boolean): boolean {
@@ -131,7 +137,11 @@ export class KeyRouter {
     };
     for (const plugin of d.plugins()) {
       if (plugin.disabled) continue;
-      const ctx: ConditionCtx = { ...ctxBase, pluginId: plugin.id };
+      const ctx: ConditionCtx = {
+        ...ctxBase,
+        pluginId: plugin.id,
+        inFieldSession: d.fields?.contains(plugin.id, draft.cursor) === true,
+      };
       for (const claim of plugin.claims) {
         if (claim.key !== key) continue;
         if (!matches(claim, ctx, interceptable)) continue;

@@ -72,6 +72,7 @@ export const EFFECT_ROUTES = {
   menu: { requires: ['draft:read'] },
   highlight: { requires: ['draft:read'] },
   status: { requires: ['draft:read'] },
+  'field-session': { requires: ['draft:read'] },
 } as const satisfies { readonly [K in EffectType]: { readonly requires: readonly Permission[] } };
 
 /**
@@ -319,7 +320,12 @@ export interface InlineRules {
   readonly dot: 'wait-next-typed-key';
   readonly origin: 'fully-typed-span';
   readonly skip: readonly ('code' | 'path' | 'URL' | 'flag' | 'identifier' | 'foreign-letter-line')[];
-  readonly replacements?: { readonly format: 'literal-utf8-v1'; readonly entries: Readonly<Record<string, string>> };
+  readonly replacements?: {
+    readonly format: 'literal-utf8-v1';
+    readonly entries: Readonly<Record<string, string>>;
+    /** First-field cursor offset in the expansion, for hosts without Tab (Claude). */
+    readonly cursors?: Readonly<Record<string, number>>;
+  };
   /** Protected words, checked before any lookup. */
   readonly vocabulary?: readonly string[];
   /** Largest expansion applied inline (UTF-8 bytes); larger ones take the deferred path. */

@@ -105,6 +105,9 @@ export declare const EFFECT_ROUTES: {
     readonly status: {
         readonly requires: readonly ["draft:read"];
     };
+    readonly 'field-session': {
+        readonly requires: readonly ["draft:read"];
+    };
 };
 /**
  * When a declared permission is granted without an explicit host grant (phase 09
@@ -322,6 +325,8 @@ export interface InlineRules {
     readonly replacements?: {
         readonly format: 'literal-utf8-v1';
         readonly entries: Readonly<Record<string, string>>;
+        /** First-field cursor offset in the expansion, for hosts without Tab (Claude). */
+        readonly cursors?: Readonly<Record<string, number>>;
     };
     /** Protected words, checked before any lookup. */
     readonly vocabulary?: readonly string[];

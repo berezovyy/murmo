@@ -46,7 +46,8 @@ export const SHARED_KEYS = ['Tab', 'Enter', 'Escape', 'Up', 'Down', 'Left', 'Rig
 
 /**
  * Claim conditions, a fixed vocabulary combined with AND. The six preview
- * conditions stay; `at-code-like-word` is the phase 36 addition (after v1).
+ * conditions stay; `at-code-like-word` is the phase 36 addition (after v1);
+ * `in-my-field-session` is the additive template-session condition (phase 37).
  *
  * - `always`: true.
  * - `editable`: prose mode, insert editor mode, not busy, no dialog, no popup,
@@ -58,6 +59,8 @@ export const SHARED_KEYS = ['Tab', 'Enter', 'Escape', 'Up', 'Down', 'Left', 'Rig
  * - `after-my-edit`: the latest undo record belongs to this plugin.
  * - `at-code-like-word`: cursor at the end of a code-like token (camelCase,
  *   snake, path, `a.b` / `A::b`); prose and mid-word do not match.
+ * - `in-my-field-session`: this plugin has an active field session and the
+ *   cursor is inside or between its cached ranges.
  */
 export const KEY_CONDITIONS = [
   'always',
@@ -67,6 +70,7 @@ export const KEY_CONDITIONS = [
   'at-word-start',
   'after-my-edit',
   'at-code-like-word',
+  'in-my-field-session',
 ] as const;
 
 export type KeyCondition = (typeof KEY_CONDITIONS)[number];

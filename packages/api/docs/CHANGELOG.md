@@ -22,6 +22,11 @@ Third-party plugins. Breaking relative to `2.0-pre.0`:
 - **Highlights:** optional `marks` (`severity`, `message`) on the highlight effect; `HighlightMark`. Adapters advertise `ui.highlightDiagnostics`.
 - **Review:** `ui.review` capability; adapter `showReview` / `ReviewPanel`. Hosts that cannot show review drop third-party `draft:write`.
 - **Limits:** `networkRequestBytes` 64 KiB, `networkResponseBytes` 256 KiB, `networkRequestsPerMinute` 10, `projectListBytes` 1 MiB, `projectListEntries` 10_000, `projectListPage` 256.
+## 2.0-pre.0 (additive, 2026-10-22)
+
+- **`in-my-field-session`** added to `KEY_CONDITIONS` (phase 37 templates). True while this plugin has an active field session and the cursor is inside or between its cached ranges. Evaluated from cached data; plugin code still does not run on the key path.
+- **`field-session` effect** publishes those ranges (`ranges: null` ends the session). Requires `draft:read`.
+- **`InlineRules.replacements.cursors`**: optional first-field UTF-16 offset per shortcut, so hosts without Tab (Claude) can land the cursor on the first field in the same expansion transaction.
 
 ## 2.0-pre.0 (2026-10-21)
 
