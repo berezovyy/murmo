@@ -1213,6 +1213,50 @@
           }
         }
       }
+    },
+    {
+      "id": "events-off",
+      "input": {
+        "source": "[events]\nenabled = false\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "events": false
+      }
+    },
+    {
+      "id": "events-on",
+      "input": {
+        "source": "[events]\nenabled = true\nfailOpen = true\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "events": true,
+        "eventsFailOpen": true
+      }
+    },
+    {
+      "id": "events-project-on",
+      "input": {
+        "source": "[events]\nenabled = true\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
     }
   ]
 }

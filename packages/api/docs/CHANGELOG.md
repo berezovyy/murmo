@@ -7,6 +7,10 @@ Earlier drafts (0, 1.1, 1.2, 1.3 and the prototype's 2.0-pre) are recorded in th
 ## 2.0-pre.0 (2026-10-22)
 
 Additive after v1: `KEY_CONDITIONS` gains `at-code-like-word` (phase 36). Old claims are unchanged.
+Additive preview companion, not a prompt-API break:
+
+- **`@murmo/api/events`:** events API 0.4-preview (rebased draft 0.3). Own manifest `events` range; preflight refuses a mismatch. `onAgentEvent` hook, `DEADLINES.agentEventMs` (2000 ms).
+- **Event permissions:** `events:read`, `tools:guard`, `tools:rewrite`, `context:write`, `agent:send`, `agent:control`, `messages:rewrite`. Independent of `draft:read`. `tools:rewrite` / `messages:rewrite` / `agent:send` stay explicit and unadvertised in the preview.
 
 ## 2.0-pre.0 (2026-10-21)
 

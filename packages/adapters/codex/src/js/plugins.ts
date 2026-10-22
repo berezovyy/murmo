@@ -17,6 +17,7 @@ export interface EngineConfig {
   readonly pluginOrder?: readonly string[];
   readonly overlay?: boolean;
   readonly hide?: string;
+  readonly events?: boolean;
 }
 
 export interface TableMeta {

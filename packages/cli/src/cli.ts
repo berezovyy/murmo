@@ -16,6 +16,7 @@ import { dispatchMounted } from './commands.ts';
 import { doctorCommand, doctorExit, printDoctor } from './doctor.ts';
 import { formatError } from './errors.ts';
 import { homeLayout } from './home.ts';
+import { hookCommand } from './hook.ts';
 import { acquireLock, releaseLock } from './lock.ts';
 import { packageRoot, platformBin } from './paths.ts';
 import { pluginCommand } from './plugin/index.ts';
@@ -32,6 +33,7 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo plugin new|test|dev
   murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
   murmo trust | init | vocab | words | names | index | phrases | data | private
+  murmo hook codex <event>
 `;
 
 export interface MainOptions {
@@ -138,6 +140,10 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         rest,
       );
     }
+    if (cmd === 'hook') {
+      const stdin = env.MURMO_HOOK_STDIN ?? (process.stdin.isTTY ? '{}' : await readStdin());
+      return hookCommand(rest, env, stdin, out);
+    }
     if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'phrases', 'data', 'private'].includes(cmd)) {
       return dispatchMounted(cmd, rest, env, cwd, err);
     }
@@ -170,6 +176,17 @@ function verifyCmd(argv: string[], env: NodeJS.ProcessEnv, out: (s: string) => v
   const result = verifyPackage(root, { publicKey: anchor.publicKey });
   out(`ok authenticated keyId=${result.keyId} fingerprint=${result.fingerprint}`);
   return 0;
+}
+
+function readStdin(): Promise<string> {
+  return new Promise((resolve) => {
+    const chunks: string[] = [];
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+      chunks.push(String(chunk));
+    });
+    process.stdin.on('end', () => resolve(chunks.join('') || '{}'));
+  });
 }
 
 function codexCmd(argv: string[], err: (s: string) => void): number {

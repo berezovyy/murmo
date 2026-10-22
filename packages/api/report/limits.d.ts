@@ -18,8 +18,17 @@ export declare const API_DRAFT = "2.0-pre.0";
  * - `network`: declaration only. No executor routes a network request yet
  *   (phase 32 adds the broker); declaring it grants nothing.
  * - `fs:project-read`: bounded UTF-8 reads inside the approved project root.
+ * Event grants (preview, `@murmo/api/events`) are independent of draft grants:
+ * - `events:read`: observe agent-loop events; never implies `draft:read`.
+ * - `tools:guard`: deny a tool call at a real before-execution barrier.
+ * - `tools:rewrite`: replace tool input/output (types only in the preview).
+ * - `context:write`: stage hidden next-prompt context.
+ * - `agent:send`: send a new prompt (off in the preview).
+ * - `agent:control`: compaction / Stop continuation.
+ * - `messages:rewrite`: stored or model-visible message text (types only).
  */
-export declare const PERMISSIONS: readonly ['draft:read', 'draft:read:full', 'submit:observe', 'draft:write', 'submit', 'network', 'fs:project-read'];
+export declare const EVENT_PERMISSIONS: readonly ['events:read', 'tools:guard', 'tools:rewrite', 'context:write', 'agent:send', 'agent:control', 'messages:rewrite'];
+export declare const PERMISSIONS: readonly ["draft:read", "draft:read:full", "submit:observe", "draft:write", "submit", "network", "fs:project-read", "events:read", "tools:guard", "tools:rewrite", "context:write", "agent:send", "agent:control", "messages:rewrite"];
 export type Permission = (typeof PERMISSIONS)[number];
 /**
  * Wall-clock budgets per hook call, before scaling by measured scheduler lag
@@ -37,6 +46,8 @@ export declare const DEADLINES: {
     readonly submitTotalMs: 50;
     /** Every other hook: menu selection, actions, committed and project-change events. */
     readonly eventMs: 50;
+    /** `onAgentEvent`. The broker's guard budget is 40% of the native hook limit. */
+    readonly agentEventMs: 2000;
 };
 export declare const LIMITS: {
     /** Plugin entry source (`.mjs`). */

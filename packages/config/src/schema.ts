@@ -56,6 +56,10 @@ export interface ConfigFile {
   readonly plugins: Readonly<Record<string, PluginTable>>;
   /** `[privacy] private`. */
   readonly private?: boolean;
+  /** `[events] enabled`. Opt-in preview; absent means off. */
+  readonly events?: boolean;
+  /** `[events] failOpen`. Only where Murmo owns the barrier (Pi). */
+  readonly eventsFailOpen?: boolean;
   /** Sorted by position, then code. */
   readonly diagnostics: readonly Diagnostic[];
 }
@@ -262,6 +266,8 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
   let pluginOrder: string[] | undefined;
   let plugins: Record<string, PluginTable> = {};
   let privacy: boolean | undefined;
+  let events: boolean | undefined;
+  let eventsFailOpen: boolean | undefined;
 
   for (const key of sortedKeys(data)) {
     const value = data[key];
@@ -294,6 +300,9 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
         break;
       case 'privacy':
         privacy = checkSwitch(check, value, 'privacy', 'private');
+        break;
+      case 'events':
+        ({ enabled: events, failOpen: eventsFailOpen } = checkEvents(check, value));
         break;
       default:
         check.unknown([key], `"${key}"`);
@@ -330,6 +339,15 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
       phrasesLearn = undefined;
     }
     if (privacy === false) privacy = undefined;
+    if (events === true) {
+      check.report(
+        'warning',
+        'project-only-reduces',
+        ['events', 'enabled'],
+        'a project file can only turn events off; "enabled = true" ignored',
+      );
+      events = undefined;
+    }
     if (pluginOrder !== undefined) {
       check.report(
         'warning',
@@ -364,6 +382,8 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
     ...(phrasesLearn === undefined ? {} : { phrasesLearn }),
     ...(pluginOrder === undefined ? {} : { pluginOrder }),
     ...(privacy === undefined ? {} : { private: privacy }),
+    ...(events === undefined ? {} : { events }),
+    ...(eventsFailOpen === undefined ? {} : { eventsFailOpen }),
   };
   return file;
 }
@@ -597,6 +617,30 @@ function checkSwitch(check: FileChecker, value: unknown, table: string, name: st
     else check.report('warning', 'invalid-type', [table, key], `${name} must be true or false`);
   }
   return result;
+}
+
+function checkEvents(
+  check: FileChecker,
+  value: unknown,
+): { enabled: boolean | undefined; failOpen: boolean | undefined } {
+  if (!isTable(value)) {
+    check.report('warning', 'invalid-type', ['events'], '[events] must be a table');
+    return { enabled: undefined, failOpen: undefined };
+  }
+  let enabled: boolean | undefined;
+  let failOpen: boolean | undefined;
+  for (const key of sortedKeys(value)) {
+    if (key === 'enabled') {
+      const flag = value[key];
+      if (typeof flag === 'boolean') enabled = flag;
+      else check.report('warning', 'invalid-type', ['events', key], 'enabled must be true or false');
+    } else if (key === 'failOpen') {
+      const flag = value[key];
+      if (typeof flag === 'boolean') failOpen = flag;
+      else check.report('warning', 'invalid-type', ['events', key], 'failOpen must be true or false');
+    } else check.unknown(['events', key], `"${key}" in [events]`);
+  }
+  return { enabled, failOpen };
 }
 
 function checkPlugins(

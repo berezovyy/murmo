@@ -14,6 +14,7 @@ use crate::args::Launch;
 use crate::decoder::{Kind, Parser};
 use crate::engine::Engine;
 use crate::helper::{resolve_helper, Helper};
+use crate::hooks::HookServer;
 use crate::pty::{self, poll_two, read_stdin, wait_nonblock, Pty};
 use crate::screen::Ui;
 use crate::session::Inner;
@@ -42,6 +43,7 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
         .iter()
         .filter_map(|s| CString::new(s.as_bytes()).ok())
         .collect();
+    let hook_server = HookServer::bind();
     let ws = pty::winsize();
     let mut pty = match Pty::spawn(&bin_c, &args_c, ws) {
         Ok(p) => p,
@@ -158,6 +160,9 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
         } else {
             20
         };
+        if let (Some(hooks), Some(eng)) = (&hook_server, &engine) {
+            hooks.serve_ready(eng);
+        }
         let (in_ready, out_ready) = poll_two(stdin_open, pty.master, timeout);
         if out_ready {
             inner.borrow_mut().drain_output(0);

@@ -128,6 +128,11 @@ export interface Plugin {
   onSubmitUnresolved?(event: SubmitUnresolved, ctx: PluginContext): Async<HookEffects>;
   /** Needs `fs:project-read`. */
   onProjectFileChange?(event: ProjectChange, ctx: PluginContext): Async<HookEffects>;
+  /**
+   * Agent-loop events (`@murmo/api/events`). Needs `events:read`. Typed as
+   * `AgentEvent` / `AgentContext` on `AgentPlugin`; the executor passes JSON.
+   */
+  onAgentEvent?(event: unknown, ctx: PluginContext): unknown;
   deactivate?(): Async<void>;
 }
 

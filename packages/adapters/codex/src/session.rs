@@ -102,6 +102,16 @@ impl Inner {
                 crate::trace::emit(&v["data"]);
                 json!({"ok": true})
             }
+            "stop" => {
+                self.ledger.note_stop();
+                json!({"ok": true, "snapshot": self.snapshot()})
+            }
+            "idle-empty" => {
+                self.refresh_ledger();
+                self.ledger
+                    .empty_after_idle(self.screen.composer_empty(), self.screen.title_ready());
+                json!({"ok": true, "snapshot": self.snapshot()})
+            }
             _ => json!({"ok": false, "why": "unknown-op"}),
         }
     }

@@ -49,6 +49,23 @@ export {
   unsupportedReason,
 } from './edits.ts';
 export { applyEffects, type EffectDeps } from './effects.ts';
+export {
+  ContextStager,
+  claudeEventCaps,
+  codexEventCaps,
+  doctorLinesFor,
+  EventBroker,
+  type EventBrokerOptions,
+  type EventDispatch,
+  type EventFault,
+  type EventPluginRef,
+  GhostBroker,
+  type GhostSink,
+  hasGrant,
+  ObserverQueue,
+  opencodeEventCaps,
+  piEventCaps,
+} from './events/index.ts';
 export { FAILURE_LIMIT, FailOpen } from './guard.ts';
 export {
   disablesPlugin,

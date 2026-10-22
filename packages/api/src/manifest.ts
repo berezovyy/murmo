@@ -6,7 +6,8 @@
 // no Object.hasOwn (QuickJS and the Claude runtime are targets).
 
 import { CAPABILITY_PATHS, type Capabilities } from './caps.ts';
-import { API_DRAFT, API_VERSION, LIMITS, PERMISSIONS, type Permission } from './limits.ts';
+import { EVENTS_VERSION } from './events.ts';
+import { API_DRAFT, API_VERSION, EVENT_PERMISSIONS, LIMITS, PERMISSIONS, type Permission } from './limits.ts';
 
 /** File name of the manifest inside a plugin package. */
 export const MANIFEST_FILE = 'murmo.plugin.json';
@@ -49,6 +50,8 @@ export interface PluginManifest {
   readonly name: string;
   readonly version: string;
   readonly api: string;
+  /** Events API range (`^0.4.0`). Required when declaring an event permission. */
+  readonly events?: string;
   readonly entry: string;
   readonly permissions: readonly PermissionDeclaration[];
   readonly capabilities: {
@@ -114,7 +117,8 @@ export class ManifestError extends Error {
 }
 
 const REQUIRED_FIELDS = ['name', 'version', 'api', 'entry', 'permissions', 'capabilities', 'settingsSchema'] as const;
-const TOP_LEVEL_FIELDS: ReadonlySet<string> = new Set<string>([...REQUIRED_FIELDS, 'resources']);
+const TOP_LEVEL_FIELDS: ReadonlySet<string> = new Set<string>([...REQUIRED_FIELDS, 'resources', 'events']);
+const EVENT_PERMISSION_NAMES: ReadonlySet<string> = new Set(EVENT_PERMISSIONS);
 const SCHEMA_KEYWORDS: ReadonlySet<string> = new Set(['type', 'properties', 'required', 'additionalProperties']);
 const PROPERTY_KEYWORDS: ReadonlySet<string> = new Set([
   'type',
@@ -179,8 +183,9 @@ export function validateManifest(value: unknown): PluginManifest {
   }
   checkPluginVersion(m.version);
   checkRange(m.api, 'api');
+  if (own(m, 'events')) checkRange(m.events, 'events');
   checkEntry(m.entry);
-  checkPermissions(m.permissions);
+  checkPermissions(m.permissions, own(m, 'events'));
   checkCapabilities(m.capabilities);
   checkSettingsSchema(m.settingsSchema);
   if (own(m, 'resources')) checkResources(m.resources);
@@ -262,6 +267,13 @@ export function negotiate(manifest: PluginManifest, caps: Capabilities, core: st
       'api',
       `${m.name} targets API ${m.api}; this core implements ${core} (draft ${API_DRAFT})` +
         (legacy ? '. API 2.0 is breaking: rewrite the plugin for ^2.0.0' : ''),
+    );
+  }
+  if (m.events && !satisfies(EVENTS_VERSION, m.events)) {
+    throw new ManifestError(
+      'api-mismatch',
+      'events',
+      `${m.name} targets events ${m.events}; this core implements ${EVENTS_VERSION}`,
     );
   }
   const unknown: string[] = [];
@@ -379,7 +391,7 @@ function checkEntry(entry: unknown): void {
     throw new ManifestError('invalid-entry', 'entry', 'entry must be a relative .mjs path inside the package');
 }
 
-function checkPermissions(value: unknown): void {
+function checkPermissions(value: unknown, hasEventsRange: boolean): void {
   if (!Array.isArray(value))
     throw new ManifestError('invalid-permissions', 'permissions', 'permissions must be an array');
   const seen = new Set<string>();
@@ -391,6 +403,13 @@ function checkPermissions(value: unknown): void {
     const { name, reason } = declaration as { name?: unknown; reason?: unknown };
     if (typeof name !== 'string' || !PERMISSION_NAMES.has(name)) {
       throw new ManifestError('invalid-permissions', `${path}.name`, `unknown permission ${show(name)}`);
+    }
+    if (EVENT_PERMISSION_NAMES.has(name) && !hasEventsRange) {
+      throw new ManifestError(
+        'invalid-permissions',
+        `${path}.name`,
+        `permission "${name}" needs an events range (events API ${EVENTS_VERSION})`,
+      );
     }
     if (typeof reason !== 'string' || !reason.trim()) {
       throw new ManifestError('invalid-permissions', `${path}.reason`, `permission "${name}" needs a reason`);

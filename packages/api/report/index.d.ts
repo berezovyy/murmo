@@ -8,7 +8,7 @@ export type { ActionResult, Edit, EditResult, Effect, EffectType, InlineMenuEdit
 export type { ActionId, KeyClaim, KeyCondition, KeyId, NamedKey, PluginAction } from './keys.ts';
 export { ACTIONS, isCanonicalKey, KEY_CONDITIONS, KEY_MODIFIERS, NAMED_KEYS, SHARED_KEYS } from './keys.ts';
 export type { Permission } from './limits.ts';
-export { API_DRAFT, API_VERSION, DEADLINES, LIMITS, PERMISSIONS } from './limits.ts';
+export { API_DRAFT, API_VERSION, DEADLINES, EVENT_PERMISSIONS, LIMITS, PERMISSIONS } from './limits.ts';
 export type { CapabilityRequirement, ManifestErrorCode, Negotiation, PermissionDeclaration, PluginManifest, SettingsProperty, SettingsSchema, } from './manifest.ts';
 export { API_FEATURES, compareVersions, MANIFEST_FILE, ManifestError, negotiate, parseManifest, parseVersion, resolveSettings, satisfies, validateManifest, } from './manifest.ts';
 export type { Cancellation, Clock, CommitLevel, HookEffects, Plugin, PluginContext, PluginFactory, PluginHook, SubmitCommitted, SubmitDecision, SubmitPosition, SubmitTransaction, SubmitUnresolved, } from './plugin.ts';

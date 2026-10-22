@@ -36,6 +36,8 @@ export interface PluginManifest {
     readonly name: string;
     readonly version: string;
     readonly api: string;
+    /** Events API range (`^0.4.0`). Required when declaring an event permission. */
+    readonly events?: string;
     readonly entry: string;
     readonly permissions: readonly PermissionDeclaration[];
     readonly capabilities: {

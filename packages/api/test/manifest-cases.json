@@ -683,6 +683,42 @@
         "error": { "code": "capability-unavailable", "path": "capabilities.required.coexistence.editorComposition" }
       },
       "reason": "unmeasured coexistence is unknown, never safe (K7/E5)"
+    },
+    {
+      "id": "events-permission-needs-range",
+      "fn": "validateManifest",
+      "input": {
+        "patch": {
+          "permissions": [{ "name": "events:read", "reason": "Log tool names." }]
+        }
+      },
+      "output": { "error": { "code": "invalid-permissions", "path": "permissions[0].name" } },
+      "reason": "event permissions need an events range so preflight refuses a prompt-only plugin that asked for them"
+    },
+    {
+      "id": "events-range-ok",
+      "fn": "validateManifest",
+      "input": {
+        "patch": {
+          "events": "^0.4.0",
+          "permissions": [{ "name": "events:read", "reason": "Log tool names." }]
+        }
+      },
+      "output": { "ok": true },
+      "reason": "a matching events range admits events:read"
+    },
+    {
+      "id": "events-range-mismatch",
+      "fn": "negotiate",
+      "input": {
+        "caps": "managed-host",
+        "patch": {
+          "events": "^0.3.0",
+          "permissions": [{ "name": "events:read", "reason": "Log tool names." }]
+        }
+      },
+      "output": { "error": { "code": "api-mismatch", "path": "events" } },
+      "reason": "preflight refuses an events range this core does not implement"
     }
   ]
 }

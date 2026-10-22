@@ -8,6 +8,7 @@ import {
   createMemoryStorage,
   createPluginHost,
   createSession,
+  type EventBroker,
   type HostPluginSpec,
   type Session,
 } from '@murmo/core';
@@ -23,6 +24,7 @@ import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
+import { createClaudeBroker } from './events.ts';
 import { type HelperHandle, isolatedFrom, spawnHelper } from './helper.ts';
 import {
   helperPath,
@@ -46,6 +48,7 @@ export interface ClaudeHost {
   readonly adapter: ClaudeAdapter;
   readonly session: Session | undefined;
   readonly helper: HelperHandle | undefined;
+  readonly events: EventBroker | undefined;
   readonly alive: boolean;
   readonly notices: readonly string[];
   start($: ClaudeRuntime): Promise<void>;
@@ -171,6 +174,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
   let adapter = new ClaudeAdapter(options);
   let session: Session | undefined;
   let helper: HelperHandle | undefined;
+  let events: EventBroker | undefined;
   let alive = false;
 
   return {
@@ -182,6 +186,9 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
     },
     get helper() {
       return helper;
+    },
+    get events() {
+      return events;
     },
     get alive() {
       return alive;
@@ -232,10 +239,58 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
+      const userText = await readUserConfig($);
+      const parsed = parseUserConfig(userText, 'murmo.toml');
+      const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
+      const config = mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
+      const caps = session.caps();
+      if (config.events && caps) {
+        const enabled = new Set(
+          ['audit', 'tool-guard', 'turn-context', 'next-ghost'].filter((id) => config.plugins[id]?.enabled === true),
+        );
+        events = createClaudeBroker({
+          clock,
+          hostVersion: PLUGIN_VERSION,
+          mods: true,
+          enabled,
+          audit: (line) => {
+            adapter.notices.push(line.trim());
+          },
+          draft: () => session?.draft() ?? { text: '', cursor: 0, version: 0, certainty: 'unknown', typedSpans: [] },
+          state: () => ({
+            mode: 'prose',
+            popup: null,
+            dialog: false,
+            busy: false,
+            editorMode: 'insert',
+            history: false,
+          }),
+          sessionId: () => 'claude',
+          hostCaps: caps,
+          ghost: {
+            apply: async (_id, text, version) => {
+              const box = await $.prompt.read();
+              if (box.text !== '') return { status: 'denied' as const, reason: 'prompt not empty' };
+              const suggest = (
+                $ as ClaudeRuntime & {
+                  prompt: ClaudeRuntime['prompt'] & { suggest?: (t: string) => Promise<{ isShown?: boolean }> };
+                }
+              ).prompt.suggest;
+              if (typeof suggest === 'function') {
+                const shown = await suggest(text);
+                return { status: 'applied' as const, reason: shown?.isShown ? 'suggest-ack' : 'suggest' };
+              }
+              void version;
+              return { status: 'unsupported' as const, reason: '$.prompt.suggest missing' };
+            },
+          },
+        }).broker;
+      }
       alive = true;
     },
     async dispose() {
       alive = false;
+      events = undefined;
       await session?.dispose();
       session = undefined;
       await helper?.dispose();

@@ -1,0 +1,31 @@
+{
+  "name": "@murmo/plugin-events",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@murmo/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@murmo/core": "workspace:*"
+  },
+  "murmo": {
+    "runtime": "portable",
+    "bundles": [
+      {
+        "name": "plugin-events",
+        "entry": "src/index.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoPluginEvents"
+      }
+    ]
+  }
+}

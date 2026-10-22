@@ -57,6 +57,8 @@ export function configSummary(file: ConfigFile): unknown {
   if (file.phrasesLearn !== undefined) out.phrasesLearn = file.phrasesLearn;
   if (file.pluginOrder !== undefined) out.pluginOrder = file.pluginOrder;
   if (file.private !== undefined) out.private = file.private;
+  if (file.events !== undefined) out.events = file.events;
+  if (file.eventsFailOpen !== undefined) out.eventsFailOpen = file.eventsFailOpen;
   const plugins = Object.entries(file.plugins);
   if (plugins.length) {
     out.plugins = Object.fromEntries(

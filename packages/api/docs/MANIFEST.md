@@ -23,13 +23,14 @@ Every plugin package has a `murmo.plugin.json` (`MANIFEST_FILE`) of at most `LIM
 
 ## Fields
 
-The first seven fields are required; `resources` is optional. Any other field is refused (`unknown-field`), and a `builtin` field gets its own refusal (`builtin-field`): built-in trust comes from the host that installs a plugin, never from its files. Signatures, archive hashes and approvals belong to the installer, not the manifest.
+The first seven fields are required; `resources` and `events` are optional. Any other field is refused (`unknown-field`), and a `builtin` field gets its own refusal (`builtin-field`): built-in trust comes from the host that installs a plugin, never from its files. Signatures, archive hashes and approvals belong to the installer, not the manifest.
 
 - **`name`:** a lowercase npm-style name, optionally scoped (`@acme/lint`), at most 64 characters after the scope.
 - **`version`:** the plugin's own version, a stable `MAJOR.MINOR.PATCH` with no leading zeros. **Prereleases (`1.0.0-rc.1`) and build metadata are refused**, so a prerelease can never satisfy a stable range. It must equal `Plugin.version`.
 - **`api`:** the range of core API versions the plugin works with (grammar below). This core implements `API_VERSION` 2.0.0.
 - **`entry`:** a relative `.mjs` path inside the package: no leading `/`, no drive letter, no backslash, no `.` or `..` segment, no control characters.
-- **`permissions`:** `{name, reason}` pairs from the seven API permissions ([api.md § Permissions](api.md#permissions)). The reason is shown to the user and must not be blank; a permission may appear once. `Plugin.permissions` must be a subset. A declaration is never a grant.
+- **`permissions`:** `{name, reason}` pairs from the API permissions ([api.md § Permissions](api.md#permissions)). The reason is shown to the user and must not be blank; a permission may appear once. `Plugin.permissions` must be a subset. A declaration is never a grant. Event permissions (`events:read`, `tools:guard`, …) require an `events` range.
+- **`events`:** range of the events API (`^0.4.0`). This core implements events 0.4.0 (label 0.4 preview). Absent unless the plugin declares an event permission.
 - **`capabilities`:** `required` and `optional` maps from a capability path to a requirement; a path may not be in both. See below.
 - **`settingsSchema`:** the settings subset below.
 - **`resources.memoryMiB`:** a requested guest memory ceiling, an integer from 1 to `LIMITS.maxMemoryMiB` (128). Above `LIMITS.defaultMemoryMiB` (8 MiB) the host must review and admit it; the request alone grants nothing.

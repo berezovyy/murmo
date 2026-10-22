@@ -51,6 +51,7 @@ export const HOOKS = {
   onSubmitCommitted: { requires: ['submit:observe', 'draft:read'], deadline: 'eventMs' },
   onSubmitUnresolved: { requires: ['submit:observe'], deadline: 'eventMs' },
   onProjectFileChange: { requires: ['fs:project-read'], deadline: 'eventMs' },
+  onAgentEvent: { requires: ['events:read'], deadline: 'agentEventMs' },
   deactivate: { requires: [], deadline: 'eventMs' },
 } as const satisfies { readonly [K in PluginHook]: HookRoute };
 
@@ -83,6 +84,13 @@ export const PERMISSION_DEFAULTS = {
   submit: 'declared',
   network: 'explicit',
   'fs:project-read': 'explicit',
+  'events:read': 'declared',
+  'tools:guard': 'declared',
+  'tools:rewrite': 'explicit',
+  'context:write': 'declared',
+  'agent:send': 'explicit',
+  'agent:control': 'explicit',
+  'messages:rewrite': 'explicit',
 } as const satisfies { readonly [K in Permission]: 'declared' | 'builtin' | 'explicit' };
 
 export interface PermissionRoutes {

@@ -25,6 +25,8 @@ pub struct EffectiveConfig {
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, EffectivePlugin>,
     pub private: bool,
+    pub events: bool,
+    pub events_fail_open: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -46,6 +48,8 @@ impl EffectiveConfig {
             "phrasesLearn": self.phrases_learn,
             "plugins": plugins,
             "private": self.private,
+            "events": self.events,
+            "eventsFailOpen": self.events_fail_open,
             "diagnostics": self.diagnostics.iter().map(Diagnostic::to_json).collect::<Vec<_>>(),
         });
         if let Some(l) = &self.language {
@@ -137,6 +141,14 @@ pub fn merge_config(
     };
     let private = project_file.and_then(|p| p.config.private) == Some(true)
         || user_file.and_then(|u| u.config.private).unwrap_or(false);
+    let events = if project_file.and_then(|p| p.config.events) == Some(false) {
+        false
+    } else {
+        user_file.and_then(|u| u.config.events).unwrap_or(false)
+    };
+    let events_fail_open = user_file
+        .and_then(|u| u.config.events_fail_open)
+        .unwrap_or(false);
 
     let mut plugins: BTreeMap<String, EffectivePlugin> = BTreeMap::new();
     if let Some(u) = user_file {
@@ -243,6 +255,8 @@ pub fn merge_config(
         plugin_order: user_file.and_then(|u| u.config.plugin_order.clone()),
         plugins,
         private,
+        events,
+        events_fail_open,
         diagnostics,
     }
 }

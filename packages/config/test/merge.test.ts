@@ -104,6 +104,8 @@ test('defaults: autocorrect off, not private, and private from either file', () 
   const empty = mergeConfig({ projectTrusted: false });
   assert.equal(empty.autocorrect, false);
   assert.equal(empty.private, false);
+  assert.equal(empty.events, false, 'events preview is off by default');
+  assert.equal(empty.eventsFailOpen, false);
   assert.equal(mergeConfig({ user, projectTrusted: false }).autocorrect, true);
   const privateProject = load('[privacy]\nprivate = true\n', 'project');
   assert.equal(mergeConfig({ user, project: privateProject, projectTrusted: false }).private, true);

@@ -54,7 +54,7 @@ export type {
 export type { ActionId, KeyClaim, KeyCondition, KeyId, NamedKey, PluginAction } from './keys.ts';
 export { ACTIONS, isCanonicalKey, KEY_CONDITIONS, KEY_MODIFIERS, NAMED_KEYS, SHARED_KEYS } from './keys.ts';
 export type { Permission } from './limits.ts';
-export { API_DRAFT, API_VERSION, DEADLINES, LIMITS, PERMISSIONS } from './limits.ts';
+export { API_DRAFT, API_VERSION, DEADLINES, EVENT_PERMISSIONS, LIMITS, PERMISSIONS } from './limits.ts';
 export type {
   CapabilityRequirement,
   ManifestErrorCode,

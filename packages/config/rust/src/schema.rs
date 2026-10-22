@@ -92,6 +92,8 @@ pub struct ConfigFile {
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, PluginTable>,
     pub private: Option<bool>,
+    pub events: Option<bool>,
+    pub events_fail_open: Option<bool>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -160,6 +162,12 @@ impl ConfigFile {
         if let Some(p) = self.private {
             v["private"] = json!(p);
         }
+        if let Some(e) = self.events {
+            v["events"] = json!(e);
+        }
+        if let Some(f) = self.events_fail_open {
+            v["eventsFailOpen"] = json!(f);
+        }
         v
     }
 }
@@ -186,6 +194,8 @@ pub fn ignored_file(
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
+        events: None,
+        events_fail_open: None,
         diagnostics: vec![Diagnostic::new(
             Severity::Error,
             code,
@@ -454,6 +464,8 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
+        events: None,
+        events_fail_open: None,
         diagnostics: Vec::new(),
     };
     for (key, value) in &data {
@@ -479,6 +491,11 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
             "phrases" => config.phrases_learn = check_switch(&mut check, value, "phrases", "learn"),
             "plugins" => (config.plugin_order, config.plugins) = check_plugins(&mut check, value),
             "privacy" => config.private = check_switch(&mut check, value, "privacy", "private"),
+            "events" => {
+                let (enabled, fail_open) = check_events(&mut check, value);
+                config.events = enabled;
+                config.events_fail_open = fail_open;
+            }
             _ => check.unknown(&[key], &format!("\"{key}\"")),
         }
     }
@@ -511,6 +528,14 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
         }
         if config.private == Some(false) {
             config.private = None;
+        }
+        if config.events == Some(true) {
+            check.warn(
+                "project-only-reduces",
+                &["events", "enabled"],
+                "a project file can only turn events off; \"enabled = true\" ignored",
+            );
+            config.events = None;
         }
         if config.plugin_order.is_some() {
             check.warn(
@@ -782,6 +807,39 @@ fn check_switch(check: &mut Checker, value: &Value, table: &str, name: &str) -> 
         }
     }
     result
+}
+
+fn check_events(check: &mut Checker, value: &Value) -> (Option<bool>, Option<bool>) {
+    let Value::Table(t) = value else {
+        check.warn("invalid-type", &["events"], "[events] must be a table");
+        return (None, None);
+    };
+    let mut enabled = None;
+    let mut fail_open = None;
+    for (key, flag) in t {
+        if key == "enabled" {
+            match flag {
+                Value::Boolean(b) => enabled = Some(*b),
+                _ => check.warn(
+                    "invalid-type",
+                    &["events", key],
+                    "enabled must be true or false",
+                ),
+            }
+        } else if key == "failOpen" {
+            match flag {
+                Value::Boolean(b) => fail_open = Some(*b),
+                _ => check.warn(
+                    "invalid-type",
+                    &["events", key],
+                    "failOpen must be true or false",
+                ),
+            }
+        } else {
+            check.unknown(&["events", key], &format!("\"{key}\" in [events]"));
+        }
+    }
+    (enabled, fail_open)
 }
 
 fn check_plugins(

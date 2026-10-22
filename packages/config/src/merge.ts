@@ -30,6 +30,10 @@ export interface EffectiveConfig {
   readonly plugins: Readonly<Record<string, EffectivePlugin>>;
   /** `[privacy] private` from either file; the flag file is checked by the store. */
   readonly private: boolean;
+  /** `[events] enabled`. Opt-in; false unless the user file turns it on. */
+  readonly events: boolean;
+  /** `[events] failOpen`. Pi default is fail-closed. */
+  readonly eventsFailOpen: boolean;
   /** Both files' diagnostics and the merge notices: user file first, then the project file. */
   readonly diagnostics: readonly Diagnostic[];
 }
@@ -76,6 +80,8 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
   const autocorrect = projectFile?.autocorrect === false ? false : (userFile?.autocorrect ?? false);
   const phrasesLearn = projectFile?.phrasesLearn === false ? false : (userFile?.phrasesLearn ?? false);
   const isPrivate = projectFile?.private === true || (userFile?.private ?? false);
+  const events = projectFile?.events === false ? false : (userFile?.events ?? false);
+  const eventsFailOpen = userFile?.eventsFailOpen ?? false;
 
   const plugins: Record<string, EffectivePlugin> = {};
   for (const [id, table] of Object.entries(userFile?.plugins ?? {})) {
@@ -134,6 +140,8 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
     ...(userFile?.pluginOrder ? { pluginOrder: userFile.pluginOrder } : {}),
     plugins,
     private: isPrivate,
+    events,
+    eventsFailOpen,
     // Every merge notice is about the project file.
     diagnostics: [...(user?.diagnostics ?? []), ...sortDiagnostics([...(project?.diagnostics ?? []), ...notices])],
   };

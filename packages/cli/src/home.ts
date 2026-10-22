@@ -97,6 +97,7 @@ export function ownedRoots(layout: HomeLayout): string[] {
 export function knownFiles(layout: HomeLayout): string[] {
   return [
     join(layout.dirs.codex, 'config.toml'),
+    join(layout.dirs.codex, 'hooks.json'),
     join(layout.home, '.claude.json'),
     join(layout.dirs.claude, '.claude.json'),
     join(layout.dirs.claude, 'settings.json'),

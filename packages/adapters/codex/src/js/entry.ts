@@ -4,6 +4,8 @@
 import { createPluginHost, createSession, type Session } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
 import { asSnap, type CodexAdapter, completeEdit, createAdapter, hostState } from './adapter.ts';
+import { codexCaps } from './caps.ts';
+import { continueReply, createCodexBroker, handleCodexHookSync } from './events.ts';
 import { createHost } from './host.ts';
 import { builtinSpecs, type EngineConfig, installTable, type TableMeta } from './plugins.ts';
 import { installTimers, tick } from './timers.ts';
@@ -28,10 +30,13 @@ function readJson<T>(raw: unknown, fallback: T): T {
 
 let adapter: CodexAdapter | undefined;
 let session: Session | undefined;
+let hookBroker: ReturnType<typeof createCodexBroker> | undefined;
 let lastInlineBefore: ReturnType<CodexAdapter['draft']> | undefined;
+let hostBridge: ReturnType<typeof createHost> | undefined;
 
 function boot(): void {
   const host = createHost();
+  hostBridge = host;
   const config = readJson<EngineConfig>(g.__configJSON, {});
   const tableMeta = readJson<TableMeta>(g.__tableMetaJSON, {});
   const asset = g.__inlineAsset;
@@ -61,6 +66,47 @@ function boot(): void {
     keyBursts: true,
     order: specs.map((s) => s.id),
   });
+  if (config.events === true && adapter) {
+    const enabled = new Set(
+      ['audit', 'tool-guard', 'turn-context', 'next-ghost'].filter(
+        (id) => id === 'tool-guard' || id === 'audit' || id === 'next-ghost' || id === 'turn-context',
+      ),
+    );
+    hookBroker = createCodexBroker({
+      clock: executor.clock,
+      hostVersion: config.hostVersion ?? '0.163.0',
+      enabled,
+      audit: () => {},
+      draft: () => adapter?.draft() ?? { text: '', cursor: 0, version: 0, certainty: 'unknown', typedSpans: [] },
+      state: () => hostState(adapter?.snap ?? asSnap({})),
+      sessionId: () => 'codex',
+      hostCaps: { ...codexCaps(), runtime: { executor: 'in-process', hooks: [], services: [] } },
+      ghost: {
+        apply: (_id, text, version) => adapter?.render('ghost', text, version) ?? { status: 'unsupported' },
+      },
+    });
+  }
+}
+
+g.__hook = (line: string) => {
+  try {
+    const input = readJson<Record<string, unknown>>(line, {});
+    const eventName = String(input.hook_event_name ?? '');
+    if (eventName === 'Stop') hostStop();
+    if (!hookBroker) return JSON.stringify(continueReply(eventName || 'PreToolUse'));
+    return JSON.stringify(handleCodexHookSync(hookBroker, input, 'codex'));
+  } catch {
+    return JSON.stringify(continueReply('PreToolUse'));
+  }
+};
+
+function hostStop(): void {
+  try {
+    hostBridge?.('stop');
+    hostBridge?.('idle-empty');
+  } catch {
+    // fail-open
+  }
 }
 
 g.__init = () => {

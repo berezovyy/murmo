@@ -16,6 +16,8 @@ test('loadBuiltins registers shortcut literals as inline replacements (E18)', ()
       phrasesLearn: false,
       plugins: {},
       private: false,
+      events: false,
+      eventsFailOpen: false,
       diagnostics: [],
     },
   });
@@ -33,6 +35,8 @@ test('loadBuiltins registers shortcut literals as inline replacements (E18)', ()
       phrasesLearn: false,
       plugins: {},
       private: false,
+      events: false,
+      eventsFailOpen: false,
       diagnostics: [],
     },
   });
@@ -52,6 +56,8 @@ test('explicit pluginOrder AB/BA is honored when it names every spec (E20)', () 
       pluginOrder: ['menu', 'shortcuts'],
       plugins: {},
       private: false,
+      events: false,
+      eventsFailOpen: false,
       diagnostics: [],
     },
   });

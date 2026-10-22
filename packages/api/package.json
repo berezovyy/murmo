@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./adapter": "./src/adapter.ts",
+    "./events": "./src/events.ts",
     "./examples/*": "./examples/*/plugin.ts"
   },
   "murmo": {
@@ -32,6 +33,17 @@
           "quickjs"
         ],
         "global": "MurmoApiAdapter"
+      },
+      {
+        "name": "events",
+        "entry": "src/events.ts",
+        "targets": [
+          "node",
+          "bun",
+          "claude",
+          "quickjs"
+        ],
+        "global": "MurmoApiEvents"
       }
     ]
   }

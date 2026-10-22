@@ -46,6 +46,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-events':
+        specifier: workspace:*
+        version: link:../../plugins/events
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -79,6 +82,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-events':
+        specifier: workspace:*
+        version: link:../../plugins/events
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -116,6 +122,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-events':
+        specifier: workspace:*
+        version: link:../../plugins/events
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -152,6 +161,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-events':
+        specifier: workspace:*
+        version: link:../../plugins/events
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -380,6 +392,16 @@ importers:
       '@murmo/text':
         specifier: workspace:*
         version: link:../text
+
+  packages/plugins/events:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+    devDependencies:
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
 
   packages/plugins/names:
     dependencies:

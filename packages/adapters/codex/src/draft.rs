@@ -18,6 +18,7 @@ pub struct Ledger {
     pub ui: Ui,
     /// Set after history / opaque paste / mouse / unknown modified key.
     reason: &'static str,
+    stop_seen: bool,
 }
 
 impl Ledger {
@@ -30,6 +31,7 @@ impl Ledger {
             physical: 0,
             ui: Ui::Idle,
             reason: "new",
+            stop_seen: false,
         }
     }
 
@@ -59,6 +61,17 @@ impl Ledger {
 
     pub fn refresh_from(&mut self, contents: &str, title_busy: bool) {
         self.ui = classify(contents, &self.text, self.cursor, self.known, title_busy);
+    }
+
+    pub fn note_stop(&mut self) {
+        self.stop_seen = true;
+    }
+
+    /// After Stop plus native idle, an empty prompt row is known-empty again (plan/39).
+    pub fn empty_after_idle(&mut self, composer_empty: bool, title_ready: bool) {
+        if self.stop_seen {
+            self.try_recover_from(composer_empty, title_ready);
+        }
     }
 
     /// Empty composer + OSC Ready is the only measured route back to tracked.
@@ -111,6 +124,7 @@ impl Ledger {
                 self.known = false;
                 self.ui = Ui::Busy;
                 self.reason = "submit";
+                self.stop_seen = false;
             }
             Kind::Up | Kind::Down => {
                 self.known = false;
@@ -254,6 +268,18 @@ mod tests {
         led.cursor = 0;
         led.try_recover_from(true, true);
         assert!(led.known, "empty composer + Ready recovers");
+    }
+
+    #[test]
+    fn empty_after_idle_needs_stop_then_empty_ready() {
+        let mut led = Ledger::new();
+        led.apply_event(&ev(Kind::Enter), "");
+        assert!(!led.known);
+        led.empty_after_idle(true, true);
+        assert!(!led.known, "idle without Stop must not restore certainty");
+        led.note_stop();
+        led.empty_after_idle(true, true);
+        assert!(led.known, "Stop plus empty Ready restores known-empty");
     }
 
     #[test]

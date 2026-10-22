@@ -3,6 +3,7 @@
 export { OpenCodeAdapter, type OpenCodeAdapterOptions } from './adapter.ts';
 export { capabilitiesFromProbes, DEGRADED_NOTICE, degradedNotice } from './capabilities.ts';
 export { clone } from './clone.ts';
+export { opencodeEventDoctor } from './events.ts';
 export { bindingMatches, canonicalKey, extraUndoKeys, isPrintableTyped, PROBE_KEYS } from './keys.ts';
 export { fromCells, representable, toCells, toHighlightRange } from './offsets.ts';
 export { Overlay } from './overlay.ts';

@@ -1,5 +1,6 @@
 // Claude plugin entry. `hooks/hooks.json` points here. No Node, no reload timer.
 
+import { CLAUDE_EVENT_TIMEOUT_MS, ingestClaudeHook } from './events.ts';
 import { type ClaudeHost, createClaudeHost } from './session.ts';
 import {
   type AutocompleteInput,
@@ -14,6 +15,36 @@ import {
 } from './types.ts';
 
 let host: ClaudeHost | undefined;
+
+async function onClassicPreToolUse($: unknown, event: unknown, next: (event: unknown) => unknown): Promise<unknown> {
+  void $;
+  const broker = host?.events;
+  if (!broker) return next(event);
+  const payload = event && typeof event === 'object' ? (event as Record<string, unknown>) : {};
+  const decision = await ingestClaudeHook(broker, 'PreToolUse', payload, 'claude');
+  if (decision.action === 'block') return { permissionDecision: 'deny', permissionDecisionReason: decision.reason };
+  return next(event);
+}
+
+async function onClassicStop($: unknown, event: unknown, next: (event: unknown) => unknown): Promise<unknown> {
+  void $;
+  const broker = host?.events;
+  if (broker) {
+    const payload = event && typeof event === 'object' ? (event as Record<string, unknown>) : {};
+    await ingestClaudeHook(broker, 'Stop', payload, 'claude');
+  }
+  return next(event);
+}
+
+async function onTurnComplete($: unknown, event: unknown, next: (event: unknown) => unknown): Promise<unknown> {
+  void $;
+  const broker = host?.events;
+  if (broker) {
+    const payload = event && typeof event === 'object' ? (event as Record<string, unknown>) : {};
+    await ingestClaudeHook(broker, 'turn.complete', payload, 'claude');
+  }
+  return next(event);
+}
 
 export function register(on: ClaudeRegister): void {
   on('session.start', async ($, event, next) => {
@@ -57,6 +88,10 @@ export function register(on: ClaudeRegister): void {
       return { drop: 'platform submit failed — blocked' };
     }
   });
+
+  on('classic.PreToolUse', { timeout: CLAUDE_EVENT_TIMEOUT_MS }, onClassicPreToolUse);
+  on('classic.Stop', { timeout: CLAUDE_EVENT_TIMEOUT_MS }, onClassicStop);
+  on('turn.complete', onTurnComplete);
 
   on('classic.UserPromptSubmit', { timeout: CLASSIC_GUARD_TIMEOUT_MS }, async (_$, event: ClassicSubmitInput, next) => {
     const current = host;

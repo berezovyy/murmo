@@ -10,6 +10,7 @@ import { createInProcessExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { findRepositoryRoot, openStore, projectIdentity, storeRootsFromEnv } from '@murmo/store/node';
 import { createPiAdapter, type PiAdapter, type PiAdapterOptions } from './adapter.ts';
+import { attachPiEvents, type PiEventsHandle } from './events.ts';
 import { loadBuiltins } from './plugins.ts';
 import type { PiHost, PiSessionContext } from './types.ts';
 
@@ -18,6 +19,7 @@ export interface StartedPi {
   readonly session: Session;
   readonly runner: PluginHost;
   readonly executor: Executor;
+  readonly events?: PiEventsHandle;
   dispose(): Promise<void>;
 }
 
@@ -27,6 +29,7 @@ export interface StartOptions extends PiAdapterOptions {
   readonly order?: readonly string[];
   readonly isolated?: boolean;
   readonly notify?: (message: string) => void;
+  readonly pi?: PiHost;
 }
 
 function frameExecutor(inner: Executor): Executor {
@@ -127,12 +130,41 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   });
   await session.ready;
   await session.settle();
+  let events: PiEventsHandle | undefined;
+  if (options.pi && config.effective.events) {
+    const enabled = new Set(
+      ['audit', 'tool-guard', 'turn-context', 'next-ghost'].filter(
+        (id) => config.effective.plugins[id]?.enabled === true,
+      ),
+    );
+    const caps = session.caps();
+    if (caps) {
+      events = attachPiEvents(options.pi, {
+        clock: executor.clock,
+        hostVersion: options.version ?? '1.3.0',
+        failOpen: config.effective.eventsFailOpen,
+        enabled,
+        audit: (line) => {
+          adapter.notices.push(line.trim());
+        },
+        draft: () => session.draft() ?? adapter.getDraft(),
+        state: () => adapter.getState(),
+        sessionId: () => identity.session,
+        hostCaps: caps,
+        ghost: {
+          apply: (_id, text, version) => adapter.showGhost(text, version),
+        },
+      });
+    }
+  }
   return {
     adapter,
     session,
     runner,
     executor,
+    ...(events ? { events } : {}),
     async dispose() {
+      events?.dispose();
       await session.dispose();
       await adapter.dispose();
       await executor.dispose();

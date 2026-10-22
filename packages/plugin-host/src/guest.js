@@ -50,6 +50,7 @@ const HOOKS = [
   'onSubmitCommitted',
   'onSubmitUnresolved',
   'onProjectFileChange',
+  'onAgentEvent',
   'deactivate',
 ];
 

@@ -25,6 +25,7 @@ This page is the normative contract. The TypeScript types in `packages/api/src/`
 | `onSubmitCommitted` | `submit:observe` and `draft:read` | `DEADLINES.eventMs` (50 ms) |
 | `onSubmitUnresolved` | `submit:observe` | `DEADLINES.eventMs` (50 ms) |
 | `onProjectFileChange` | `fs:project-read` | `DEADLINES.eventMs` (50 ms) |
+| `onAgentEvent` | `events:read` | `DEADLINES.agentEventMs` (2000 ms) |
 
 The table is `HOOKS` in `@murmo/api/adapter`; `routesFor(permissions)` returns the hooks, services and effects a set of granted permissions opens. Every executor must deliver every hook and service in these tables, and `ctx.host.caps.runtime` reports what this executor really routes (`RuntimeCapabilities`).
 
@@ -43,6 +44,13 @@ A declaration is never a grant: the host grants (`PERMISSION_DEFAULTS` in `@murm
 | `submit` | Warn or block a send | when declared |
 | `network` | Nothing yet: declaration only, no executor routes network requests | explicit grant |
 | `fs:project-read` | Bounded reads inside the approved project root | explicit grant plus user approval |
+| `events:read` | Observe agent-loop events; never implies `draft:read` | when declared (events API 0.4 preview) |
+| `tools:guard` | Deny a tool call at a real before-execution barrier | when declared |
+| `tools:rewrite` | Replace tool input or output; not advertised in the preview | explicit grant |
+| `context:write` | Stage hidden next-prompt context | when declared |
+| `agent:send` | Send a new prompt; off in the preview | explicit grant |
+| `agent:control` | Compaction or Stop continuation | explicit grant |
+| `messages:rewrite` | Stored or model-visible message text; not advertised in the preview | explicit grant |
 
 - **Typed-only reads.** With `draft:read`, every UTF-16 unit outside a typed span reads as `MASKED_UNIT` (`█`): length, cursor and versions stay exact. The draft, `before`, deltas, submit and committed text are all masked the same way. A plugin that must see pasted text (a guard, a linter) asks for `draft:read:full`.
 - **Claude Code host limit.** Claude's `prompt.edit` cannot label input origin, so its `inputOriginEvidence` is not `host-labeled` and the core clears every typed span: a `draft:read` plugin on Claude sees an all-masked draft (length and cursor only). This is a host limit, not a bug.
@@ -130,3 +138,4 @@ Every number is an initial default from the prototype, not a calibrated budget. 
 | `DEADLINES.keyDispatchMs` | 10 ms | `onKey` |
 | `DEADLINES.submitTotalMs` | 50 ms | All `onBeforeSubmit` calls of one attempt |
 | `DEADLINES.eventMs` | 50 ms | Every other hook |
+| `DEADLINES.agentEventMs` | 2000 ms | `onAgentEvent` (40% of the 5 s native hook timeout) |

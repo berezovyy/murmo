@@ -8,6 +8,7 @@ import type { EditorBase, PiHost, PiSessionContext, TuiApi } from './types.ts';
 export { createPiAdapter, PiAdapter } from './adapter.ts';
 export { tryWrapDataProperty, wrapDataProperty } from './callbacks.ts';
 export { detectCursorFormat } from './cursor.ts';
+export { attachPiEvents } from './events.ts';
 export { fromPiKeyId } from './keys.ts';
 export { loadBuiltins } from './plugins.ts';
 export { startPiSession } from './session.ts';

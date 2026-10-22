@@ -28,7 +28,25 @@ export const API_DRAFT = '2.0-pre.0';
  * - `network`: declaration only. No executor routes a network request yet
  *   (phase 32 adds the broker); declaring it grants nothing.
  * - `fs:project-read`: bounded UTF-8 reads inside the approved project root.
+ * Event grants (preview, `@murmo/api/events`) are independent of draft grants:
+ * - `events:read`: observe agent-loop events; never implies `draft:read`.
+ * - `tools:guard`: deny a tool call at a real before-execution barrier.
+ * - `tools:rewrite`: replace tool input/output (types only in the preview).
+ * - `context:write`: stage hidden next-prompt context.
+ * - `agent:send`: send a new prompt (off in the preview).
+ * - `agent:control`: compaction / Stop continuation.
+ * - `messages:rewrite`: stored or model-visible message text (types only).
  */
+export const EVENT_PERMISSIONS = [
+  'events:read',
+  'tools:guard',
+  'tools:rewrite',
+  'context:write',
+  'agent:send',
+  'agent:control',
+  'messages:rewrite',
+] as const;
+
 export const PERMISSIONS = [
   'draft:read',
   'draft:read:full',
@@ -37,6 +55,7 @@ export const PERMISSIONS = [
   'submit',
   'network',
   'fs:project-read',
+  ...EVENT_PERMISSIONS,
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -57,6 +76,8 @@ export const DEADLINES = {
   submitTotalMs: 50,
   /** Every other hook: menu selection, actions, committed and project-change events. */
   eventMs: 50,
+  /** `onAgentEvent`. The broker's guard budget is 40% of the native hook limit. */
+  agentEventMs: 2000,
 } as const;
 
 export const LIMITS = {

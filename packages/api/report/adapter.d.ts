@@ -58,6 +58,10 @@ export declare const HOOKS: {
         readonly requires: readonly ["fs:project-read"];
         readonly deadline: 'eventMs';
     };
+    readonly onAgentEvent: {
+        readonly requires: readonly ["events:read"];
+        readonly deadline: 'agentEventMs';
+    };
     readonly deactivate: {
         readonly requires: readonly [];
         readonly deadline: 'eventMs';
@@ -106,6 +110,13 @@ export declare const PERMISSION_DEFAULTS: {
     readonly submit: 'declared';
     readonly network: 'explicit';
     readonly 'fs:project-read': 'explicit';
+    readonly 'events:read': 'declared';
+    readonly 'tools:guard': 'declared';
+    readonly 'tools:rewrite': 'explicit';
+    readonly 'context:write': 'declared';
+    readonly 'agent:send': 'explicit';
+    readonly 'agent:control': 'explicit';
+    readonly 'messages:rewrite': 'explicit';
 };
 export interface PermissionRoutes {
     readonly hooks: readonly PluginHook[];

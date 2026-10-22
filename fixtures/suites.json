@@ -21,7 +21,7 @@
     {
       "file": "config/schema.json",
       "owner": "14",
-      "cases": 60
+      "cases": 63
     },
     {
       "file": "config/toml-corpus.json",

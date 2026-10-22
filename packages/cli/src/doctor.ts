@@ -4,6 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { claudeEventCaps, codexEventCaps, doctorLinesFor, opencodeEventCaps, piEventCaps } from '@murmo/core';
 import { DATA_DIR, loadTrustAnchor, npmPlatform, VerifyError, verifyPackage } from '@murmo/integrity';
 import { openLanguagePack } from '@murmo/lang/node';
 import { doctorLine } from '@murmo/plugin-autocorrect';
@@ -311,6 +312,18 @@ export async function doctorCommand(options: DoctorOptions = {}): Promise<Doctor
       checks.push(check('phrases-stats', true, phrasesDoctorLine(metrics), 'none'));
     } catch (error) {
       checks.push(check('phrases-stats', true, phrasesDoctorLine(), error instanceof Error ? error.message : 'none'));
+    }
+  }
+
+  const eventCaps = {
+    claude: claudeEventCaps(true),
+    codex: codexEventCaps(),
+    pi: piEventCaps(false),
+    opencode: opencodeEventCaps(),
+  } as const;
+  for (const host of ['claude', 'codex', 'pi', 'opencode'] as const) {
+    for (const row of doctorLinesFor(host, eventCaps[host])) {
+      checks.push(check(row.name, true, row.detail, 'none'));
     }
   }
 

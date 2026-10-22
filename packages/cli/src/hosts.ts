@@ -79,8 +79,54 @@ export function registerHost(
     writeJson(file, { ...current, plugins });
     return [{ argv: ['opencode-cli.json', href], status: 0, ms: 0, stdout: href, stderr: '', host: 'opencode' }];
   }
-  // Codex: never a PATH shim. Users run `murmo codex`.
-  return [{ argv: ['murmo', 'codex'], status: 0, ms: 0, stdout: 'murmo codex', stderr: '', host: 'codex' }];
+  // Codex: never a PATH shim. Users run `murmo codex`. Hook registrations are
+  // journaled files the user trusts in Codex's own /hooks flow — never bypass_hook_trust.
+  const hooksFile = `${layout.dirs.codex}/hooks.json`;
+  writeJson(hooksFile, codexHooksPayload());
+  return [
+    { argv: ['murmo', 'codex'], status: 0, ms: 0, stdout: 'murmo codex', stderr: '', host: 'codex' },
+    {
+      argv: ['codex-hooks.json', hooksFile],
+      status: 0,
+      ms: 0,
+      stdout: 'review and trust these hooks in Codex with /hooks; Murmo never ships bypass_hook_trust',
+      stderr: '',
+      host: 'codex',
+    },
+  ];
+}
+
+export function codexHooksPayload(): Record<string, unknown> {
+  const events = [
+    'SessionStart',
+    'SessionEnd',
+    'UserPromptSubmit',
+    'PreToolUse',
+    'PostToolUse',
+    'PermissionRequest',
+    'PreCompact',
+    'PostCompact',
+    'SubagentStart',
+    'SubagentStop',
+    'Stop',
+    'Interrupt',
+  ];
+  const hooks: Record<string, unknown> = {};
+  for (const event of events) {
+    const timeout = event === 'SessionEnd' ? 3 : 5;
+    hooks[event] = [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `murmo hook codex ${event}`,
+            timeout,
+          },
+        ],
+      },
+    ];
+  }
+  return { hooks };
 }
 
 export function alreadyRegistered(journal: Journal, name: string): boolean {

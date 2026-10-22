@@ -177,6 +177,14 @@ test('[names] loads enabled, key and languages; unknown keys warn', () => {
   assert.ok(codes(bad).includes('unknown-key'));
 });
 
+test('events preview is off unless the user file enables it', () => {
+  assert.equal(named('events-off').events, false);
+  assert.equal(named('events-on').events, true);
+  assert.equal(named('events-on').eventsFailOpen, true);
+  assert.equal(named('events-project-on').events, undefined);
+  assert.ok(codes(named('events-project-on')).includes('project-only-reduces'));
+});
+
 test('a project file can only make Murmo do less', () => {
   // Catches an untrusted repository turning autocorrect, a plugin or the plugin order on.
   assert.equal(named('autocorrect-project').autocorrect, undefined);
