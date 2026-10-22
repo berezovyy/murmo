@@ -39,7 +39,7 @@ test('codexChildEnv sets english.bin and autocorrect from the user file', async 
     mkdirSync(join(t.env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
     writeFileSync(join(t.env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'), '[autocorrect]\nenabled = true\n');
     const { codexChildEnv } = await import('../src/cli.ts');
-    const child = codexChildEnv(t.env, t.packageDir);
+    const child = await codexChildEnv(t.env, t.packageDir);
     assert.equal(child.MURMO_AUTOCORRECT, '1');
     assert.equal(child.MURMO_ENGLISH_TABLE?.endsWith('english.bin'), true);
     assert.equal(existsSync(child.MURMO_ENGLISH_TABLE as string), true);

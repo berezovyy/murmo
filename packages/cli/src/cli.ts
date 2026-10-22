@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mergeConfig, parseConfig, resolveShortcuts } from '@murmo/config';
-import { userConfigPath } from '@murmo/config/node';
+import { loadSessionConfig, userConfigPath } from '@murmo/config/node';
 import {
   CODEX_NAME,
   INTEGRITY_FILE,
@@ -15,7 +15,7 @@ import {
   TABLE_FILE,
   verifyPackage,
 } from '@murmo/integrity';
-import { storeRootsFromEnv } from '@murmo/store/node';
+import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { dispatchMounted } from './commands.ts';
 import { doctorCommand, doctorExit, printDoctor } from './doctor.ts';
 import { formatError } from './errors.ts';
@@ -84,7 +84,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
   }
   try {
     if (cmd === 'verify') return verifyCmd(rest, env, out, err);
-    if (cmd === 'codex') return codexCmd(rest, env, err);
+    if (cmd === 'codex') return await codexCmd(rest, env, err);
     if (cmd === 'setup' || cmd === 'uninstall' || cmd === 'doctor') {
       const parsed = parseFlags(rest);
       if (typeof parsed === 'string') {
@@ -219,13 +219,37 @@ function userFileAutocorrect(env: NodeJS.ProcessEnv): boolean {
   }
 }
 
-/** Env the wrapper needs so packed `murmo codex` loads english.bin and user autocorrect. */
-export function codexChildEnv(env: NodeJS.ProcessEnv, packedRoot: string): NodeJS.ProcessEnv {
+/** JSON object `{ ";rvw": "…", … }` for the Codex wrapper (`MURMO_SHORTCUTS`). */
+export function shortcutsEnvJson(
+  replacements: readonly { readonly shortcut: string; readonly text: string }[],
+): string | undefined {
+  if (replacements.length === 0) return undefined;
+  const map: Record<string, string> = {};
+  for (const entry of replacements) map[entry.shortcut] = entry.text;
+  return JSON.stringify(map);
+}
+
+/** Env the wrapper needs so packed `murmo codex` loads english.bin, user autocorrect, and shortcuts. */
+export async function codexChildEnv(
+  env: NodeJS.ProcessEnv,
+  packedRoot: string,
+  cwd: string = env.PWD || process.cwd(),
+): Promise<NodeJS.ProcessEnv> {
   const next: NodeJS.ProcessEnv = { ...env };
   if (!next.MURMO_PACKAGE_ROOT) next.MURMO_PACKAGE_ROOT = packedRoot;
   const table = join(packedRoot, TABLE_FILE);
   if (!next.MURMO_ENGLISH_TABLE && existsSync(table)) next.MURMO_ENGLISH_TABLE = table;
   if (next.MURMO_AUTOCORRECT === undefined && userFileAutocorrect(env)) next.MURMO_AUTOCORRECT = '1';
+  if (!next.MURMO_SHORTCUTS) {
+    try {
+      const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
+      const session = await loadSessionConfig({ cwd, store, env, ...(env.HOME ? { home: env.HOME } : {}) });
+      const json = shortcutsEnvJson(session.effective.replacements);
+      if (json) next.MURMO_SHORTCUTS = json;
+    } catch {
+      // Fail open: Codex still starts; shortcuts stay empty until config loads.
+    }
+  }
   return next;
 }
 
@@ -241,14 +265,14 @@ function packedRootOf(env: NodeJS.ProcessEnv): string | undefined {
   }
 }
 
-function codexCmd(argv: string[], env: NodeJS.ProcessEnv, err: (s: string) => void): number {
+async function codexCmd(argv: string[], env: NodeJS.ProcessEnv, err: (s: string) => void): Promise<number> {
   const bin = platformBin(CODEX_NAME);
   if (!existsSync(bin)) {
     err(`murmo codex: ${bin} is missing (Codex wrapper unavailable on this platform)`);
     return 1;
   }
   const packed = packedRootOf(env);
-  const child = packed ? codexChildEnv(env, packed) : env;
+  const child = packed ? await codexChildEnv(env, packed, env.PWD || process.cwd()) : env;
   const run = spawnSync(bin, argv, { stdio: 'inherit', env: child });
   return run.status ?? 1;
 }
