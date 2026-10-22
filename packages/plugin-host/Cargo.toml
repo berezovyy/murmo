@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 libc.workspace = true
+murmo-config.workspace = true
 murmo-js-runtime.workspace = true
 murmo-store.workspace = true
 murmo-indexer = { path = "../vocab/indexer", default-features = false }

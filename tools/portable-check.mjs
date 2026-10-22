@@ -22,7 +22,8 @@ const forbiddenSource = [
   [/\bWebAssembly\b/, 'WebAssembly is missing in Claude and QuickJS'],
   [/\brequire\s*\(/, 'require is missing in Claude and QuickJS'],
   [/\bimport\s*\(/, 'dynamic import is not supported by the embedded loaders'],
-  [/\bprocess\s*[.[]/, 'process exists only on Node and Bun'],
+  // The global, bare or through globalThis; a host API's `$.process.spawn` is a property.
+  [/(?:^|[^\w$.]|\bglobalThis\s*\??\.)process\s*[.[]/, 'process exists only on Node and Bun'],
   [/\bBuffer\s*[.[(]/, 'Buffer exists only on Node and Bun'],
   [/\bBun\s*[.[]/, 'Bun APIs exist only on Bun'],
   [/\bfrom\s*["'](?:node|bun):/, 'runtime built-in modules exist only on Node and Bun'],

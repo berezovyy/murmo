@@ -104,6 +104,7 @@ function isolatedConformance() {
       '--test',
       join(root, 'packages/conformance/test/isolated.gate.ts'),
       join(root, 'packages/executor/test/isolated.gate.ts'),
+      join(root, 'packages/adapters/claude/test/project-config.gate.ts'),
     ],
     {
       cwd: root,
@@ -114,7 +115,9 @@ function isolatedConformance() {
   assert.equal(run.status, 0, run.stdout + run.stderr);
 }
 isolatedConformance();
-console.log('isolated helper: C12 and V1-C12-memory pass through murmo-plugin-host');
+console.log(
+  'isolated helper: C12 and V1-C12-memory pass through murmo-plugin-host; Claude loads trusted project config through it',
+);
 
 // Phase 14: @murmo/config and @murmo/store agree with their Rust twins.
 const config = await configParity();

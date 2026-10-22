@@ -209,7 +209,10 @@ export async function trustCommand(args: readonly string[], context: TrustContex
         }
         context.out('');
       }
-      for (const notice of compiled.notices) context.out(notice.text);
+      // The "run murmo trust" notice is this command; the others (collisions, skips) still apply.
+      for (const notice of compiled.notices) if (notice.kind !== 'trust') context.out(notice.text);
+      // Scripts approve exactly this snapshot with --yes --fingerprint.
+      context.out(`Fingerprint: ${snapshot.fingerprint}`);
       const n = snapshot.config.replacements.length;
       const prompt = `Trust these ${n} shortcut${n === 1 ? '' : 's'} for ${displayText(snapshot.identity.root)}? [y/N] `;
       const answer = context.ask ? (await context.ask(prompt)).trim().toLowerCase() : '';

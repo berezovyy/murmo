@@ -139,6 +139,18 @@ export interface ClaudeFetchResult {
   readonly text: string;
 }
 
+/**
+ * What a session uses of `$` beyond startup reads. Claude 2.1.30x's marketplace
+ * analyzer refuses a hooks module that passes `$` itself (or an alias of it) as
+ * an argument, so the packed entry hands over these closures instead, each a
+ * plain `$.noun.event(...)` call.
+ */
+export interface HostServices {
+  after(ms: number, callback: () => void): ClockHandle;
+  spawn(argv: readonly string[]): SpawnStream;
+  fetch(url: string, init: ClaudeFetchInit): Promise<ClaudeFetchResult>;
+}
+
 /** The `$` object Claude injects into every hook. */
 export interface ClaudeRuntime {
   readonly plugin: { readonly root: string };

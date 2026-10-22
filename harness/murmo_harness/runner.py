@@ -68,6 +68,17 @@ def expand(spec) -> str:
     raise ValueError(f'bad text spec {spec!r}')
 
 
+def as_drawn(text: str) -> str:
+    """`text` as a screen read of the draft gives it back (`Host.read_draft`):
+    trailing spaces on a row and blank rows at either end do not show."""
+    rows = text.split('\n')
+    while rows and not rows[-1].strip():
+        rows.pop()
+    while rows and not rows[0].strip():
+        rows.pop(0)
+    return '\n'.join(r.rstrip() for r in rows)
+
+
 def load_suite(path: Path) -> tuple[str, list[dict]]:
     data = json.loads(path.read_text())
     if data.get('kind') != 'editor-ops/v1':
@@ -174,6 +185,8 @@ class HostSubject:
                 return f'requires {requirement}'
         if case.get('plugins') and 'plugins' not in features:
             return 'loads plugins: needs a Murmo integration (phases 21–24)'
+        if case.get('projectTrust') and 'host.project-config' not in features:
+            return 'approves a project file: needs an integration with murmo trust'
         if self.integration.name == 'packed' and case.get('plugins'):
             names = {
                 (plugin.get('plugin') if isinstance(plugin, dict) else plugin)
@@ -258,6 +271,8 @@ class HostSubject:
             session = self.run.open_session(
                 self.host_name, self.install, driver=self.driver, integration=self.integration,
                 cols=self.cols, rows=self.rows, label=case['id'][:24],
+                project=paths.FIXTURES / case['project'] if case.get('project') else None,
+                project_trust=case.get('projectTrust'),
             )
             if self.ready_screen is None:
                 self.ready_screen = session.ready_screen
@@ -346,9 +361,9 @@ class HostSubject:
             draft = session.draft()
             if 'text' in draft_expect:
                 wanted = expand(draft_expect['text'])
-                out.append(Assertion(f'{where}.draft.text', draft == wanted, wanted, draft, 'screen'))
+                out.append(Assertion(f'{where}.draft.text', draft == as_drawn(wanted), wanted, draft, 'screen'))
             if 'endsWith' in draft_expect:
-                ok = draft is not None and draft.endswith(draft_expect['endsWith'])
+                ok = draft is not None and draft.endswith(as_drawn(draft_expect['endsWith']))
                 out.append(Assertion(f'{where}.draft.endsWith', ok, draft_expect['endsWith'], draft, 'screen'))
         prompts = [r.get('userText') for r in self.host.prompt_requests(self.run.fake.since(mark))]
         if 'requests' in expect:

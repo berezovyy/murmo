@@ -9,12 +9,18 @@ use murmo_store::protocol::Store;
 use murmo_store::{roots_from_env, StoreRoots};
 use serde_json::{json, Value};
 
-pub fn open_from_env() -> Store {
-    let home = env::var("HOME")
+/// The helper's `HOME`, `/` when unset (the store and config agree on it).
+pub fn home_from_env() -> PathBuf {
+    env::var("HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/"));
+        .unwrap_or_else(|_| PathBuf::from("/"))
+}
+
+/// The store roots of this session: `MURMO_DATA`/`MURMO_STATE`/`MURMO_CACHE`, else XDG.
+pub fn roots_from_process_env() -> StoreRoots {
+    let home = home_from_env();
     let get = |name: &str| env::var(name).ok();
-    let roots = StoreRoots {
+    StoreRoots {
         data: env::var("MURMO_DATA")
             .map(PathBuf::from)
             .unwrap_or_else(|_| roots_from_env(&get, &home).data),
@@ -24,9 +30,12 @@ pub fn open_from_env() -> Store {
         cache: env::var("MURMO_CACHE")
             .map(PathBuf::from)
             .unwrap_or_else(|_| roots_from_env(&get, &home).cache),
-    };
+    }
+}
+
+pub fn open_from_env() -> Store {
     let private = env::var("MURMO_PRIVATE").ok().as_deref() == Some("1");
-    Store::open(roots, private)
+    Store::open(roots_from_process_env(), private)
 }
 
 pub fn handle(store: &Arc<Mutex<Option<Store>>>, message: &Value) -> Value {

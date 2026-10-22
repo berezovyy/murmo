@@ -16,8 +16,10 @@ interface EditableCase {
   steps: unknown[];
   plugins?: string[];
   project?: string;
+  projectTrust?: string;
 }
 interface EditableFile {
+  defaults?: { requires?: string[] };
   cases: EditableCase[];
 }
 const nth = (file: EditableFile, i: number): EditableCase => {
@@ -94,6 +96,21 @@ test('an unknown plugin name or project folder fails loading', () => {
   );
   assert.ok(
     problems.some((p) => p.includes('project folder "shortcuts/missing" does not exist')),
+    problems.join('\n'),
+  );
+});
+
+test('a projectTrust case without host.project-config fails loading', () => {
+  // Catches a project-config case reaching the pure subjects, which never read
+  // `.murmo.toml` and so pass the unreviewed case for the wrong reason.
+  const src = edited('hosts/project-shortcuts.json', (d) => {
+    if (d.defaults) delete d.defaults.requires;
+  });
+  const { problems } = loadFixtures(src);
+  assert.ok(
+    problems.includes(
+      'hosts/project-shortcuts.json unreviewed-project-shortcut-stays-literal: "projectTrust" needs "requires": ["host.project-config"]',
+    ),
     problems.join('\n'),
   );
 });

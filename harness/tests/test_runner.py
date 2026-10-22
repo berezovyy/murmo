@@ -15,7 +15,7 @@ from support import new_run, needs_sandbox, real_install, scratch, stub_host, st
 from murmo_harness import evidence, paths
 from murmo_harness.integrations import STOCK, Integration, IntegrationState, PluginState
 from murmo_harness.inventory import RealHomeInventory
-from murmo_harness.runner import Expectations, HostSubject, expand, load_suite
+from murmo_harness.runner import Expectations, HostSubject, as_drawn, expand, load_suite
 
 CASE = {
     'id': 'typed-line',
@@ -114,13 +114,60 @@ class FunctionalNotLoaded(unittest.TestCase):
                 self.assertIn(needle, verdict['reason'])
             self.assertEqual(run.launches, 0)
 
+    def test_project_is_seeded_and_approved_after_setup_before_launch(self):
+        """Catches a project case whose host never sees the fixture `.murmo.toml`,
+        or an approval that runs before setup created the store it writes to."""
+        needs_sandbox()
+
+        class Recording(Integration):
+            name = 'recording'
+            features = frozenset({'host.project-config'})
+
+            def __init__(self):
+                self.calls = []
+
+            def prepare(self, host, profile, run=None):
+                self.calls.append(('prepare', (profile.project / '.murmo.toml').exists()))
+
+            def approve_project(self, host, profile, run=None):
+                self.calls.append(('approve', (profile.project / '.murmo.toml').read_text(), (profile.project / '.git').is_dir()))
+
+        suite, cases = load_suite(paths.FIXTURES / 'hosts' / 'project-shortcuts.json')
+        approved = next(c for c in cases if c['projectTrust'] == 'approved')
+        recording = Recording()
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                subject(run, folder / 'a', recording).run_case(suite, {**approved, 'plugins': [], **CASE})
+        text = (paths.FIXTURES / approved['project'] / '.murmo.toml').read_text()
+        self.assertEqual(recording.calls, [('prepare', False), ('approve', text, True)])
+
+    def test_project_approval_without_trust_support_skips(self):
+        """An integration that cannot run `murmo trust` must skip, never run the
+        approved case against an unreviewed file and report its result."""
+        with scratch() as folder, stub_host():
+            run = new_run(folder)
+            case = {'id': 'p', 'project': 'hosts/projects/shortcuts', 'projectTrust': 'approved', **{k: CASE[k] for k in ('steps', 'expect')}}
+            verdict = subject(run, folder / 'a').run_case('t.json', case)
+            self.assertEqual(verdict['status'], 'skip')
+            self.assertIn('murmo trust', verdict['reason'])
+            self.assertEqual(run.launches, 0)
+
     def test_shared_fixture_suites_load(self):
         """The runner reads the shared fixture format; every host case maps or skips."""
-        for name in ('stock-canary.json', 'r14-followup.json'):
+        for name in ('stock-canary.json', 'r14-followup.json', 'project-shortcuts.json'):
             suite, cases = load_suite(paths.FIXTURES / 'hosts' / name)
             self.assertTrue(cases)
             self.assertEqual(suite, f'hosts/{name}')
         self.assertEqual(expand(['a', {'repeat': 'b', 'times': 3}]), 'abbb')
+
+    def test_screen_drafts_compare_as_drawn(self):
+        """Catches `;hp ` failing against a screen that shows `;hp`: a trailing
+        space never draws, so the expectation is compared as the screen shows it,
+        while a different word still fails."""
+        self.assertEqual(as_drawn('harness project shortcut '), 'harness project shortcut')
+        self.assertEqual(as_drawn('alpha  \nbeta \n\n'), 'alpha\nbeta')
+        self.assertEqual(as_drawn('  lead'), '  lead')
+        self.assertNotEqual(as_drawn(';hp '), 'harness project shortcut')
 
     def test_expectation_files_change_cases_without_harness_changes(self):
         """Adapter phases add per-host expectation files; nothing else changes."""

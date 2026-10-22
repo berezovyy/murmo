@@ -1,3 +1,9 @@
 (version 1)
 (allow default)
 (deny network*)
+; Local Unix sockets are IPC, not network: the Claude helper serves HTTP on one
+; (packages/plugin-host/PROTOCOL.md), as in the phase 20 harness sandbox.
+(allow network* (local unix-socket))
+(allow network* (remote unix-socket))
+; The resolver's socket stays shut: a hostname lookup is a network attempt.
+(deny network-outbound (remote unix-socket (path-literal "/private/var/run/mDNSResponder")))

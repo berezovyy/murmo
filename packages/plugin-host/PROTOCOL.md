@@ -8,7 +8,7 @@ The supervisor writes a ready line as soon as it starts:
 {"ready":true,"pid":123,"protocol":1,"apiVersion":"2.0.0","version":"0.1.0"}
 ```
 
-`--http --socket PATH` folds the Claude HTTP proxy into this process (no extra manager). Ready then also has `port` (loopback) and `socket`. `POST /rpc` carries the same JSON body as a stdio line.
+`--http --socket PATH` folds the Claude HTTP proxy into this process (no extra manager). Ready then also has `socket`. `POST /rpc` carries the same JSON body as a stdio line; `{"op":"shutdown"}` answers `{"status":"ok"}`, then the helper stops its workers, removes the socket and exits. Otherwise it serves until its parent exits: Claude's `$.process.spawn` gives it no stdin, so stdin plays no part in this mode. The socket file is mode 0600 and there is no TCP listener (a loopback port is open to every local user).
 
 ## Handshake
 
@@ -37,6 +37,8 @@ The client must refuse a binary whose `protocol` or `apiVersion` does not match.
 | `names.unload` | | `{status:"ok"}` |
 
 Store protocol (Claude sessions, same socket): `storage.get/set/delete`, `private.get`, `generation.get`, `words.add`, `log.append`. Handled by `murmo-store::Store::handle`. Plugin `ctx.storage` does **not** use this path; it request/resumes to the coordinator.
+
+Config (Claude sessions, same socket): `{"op":"config.load","cwd":"/abs/dir"}` → `{status:"ok", session}`, where `session` is the JSON of `@murmo/config/node`'s `SessionConfig` without stamps (`trust`, `effective`, `user?`, `project?`). Handled by `murmo-config::load_session_config` with the helper's own `HOME`, `XDG_CONFIG_HOME` and store roots; `tools/config-parity.mjs` holds it to the Node loader. A relative `cwd` is a `transport` error. Claude's runtime cannot check a project file's trust itself (no lstat, realpath or `O_NOFOLLOW`).
 
 ## Assets
 

@@ -89,6 +89,9 @@ function pluginName(ref: PluginRef): string {
   return typeof ref === 'string' ? ref : ref.plugin;
 }
 
+/** The host loads `project`'s `.murmo.toml` through its trust check (phase 14), and the runner can approve it. */
+const PROJECT_CONFIG = 'host.project-config';
+
 function checkEditorCases(path: string, cases: EditorCase[], plugins: PluginRegistry, src: FixtureSource): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
@@ -105,6 +108,10 @@ function checkEditorCases(path: string, cases: EditorCase[], plugins: PluginRegi
       if (!plugins.fixture[name] && !plugins.provided[name]) problems.push(`${at}: unknown plugin "${name}"`);
     }
     if (c.project && !src.exists(c.project)) problems.push(`${at}: project folder "${c.project}" does not exist`);
+    if (c.projectTrust && !(c.requires ?? []).includes(PROJECT_CONFIG)) {
+      // A subject that never reads `.murmo.toml` would pass the unreviewed case for the wrong reason.
+      problems.push(`${at}: "projectTrust" needs "requires": ["${PROJECT_CONFIG}"]`);
+    }
     if (c.timing?.baseline && !cases.some((other) => other.id === c.timing?.baseline?.case)) {
       problems.push(`${at}: timing baseline "${c.timing.baseline.case}" is not a case in this file`);
     }

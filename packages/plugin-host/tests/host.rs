@@ -20,7 +20,12 @@ struct Host {
 
 impl Host {
     fn spawn() -> Self {
+        Self::spawn_with(&[])
+    }
+
+    fn spawn_with(env: &[(&str, &std::path::Path)]) -> Self {
         let mut child = Command::new(bin())
+            .envs(env.iter().map(|(k, v)| (*k, v.as_os_str())))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -435,4 +440,244 @@ fn names_search_returns_candidates_without_source_text() {
     let rows = s["rows"].as_array().cloned().unwrap_or_default();
     assert!(rows.iter().any(|r| r["name"] == "OutboxWorker"), "{rows:?}");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A throwaway home and store for `config.load`, removed on drop.
+struct ConfigHome(std::path::PathBuf);
+
+impl ConfigHome {
+    fn new(name: &str) -> Self {
+        let dir = std::env::temp_dir().join(format!("murmo-config-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("home/.config/murmo")).unwrap();
+        std::fs::create_dir_all(dir.join("repo/.git")).unwrap();
+        ConfigHome(std::fs::canonicalize(&dir).unwrap())
+    }
+
+    fn host(&self) -> Host {
+        let home = self.0.join("home");
+        Host::spawn_with(&[
+            ("HOME", &home),
+            ("XDG_CONFIG_HOME", &home.join(".config")),
+            ("XDG_DATA_HOME", &home.join("data")),
+            ("XDG_STATE_HOME", &home.join("state")),
+            ("XDG_CACHE_HOME", &home.join("cache")),
+        ])
+    }
+}
+
+impl Drop for ConfigHome {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn config_load_merges_the_personal_file_and_never_an_unreviewed_project() {
+    // Catches the Claude bug (fixtures/hosts/project-shortcuts.json): the helper
+    // must load the personal file from the session's own XDG home, and a
+    // project file no one approved must add no shortcut, only the review notice.
+    let t = ConfigHome::new("unreviewed");
+    std::fs::write(
+        t.0.join("home/.config/murmo/murmo.toml"),
+        "version = 1\n[replace]\n\";me\" = 'personal'\n",
+    )
+    .unwrap();
+    std::fs::write(
+        t.0.join("repo/.murmo.toml"),
+        "version = 1\n[replace]\n\";hp\" = 'project'\n",
+    )
+    .unwrap();
+    let mut host = t.host();
+    let r = host.rpc(json!({"op": "config.load", "cwd": t.0.join("repo").to_str().unwrap()}));
+    assert_eq!(r["status"], "ok", "{r}");
+    let session = &r["session"];
+    assert_eq!(session["trust"], "review", "{session}");
+    let shortcuts: Vec<_> = session["effective"]["replacements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["shortcut"].as_str().unwrap(),
+                s["origin"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(shortcuts, [(";me", "user")]);
+    let codes: Vec<_> = session["effective"]["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["untrusted"]);
+    assert!(session["project"]["fingerprint"].is_string(), "{session}");
+}
+
+#[test]
+fn config_load_refuses_a_relative_cwd() {
+    // A relative cwd would resolve against the helper's own working directory,
+    // a different repository than the session's.
+    let t = ConfigHome::new("relative");
+    let mut host = t.host();
+    let r = host.rpc(json!({"op": "config.load", "cwd": "repo"}));
+    assert_eq!(r["status"], "error", "{r}");
+    assert_eq!(r["kind"], "transport");
+}
+
+/// One `POST /rpc` over the helper's Unix socket, as Claude's `$.http.fetch({socketPath})` sends it.
+fn post(socket: &std::path::Path, body: &Value) -> Value {
+    use std::io::Read;
+    let mut stream = std::os::unix::net::UnixStream::connect(socket).expect("connect");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let body = body.to_string();
+    write!(
+        stream,
+        "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+    .unwrap();
+    let mut bytes = Vec::new();
+    let mut block = [0u8; 4096];
+    loop {
+        let n = stream.read(&mut block).expect("reply");
+        assert!(n > 0, "helper closed the connection");
+        bytes.extend_from_slice(&block[..n]);
+        let text = String::from_utf8_lossy(&bytes);
+        if let Some((head, rest)) = text.split_once("\r\n\r\n") {
+            let length: usize = head
+                .lines()
+                .find_map(|l| l.strip_prefix("Content-Length: "))
+                .and_then(|v| v.trim().parse().ok())
+                .expect("content-length");
+            if rest.len() >= length {
+                return serde_json::from_str(&rest[..length]).expect("json body");
+            }
+        }
+    }
+}
+
+fn wait_gone(pid: i32, within: Duration) -> bool {
+    let start = Instant::now();
+    while start.elapsed() < within {
+        // SAFETY: signal 0 only checks that the process exists.
+        if unsafe { libc::kill(pid, 0) } != 0 {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    false
+}
+
+#[test]
+fn http_mode_outlives_a_closed_stdin_and_stops_on_shutdown() {
+    // Claude 2.1.306's `$.process.spawn` gives the helper no stdin: the helper
+    // read EOF right after ready and exited before Claude's first fetch.
+    let t = ConfigHome::new("http");
+    let socket = t.0.join("h.sock");
+    let home = t.0.join("home");
+    let mut child = Command::new(bin())
+        .args(["--http", "--socket", socket.to_str().unwrap()])
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", home.join(".config"))
+        .env("XDG_DATA_HOME", home.join("data"))
+        .env("XDG_STATE_HOME", home.join("state"))
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn helper");
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut line)
+        .expect("ready");
+    let ready: Value = serde_json::from_str(&line).expect("ready json");
+    assert_eq!(ready["socket"], socket.to_str().unwrap());
+    // Other local users can neither connect to the socket nor reach a port.
+    assert!(ready.get("port").is_none(), "{ready}");
+    let mode =
+        std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(&socket).unwrap().permissions());
+    assert_eq!(mode & 0o777, 0o600);
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(
+        child.try_wait().unwrap().is_none(),
+        "helper exited on stdin EOF"
+    );
+    let r = post(
+        &socket,
+        &json!({"op": "config.load", "cwd": t.0.join("repo").to_str().unwrap()}),
+    );
+    assert_eq!(r["status"], "ok", "{r}");
+    assert_eq!(post(&socket, &json!({"op": "shutdown"}))["status"], "ok");
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(3),
+            "helper ignored shutdown"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert!(status.success(), "{status}");
+    assert!(!socket.exists(), "socket left behind");
+}
+
+#[test]
+fn http_mode_exits_when_its_parent_does() {
+    // A crashed or killed plugin runtime must not leave a helper (and its
+    // socket) behind for the rest of the login session.
+    let t = ConfigHome::new("orphan");
+    let socket = t.0.join("o.sock");
+    let out = Command::new("/bin/sh")
+        .args([
+            "-c",
+            r#""$0" --http --socket "$1" >/dev/null 2>&1 </dev/null & while [ ! -S "$1" ]; do sleep 0.02; done; echo $!"#,
+            bin(),
+            socket.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn parent");
+    let pid: i32 = String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .parse()
+        .expect("helper pid");
+    assert!(
+        wait_gone(pid, Duration::from_secs(3)),
+        "orphaned helper kept running"
+    );
+    let start = Instant::now();
+    while socket.exists() && start.elapsed() < Duration::from_secs(1) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!socket.exists(), "orphaned helper left its socket");
+}
+
+#[test]
+fn http_mode_removes_its_socket_on_sigterm() {
+    // Claude 2.1.306 SIGTERMs `$.process.spawn` children on exit, before
+    // `session.end` can send `shutdown`: each session left a socket in $TMPDIR.
+    let t = ConfigHome::new("sigterm");
+    let socket = t.0.join("t.sock");
+    let mut child = Command::new(bin())
+        .args(["--http", "--socket", socket.to_str().unwrap()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn helper");
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut line)
+        .expect("ready");
+    assert!(socket.exists());
+    // SAFETY: signals the helper this test started.
+    assert_eq!(unsafe { libc::kill(child.id() as i32, libc::SIGTERM) }, 0);
+    let status = child.wait().unwrap();
+    assert_eq!(status.code(), Some(128 + libc::SIGTERM), "{status}");
+    assert!(!socket.exists(), "SIGTERM left the socket behind");
 }

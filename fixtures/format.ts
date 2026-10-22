@@ -193,6 +193,8 @@ export interface EditorCase {
   settings?: Record<string, unknown>;
   /** A project folder under fixtures/, e.g. `shortcuts/replacements`. */
   project?: string;
+  /** Whether the user approved `project`'s `.murmo.toml` (`murmo trust`) before the host starts. */
+  projectTrust?: 'approved' | 'unreviewed';
   trust?: Trust;
   host?: HostSetup;
   core?: { guardPolicy?: 'final-boundary' };

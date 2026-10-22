@@ -27,6 +27,7 @@ import {
   type ReferenceRead,
   referencedPaths,
   resolveShortcuts,
+  type TrustState,
   trustManifest,
 } from '../index.ts';
 import { type InsideRead, type ReadBudget, readInside } from './reader.ts';
@@ -174,13 +175,7 @@ export async function scanProject(root: string): Promise<ProjectSnapshot | undef
   };
 }
 
-/**
- * - `approved`: the snapshot's fingerprint and the repository identity match an approval.
- * - `review`: never approved.
- * - `changed`: approved once, but the content, a reference, a symlink or the clone changed.
- * - `not-approvable`: ignored file or unreadable reference; fix the file first.
- */
-export type TrustState = 'approved' | 'review' | 'changed' | 'not-approvable';
+export type { TrustState };
 
 export function trustStateOf(snapshot: ProjectSnapshot, approval: TrustApproval | undefined): TrustState {
   if (snapshot.fingerprint === undefined) return 'not-approvable';

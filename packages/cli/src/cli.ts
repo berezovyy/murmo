@@ -16,7 +16,7 @@ import {
   verifyPackage,
 } from '@murmo/integrity';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
-import { dispatchMounted } from './commands.ts';
+import { askStdin, dispatchMounted } from './commands.ts';
 import { doctorCommand, doctorExit, printDoctor } from './doctor.ts';
 import { formatError } from './errors.ts';
 import { homeLayout } from './home.ts';
@@ -45,6 +45,8 @@ export interface MainOptions {
   readonly cwd?: string;
   readonly out?: (text: string) => void;
   readonly err?: (text: string) => void;
+  /** Answers a review prompt (`murmo trust`, `murmo shortcuts save`); default reads stdin. */
+  readonly ask?: (prompt: string) => Promise<string>;
 }
 
 const VALUE_FLAGS = new Set(['--key', '--package']);
@@ -73,6 +75,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
   const cwd = options.cwd ?? process.cwd();
   const out = options.out ?? ((s: string) => process.stdout.write(s.endsWith('\n') ? s : `${s}\n`));
   const err = options.err ?? ((s: string) => process.stderr.write(s.endsWith('\n') ? s : `${s}\n`));
+  const mounted = { out, err, ask: options.ask ?? askStdin };
   const [cmd, ...rest] = argv;
   if (cmd === '-h' || cmd === '--help' || cmd === 'help' || cmd === undefined) {
     out(usage);
@@ -130,7 +133,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
     if (cmd === 'plugin') {
       const verb = rest[0];
       if (verb === 'new' || verb === 'test' || verb === 'dev') {
-        return dispatchMounted(cmd, rest, env, cwd, err);
+        return dispatchMounted(cmd, rest, env, cwd, mounted);
       }
       const packed = existsSync(`${packageRoot()}/${INTEGRITY_FILE}`);
       return pluginCommand(
@@ -163,7 +166,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         'shortcuts',
       ].includes(cmd)
     ) {
-      return dispatchMounted(cmd, rest, env, cwd, err);
+      return dispatchMounted(cmd, rest, env, cwd, mounted);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);
     return 2;

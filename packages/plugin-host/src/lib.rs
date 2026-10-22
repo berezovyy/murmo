@@ -1,12 +1,13 @@
-//! Isolated plugin host: supervisor, worker, protocol, HTTP socket, store.
+//! Isolated plugin host: supervisor, worker, protocol, HTTP socket, store, config.
 
+pub mod config;
 pub mod cpu;
 pub mod faults;
 pub mod git;
 pub mod http;
 pub mod limits;
-pub mod names;
 pub mod listing;
+pub mod names;
 pub mod network;
 pub mod protocol;
 pub mod sandbox;

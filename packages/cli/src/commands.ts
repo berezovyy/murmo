@@ -1,18 +1,42 @@
 // Mount commands owned by other packages (handoffs 11, 14, 15, 19).
 // plugin enable/disable/add/remove is phase 28.
 
+import { createInterface } from 'node:readline';
 import { historyCommand } from '@murmo/plugin-history/node';
 import { phrasesCommand } from '@murmo/plugin-phrases/node';
 import { initCommand, saveCommand, trustCommand } from '@murmo/plugin-shortcuts/node';
 import { dataCommand, openStore, privateCommand, storeRootsFromEnv } from '@murmo/store/node';
 import { indexCommand, namesCommand, vocabCommand, wordsCommand } from '@murmo/vocab/node';
 
+export interface MountedIO {
+  readonly out: (text: string) => void;
+  readonly err: (text: string) => void;
+  /** One answer line; '' when input ends first (a review then approves nothing). */
+  readonly ask: (prompt: string) => Promise<string>;
+}
+
+/** Reads one answer from stdin, a terminal or a pipe (`echo y | murmo trust`). */
+export function askStdin(prompt: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: process.stdin.isTTY === true });
+  return new Promise<string>((resolve) => {
+    let answered = false;
+    rl.once('close', () => {
+      if (!answered) resolve('');
+    });
+    rl.question(prompt, (answer) => {
+      answered = true;
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
 export async function dispatchMounted(
   cmd: string,
   rest: string[],
   env: NodeJS.ProcessEnv,
   cwd: string,
-  _err: (text: string) => void = (text) => process.stderr.write(text.endsWith('\n') ? text : `${text}\n`),
+  io: MountedIO,
 ): Promise<number> {
   if (cmd === 'plugin') {
     const { pluginCommand } = await import('@murmo/devkit');
@@ -23,12 +47,9 @@ export async function dispatchMounted(
   const ctx = {
     store,
     cwd,
-    out: (text: string) => {
-      process.stdout.write(text.endsWith('\n') ? text : `${text}\n`);
-    },
-    err: (text: string) => {
-      process.stderr.write(text.endsWith('\n') ? text : `${text}\n`);
-    },
+    out: io.out,
+    err: io.err,
+    ask: io.ask,
     env,
     ...(env.HOME ? { home: env.HOME } : {}),
   };

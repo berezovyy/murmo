@@ -10,8 +10,11 @@ export const TABLE_ASSET = 'english.bin';
 /** Packed layout from phase 26. Keep in sync with @murmo/integrity TABLE_FILE. */
 const TABLE_PATH = `data/en/${TABLE_ASSET}`;
 const CASE_POLICY_PATH = 'data/en/case-policy.json';
-const HELPER_DARWIN = 'bin/darwin-arm64/murmo-plugin-host';
-const HELPER_LINUX = 'bin/linux-arm64/murmo-plugin-host';
+/** Helper binaries a payload may carry, tried in this order (the wrong platform fails to start). */
+export const HELPER_PATHS: readonly string[] = [
+  'bin/darwin-arm64/murmo-plugin-host',
+  'bin/linux-arm64/murmo-plugin-host',
+];
 
 export interface IntegrityFile {
   readonly version: string;
@@ -141,12 +144,13 @@ export async function loadTable(rt: ClaudeRuntime, payload: LocatedPayload): Pro
   return { bytes: aligned, sha256, entries: mapped.entries, lowercaseOnly };
 }
 
-export async function helperPath(rt: ClaudeRuntime, payload: LocatedPayload): Promise<string | undefined> {
-  const darwin = join(payload.root, HELPER_DARWIN);
-  const linux = join(payload.root, HELPER_LINUX);
-  if (await rt.fs.exists(darwin)) return darwin;
-  if (await rt.fs.exists(linux)) return linux;
-  return undefined;
+export async function helperPaths(rt: ClaudeRuntime, payload: LocatedPayload): Promise<string[]> {
+  const found: string[] = [];
+  for (const path of HELPER_PATHS) {
+    const full = join(payload.root, path);
+    if (await rt.fs.exists(full)) found.push(full);
+  }
+  return found;
 }
 
 export async function readUserConfig(rt: ClaudeRuntime): Promise<string | undefined> {

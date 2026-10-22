@@ -56,7 +56,10 @@ def catalog() -> tuple[Scenario, ...]:
             'adapter regressions under 2.0-pre (E2)',
             'b', HOST_PACKED, '21-24',
             smoke=True,
-            extras={'suites': ['fixtures/hosts/stock-canary.json', 'fixtures/hosts/r14-followup.json']},
+            extras={'suites': [
+                'fixtures/hosts/stock-canary.json', 'fixtures/hosts/r14-followup.json',
+                'fixtures/hosts/project-shortcuts.json',
+            ]},
         ),
         Scenario(
             'correction-bursts', 'correction',

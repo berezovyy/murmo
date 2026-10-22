@@ -2,7 +2,7 @@
 
 import { textOf } from './decode.ts';
 import { CLAUDE_EVENT_TIMEOUT_MS, ingestClaudeHook } from './events.ts';
-import { packageFromPluginRoot } from './payload.ts';
+import { HELPER_PATHS, packageFromPluginRoot } from './payload.ts';
 import { type ClaudeHost, createClaudeHost } from './session.ts';
 import {
   type AutocompleteInput,
@@ -11,6 +11,7 @@ import {
   type ClassicSubmitInput,
   type ClaudeRegister,
   type FsBytes,
+  type HostServices,
   type PromptChangeInput,
   type PromptEditInput,
   type PromptSubmitInput,
@@ -61,7 +62,13 @@ export function register(on: ClaudeRegister): void {
     host = createClaudeHost();
     try {
       // Claude 2.1.30x marketplace analyzer: `$` only as `$.noun.event(...)`
-      // at this call site. Primitives go to bootPacked.
+      // at this call site. Primitives go to bootPacked, and what the session
+      // keeps using of `$` goes as closures that make exactly those calls.
+      const services: HostServices = {
+        after: (ms, callback) => $.clock.after(ms, callback),
+        spawn: (argv) => $.process.spawn({ argv }),
+        fetch: (url, init) => $.http.fetch(url, init),
+      };
       const xdgData = await $.env.get('XDG_DATA_HOME');
       const xdgConfig = await $.env.get('XDG_CONFIG_HOME');
       const homeEnv = await $.env.get('HOME');
@@ -83,7 +90,12 @@ export function register(on: ClaudeRegister): void {
       }
       let tableRaw: string | FsBytes | undefined;
       let casePolicyJson: string | undefined;
+      const helperBinaries: string[] = [];
       if (payloadRoot) {
+        for (const path of HELPER_PATHS) {
+          const binary = joinPath(payloadRoot, path);
+          if (await $.fs.exists(binary)) helperBinaries.push(binary);
+        }
         const tablePath = joinPath(payloadRoot, 'data/en/english.bin');
         if (await $.fs.exists(tablePath)) tableRaw = await $.fs.read(tablePath, { as: 'bytes' });
         const casePath = joinPath(payloadRoot, 'data/en/case-policy.json');
@@ -99,6 +111,9 @@ export function register(on: ClaudeRegister): void {
         ...(casePolicyJson === undefined ? {} : { casePolicyJson }),
         ...(userToml === undefined ? {} : { userToml }),
         cwd,
+        services,
+        helperBinaries,
+        tmpdir: (await $.env.get('TMPDIR')) ?? '',
       });
     } catch (error) {
       host.adapter.notices.push(`startup failed: ${error instanceof Error ? error.message : String(error)}`);

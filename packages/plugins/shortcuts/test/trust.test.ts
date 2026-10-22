@@ -104,3 +104,17 @@ test('a named diff reports the changed shortcut without storing expansion text',
   const record = JSON.stringify(await store.trust.read());
   assert.equal(record.includes('Review it now.'), false);
 });
+
+test('the review prints the fingerprint that --yes --fingerprint approves', async () => {
+  // Catches a review a script cannot act on: no command printed the fingerprint,
+  // so `--yes --fingerprint` was unusable outside tests.
+  const { ctx, out, store, root } = await setup(`version = 1\n[replace]\n";rvw" = 'Review it.'\n`);
+  assert.equal(await trustCommand([], { ...ctx, ask: async () => 'n' }), 0);
+  const printed = /^Fingerprint: ([0-9a-f]{64})$/m.exec(out.join('\n'))?.[1];
+  assert.ok(printed, out.join('\n'));
+  assert.doesNotMatch(out.join('\n'), /Run "murmo trust" to review/);
+  assert.equal(await trustCommand(['--yes', '--fingerprint', printed], ctx), 0);
+  const { scanProject } = await import('@murmo/config/node');
+  const snapshot = await scanProject(root);
+  assert.equal((await store.trust.find(snapshot?.identity.projectId ?? ''))?.fingerprint, printed);
+});

@@ -100,6 +100,17 @@ test('an untrusted project file still turns things off, never on', () => {
   );
 });
 
+test('the review notice reads as a sentence for one shortcut', () => {
+  // Claude shows this line in its prompt hint (fixtures/hosts/project-shortcuts.json);
+  // "1 shortcut stay off" read as a bug report of its own.
+  const one = load(`version = 1\n[replace]\n";hp" = 'project'\n`, 'project');
+  const merged = mergeConfig({ project: one, projectTrusted: false });
+  assert.deepEqual(
+    merged.diagnostics.filter((d) => d.code === 'untrusted').map((d) => d.message),
+    ['1 shortcut stays off until you review this file: run "murmo trust"'],
+  );
+});
+
 test('defaults: autocorrect off, not private, and private from either file', () => {
   // Catches opt-in autocorrect turning on by default, or a project unable to ask for privacy.
   const empty = mergeConfig({ projectTrusted: false });

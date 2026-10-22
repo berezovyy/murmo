@@ -1,8 +1,14 @@
-// Wire the core session, built-in plugins, user config and optional helper.
+// Wire the core session, built-in plugins, config and the helper.
+//
+// Config comes from the helper's `config.load` (phase 14): Claude's runtime
+// has no lstat, realpath or O_NOFOLLOW, so only the helper can check a
+// project `.murmo.toml` against its approval the way Pi and OpenCode do. The
+// helper starts in a few milliseconds; while it can't answer, the session runs
+// on the personal file alone and says why project shortcuts are off.
 
 import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
-import { mergeConfig, resolveShortcuts } from '@murmo/config';
+import { type EffectiveConfig, mergeConfig, resolveShortcuts, sessionFromJson } from '@murmo/config';
 import {
   createMemoryProjectFiles,
   createMemoryStorage,
@@ -29,9 +35,9 @@ import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
 import { createClaudeBroker } from './events.ts';
-import { type HelperHandle, spawnHelper } from './helper.ts';
+import { type HelperHandle, socketDir, startHelper } from './helper.ts';
 import {
-  helperPath,
+  helperPaths,
   type IntegrityFile,
   type LocatedPayload,
   loadTable,
@@ -40,9 +46,13 @@ import {
   parseUserConfig,
   readUserConfig,
 } from './payload.ts';
-import { type ClaudeRuntime, INLINE_MAX_BYTES, PLUGIN_VERSION } from './types.ts';
+import { type ClaudeRuntime, type HostServices, INLINE_MAX_BYTES, PLUGIN_VERSION } from './types.ts';
 
 const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
+
+/** Bounds on session start: the helper is ready in ~4–10 ms and loads config in a few more. */
+export const HELPER_READY_MS = 1500;
+export const CONFIG_LOAD_MS = 1000;
 
 export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
@@ -69,10 +79,25 @@ export interface PackedBoot {
   readonly casePolicyJson?: string;
   readonly userToml?: string;
   readonly cwd: string;
+  /** Timers, the helper process and its socket; without them there is no helper and timers never fire. */
+  readonly services?: HostServices;
+  /** Helper binaries in the payload that exist, in the order to try. */
+  readonly helperBinaries?: readonly string[];
+  /** `$TMPDIR`, for the helper's socket. */
+  readonly tmpdir?: string;
 }
 
-function clockOf(rt: ClaudeRuntime, injected?: Clock): Clock {
+function servicesOf(rt: ClaudeRuntime): HostServices {
+  return {
+    after: (ms, callback) => rt.clock.after(ms, callback),
+    spawn: (argv) => rt.process.spawn({ argv }),
+    fetch: (url, init) => rt.http.fetch(url, init),
+  };
+}
+
+function clockOf(services: HostServices | undefined, injected?: Clock): Clock {
   if (injected) return injected;
+  if (!services) return createClock({ setTimer: (_callback, _ms) => () => {} });
   return createClock({
     now: () => {
       const perf = (globalThis as { performance?: { now?: () => number } }).performance;
@@ -80,24 +105,87 @@ function clockOf(rt: ClaudeRuntime, injected?: Clock): Clock {
     },
     wallTimeMs: () => Date.now(),
     setTimer: (callback, ms) => {
-      const handle = rt.clock.after(ms, callback);
+      const handle = services.after(ms, callback);
       return () => handle.cancel();
     },
   });
 }
 
+/** The personal file alone: what a session has when the helper can't load config. */
+function personalOnly(userText: string | undefined): EffectiveConfig {
+  const parsed = parseUserConfig(userText, 'murmo.toml');
+  const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
+  return mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
+}
+
+function within<T>(clock: Clock, ms: number, what: string, work: Promise<T>): Promise<T> {
+  const late = clock.sleep(ms).then(() => {
+    throw new Error(`${what} took over ${ms} ms`);
+  });
+  return Promise.race([work, late]);
+}
+
+interface ConfigBoot {
+  readonly services: HostServices | undefined;
+  readonly binaries: readonly string[];
+  readonly tmpdir: string | undefined;
+  readonly userText: string | undefined;
+  readonly cwd: string;
+  readonly clock: Clock;
+  readonly notices: string[];
+}
+
+/**
+ * Starts the helper and loads the session's config through it. Any failure
+ * leaves the personal file in charge with one notice: project shortcuts are
+ * off, never loaded unchecked.
+ */
+async function loadConfig(boot: ConfigBoot): Promise<{ effective: EffectiveConfig; helper?: HelperHandle }> {
+  const fallback = (why: string) => {
+    boot.notices.push(`project shortcuts off: ${why}`);
+    return { effective: personalOnly(boot.userText) };
+  };
+  if (!boot.services) return fallback('this Claude build gives plugins no process API');
+  if (boot.binaries.length === 0) return fallback('the Murmo helper is missing from this install (murmo doctor)');
+  let helper: HelperHandle;
+  try {
+    helper = await startHelper(boot.services, boot.binaries, socketDir(boot.tmpdir), boot.clock, HELPER_READY_MS);
+  } catch (error) {
+    return fallback(`the Murmo helper did not start (${error instanceof Error ? error.message : String(error)})`);
+  }
+  try {
+    const reply = await within(
+      boot.clock,
+      CONFIG_LOAD_MS,
+      'config.load',
+      helper.transport().request({ op: 'config.load', cwd: boot.cwd }),
+    );
+    const session = reply.status === 'ok' ? sessionFromJson(reply.session) : undefined;
+    if (!session) {
+      const why = typeof reply.error === 'string' ? reply.error : 'unreadable reply';
+      return { ...fallback(`the Murmo helper could not load config (${why})`), helper };
+    }
+    for (const d of session.effective.diagnostics) {
+      if (d.code === 'untrusted') boot.notices.push(`.murmo.toml: ${d.message}`);
+    }
+    return { effective: session.effective, helper };
+  } catch (error) {
+    return {
+      ...fallback(`the Murmo helper could not load config (${error instanceof Error ? error.message : String(error)})`),
+      helper,
+    };
+  }
+}
+
 function builtinsFromConfig(
   adapter: ClaudeAdapter,
-  userText: string | undefined,
+  config: EffectiveConfig,
   cwd: string,
   table: PayloadTable | undefined,
 ): {
   specs: HostPluginSpec[];
   order: string[];
 } {
-  const parsed = parseUserConfig(userText, 'murmo.toml');
-  const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
-  const config = mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
   const compiled = compileShortcuts({
     replacements: config.replacements.map((entry) => ({
       shortcut: entry.shortcut,
@@ -184,27 +272,6 @@ function builtinsFromConfig(
   return { specs: enabled, order };
 }
 
-async function builtIns(
-  rt: ClaudeRuntime,
-  adapter: ClaudeAdapter,
-  payload: LocatedPayload | undefined,
-): Promise<{
-  specs: HostPluginSpec[];
-  order: string[];
-}> {
-  const userText = await readUserConfig(rt);
-  const table = payload ? await loadTable(rt, payload) : undefined;
-  const cwd = await rt.session.cwd();
-  return builtinsFromConfig(adapter, userText, cwd, table);
-}
-
-function packedClock(injected?: Clock): Clock {
-  if (injected) return injected;
-  return createClock({
-    setTimer: (_callback, _ms) => () => {},
-  });
-}
-
 export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost {
   let adapter = new ClaudeAdapter(options);
   let session: Session | undefined;
@@ -233,21 +300,37 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
     },
     async start(rt: ClaudeRuntime) {
       adapter = new ClaudeAdapter(options, rt);
-      const clock = clockOf(rt, options.clock);
+      const services = servicesOf(rt);
+      const clock = clockOf(services, options.clock);
       await adapter.ready();
       const payload = await locatePayload(rt, options.payloadRoot);
       if (payload?.notice) adapter.notices.push(payload.notice);
-      // Built-ins (inline teh→the) run in-process. Waiting for the helper here
-      // left host.alive false through the harness ready_quiet window (4 s vs 1 s).
+      const cwd = await rt.session.cwd();
+      const userText = await readUserConfig(rt);
+      const booted = options.plugins
+        ? { effective: personalOnly(userText) }
+        : await loadConfig({
+            services,
+            binaries: payload && !payload.notice ? await helperPaths(rt, payload) : [],
+            tmpdir: await rt.env.get('TMPDIR'),
+            userText,
+            cwd,
+            clock,
+            notices: adapter.notices,
+          });
+      helper = booted.helper;
+      adapter.noteHelper(helper !== undefined);
+      const config = booted.effective;
+      // Built-ins (inline teh→the) run in-process; the helper serves config and third-party plugins.
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
-        : await builtIns(rt, adapter, payload);
+        : builtinsFromConfig(adapter, config, cwd, payload ? await loadTable(rt, payload) : undefined);
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,
         storage: createMemoryStorage(),
-        projectFiles: createMemoryProjectFiles({ root: await rt.session.cwd() }),
+        projectFiles: createMemoryProjectFiles({ root: cwd }),
       });
       session = createSession({
         adapter,
@@ -261,25 +344,6 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
-      if (payload && !payload.notice) {
-        const binary = await helperPath(rt, payload);
-        if (binary) {
-          void spawnHelper(rt, binary, clock).then(
-            (handle) => {
-              helper = handle;
-              adapter.noteHelper(true);
-            },
-            (error: unknown) => {
-              adapter.notices.push(`helper unavailable: ${error instanceof Error ? error.message : String(error)}`);
-              adapter.noteHelper(false);
-            },
-          );
-        }
-      }
-      const userText = await readUserConfig(rt);
-      const parsed = parseUserConfig(userText, 'murmo.toml');
-      const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
-      const config = mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
       const caps = session.caps();
       if (config.events && caps) {
         const enabled = new Set(
@@ -327,7 +391,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
     },
     async bootPacked(input: PackedBoot) {
       adapter = new ClaudeAdapter({ ...options, skipProbes: true });
-      const clock = packedClock(options.clock);
+      const clock = clockOf(input.services, options.clock);
       let payload: LocatedPayload | undefined;
       try {
         const integrity = JSON.parse(input.integrityJson) as IntegrityFile;
@@ -337,6 +401,19 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       } catch {
         payload = undefined;
       }
+      const booted = options.plugins
+        ? { effective: personalOnly(input.userToml) }
+        : await loadConfig({
+            services: input.services,
+            binaries: payload ? (input.helperBinaries ?? []) : [],
+            tmpdir: input.tmpdir,
+            userText: input.userToml,
+            cwd: input.cwd,
+            clock,
+            notices: adapter.notices,
+          });
+      helper = booted.helper;
+      adapter.noteHelper(helper !== undefined);
       let table: PayloadTable | undefined;
       if (payload && input.tableRaw) {
         const bytes = bytesOf(input.tableRaw);
@@ -356,7 +433,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
-        : builtinsFromConfig(adapter, input.userToml, input.cwd, table);
+        : builtinsFromConfig(adapter, booted.effective, input.cwd, table);
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,

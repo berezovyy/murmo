@@ -184,6 +184,28 @@ export async function doctorCommand(options: DoctorOptions = {}): Promise<Doctor
     );
   }
 
+  let historyEnabled = false;
+  try {
+    const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
+    const cwd = env.PWD || process.cwd();
+    const session = await loadSessionConfig({ cwd, store, env, ...(env.HOME ? { home: env.HOME } : {}) });
+    historyEnabled = session.effective.historyEnabled === true;
+    const names = session.effective.replacements.map((r) => r.shortcut);
+    const where = session.trust === 'approved' ? 'trusted project .murmo.toml' : `trust=${session.trust}`;
+    checks.push(
+      check(
+        'shortcuts',
+        true,
+        names.length
+          ? `${names.length} loaded (${names.slice(0, 8).join(', ')}); ${where}; Codex has no ; menu overlay, space expands`
+          : `0 loaded in ${cwd} (${where}); run murmo init in a git repo, then murmo trust, then restart murmo codex from that directory`,
+        'none',
+      ),
+    );
+  } catch (error) {
+    checks.push(check('shortcuts', true, `could not load (${error instanceof Error ? error.message : error})`, 'none'));
+  }
+
   const hosts = detectHosts(env);
   for (const host of hosts) {
     const old = journal?.hosts.find((h) => h.name === host.name);
@@ -308,12 +330,8 @@ export async function doctorCommand(options: DoctorOptions = {}): Promise<Doctor
 
   checks.push(...vocabPartial(layout));
 
-  let historyEnabled = false;
   try {
     const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
-    const cwd = env.PWD || process.cwd();
-    const session = await loadSessionConfig({ cwd, store, env, ...(env.HOME ? { home: env.HOME } : {}) });
-    historyEnabled = session.effective.historyEnabled === true;
     const records = await loadRecords(store);
     const merged = await lastMerge(store);
     const metrics = await readHistoryMetrics(store);

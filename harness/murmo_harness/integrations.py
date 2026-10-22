@@ -18,6 +18,9 @@ What an integration can do:
 - `read_ui`: ghost, menu and status as the adapter renders them.
 - `capabilities`: the adapter's measured `Capabilities` record, which phase
   11 turns into host profiles.
+- `approve_project`: approve the profile project's `.murmo.toml` the way a
+  user does (`murmo trust`), for cases with `projectTrust: approved`. Only
+  an integration with the `host.project-config` feature can.
 """
 
 from __future__ import annotations
@@ -86,6 +89,9 @@ class Integration:
 
     def capabilities(self, host, profile) -> dict | None:
         return None
+
+    def approve_project(self, host, profile, run=None) -> None:
+        raise NotImplementedError(f'integration {self.name!r} cannot approve a project file')
 
 
 STOCK = Integration()

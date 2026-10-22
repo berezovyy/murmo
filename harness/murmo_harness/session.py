@@ -251,7 +251,10 @@ class Run:
         self.watchdog.check()
         return result
 
-    def sandboxed(self, prof: profiles.Profile, argv: list[str], *, timeout: float = 60, source: str = 'stdout') -> CommandResult:
+    def sandboxed(
+        self, prof: profiles.Profile, argv: list[str], *, timeout: float = 60, source: str = 'stdout',
+        input: str | None = None,
+    ) -> CommandResult:
         """A non-host command (murmo setup/doctor/plugin) in the same sandbox.
 
         Used by the packed-product integration so setup's spawned host
@@ -280,14 +283,14 @@ class Run:
             env=prof.env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL if input is None else subprocess.PIPE,
             text=True,
             start_new_session=True,
         )
         self.registry.register(proc.pid)
         timed_out = False
         try:
-            stdout, stderr = proc.communicate(timeout=timeout)
+            stdout, stderr = proc.communicate(input=input, timeout=timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
             self.registry.kill_session(proc.pid)
@@ -323,13 +326,21 @@ class Run:
         rows: int = 40,
         tmux_profile: str = 'default',
         label: str = 'session',
+        project: Path | None = None,
+        project_trust: str | None = None,
     ) -> Session:
+        """`project`: a fixture folder copied into the profile's repository
+        before launch; `project_trust: 'approved'` then approves its
+        `.murmo.toml` through the integration, as a user would."""
         host = HOSTS[host_name]
         if integration.third_party and not sandboxes.in_no_network_container():
             # Rule 7: never on the macOS host, not even under sandbox-exec.
             raise sandboxes.SandboxBroken(f'integration {integration.name!r} runs third-party code: use --linux')
         prof = self.new_profile(host, install, label)
-        session = Session(self, host, install, prof, integration, driver, cols, rows, tmux_profile)
+        session = Session(
+            self, host, install, prof, integration, driver, cols, rows, tmux_profile,
+            project=project, project_trust=project_trust,
+        )
         self.sessions.append(session)
         try:
             session.start()
@@ -350,6 +361,8 @@ class Session:
     cols: int
     rows: int
     tmux_profile: str
+    project: Path | None = None
+    project_trust: str | None = None
     driver: Driver | None = None
     argv: list[str] = field(default_factory=list)
     ready_screen: ScreenView | None = None
@@ -358,6 +371,11 @@ class Session:
 
     def start(self) -> None:
         self.integration.prepare(self.host, self.profile, run=self.run)
+        if self.project is not None:
+            # Files only: the profile's repository keeps its own `.git`.
+            shutil.copytree(self.project, self.profile.project, dirs_exist_ok=True)
+            if self.project_trust == 'approved':
+                self.integration.approve_project(self.host, self.profile, run=self.run)
         self.argv = self.integration.argv(self.host, self.install, self.profile, self.host.launch_argv(self.install, self.profile))
         self.run.preflight(self.host, self.profile, self.argv)
         wrapped = self.run.sandbox.wrap(self.argv)

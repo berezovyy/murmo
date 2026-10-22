@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use serde_json::{json, Value};
 
+use crate::config::{handle as config_handle, is_config_op};
 use crate::faults::{error_reply, FaultKind};
 use crate::limits::{watchdog_ms, INIT_WAIT_MS};
 use crate::names::{handle as names_handle, is_names_op};
@@ -236,6 +237,11 @@ impl Supervisor {
         reply_stdout(&response);
     }
 
+    /// Stops every worker (`Entry::drop` ends its process).
+    pub fn stop_all(&self) {
+        self.slots.lock().expect("slots").clear();
+    }
+
     pub fn wait_for(&self, id: u64) -> mpsc::Receiver<Value> {
         let (tx, rx) = mpsc::channel();
         self.pending.lock().expect("pending").insert(id, tx);
@@ -268,6 +274,11 @@ impl Supervisor {
         }
         if is_names_op(op) {
             let mut response = names_handle(&q);
+            response["id"] = id;
+            return Some(response);
+        }
+        if is_config_op(op) {
+            let mut response = config_handle(&q);
             response["id"] = id;
             return Some(response);
         }
@@ -572,7 +583,7 @@ pub fn serve_stdio(supervisor: &Supervisor) {
             supervisor.emit(response);
         }
     }
-    supervisor.slots.lock().expect("slots").clear();
+    supervisor.stop_all();
 }
 
 fn helper_method(method: &str) -> bool {

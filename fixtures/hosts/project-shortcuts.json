@@ -1,0 +1,33 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-22 real-host bug. After `murmo init`, `;rvw` plus space stayed literal in packed Claude Code 2.1.306 while the same project expanded it in Pi and OpenCode: the Claude adapter loaded only the personal murmo.toml. `projectTrust` is applied by the harness with `murmo trust` before the host starts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "requires": ["host.project-config"],
+    "project": "hosts/projects/shortcuts"
+  },
+  "cases": [
+    {
+      "id": "trusted-project-shortcut-expands",
+      "tags": ["project-config"],
+      "projectTrust": "approved",
+      "note": "A shortcut from an approved project .murmo.toml expands on Space on every host (phase 14 trust, phase 15 installed-artifact check).",
+      "steps": [{ "type": ";hp " }],
+      "expect": { "draft": { "text": "harness project shortcut " }, "requests": [] }
+    },
+    {
+      "id": "unreviewed-project-shortcut-stays-literal",
+      "tags": ["project-config"],
+      "projectTrust": "unreviewed",
+      "note": "A cloned repository's shortcuts never expand before the user reviewed them, on any host (phase 14 trust). A host that never loads project config also leaves the draft literal, so this case means something only beside trusted-project-shortcut-expands in the same run; the review notice itself is checked by packages/adapters/claude/test/project-config.gate.ts.",
+      "steps": [{ "type": ";hp " }],
+      "expect": { "draft": { "text": ";hp " }, "requests": [] }
+    }
+  ]
+}

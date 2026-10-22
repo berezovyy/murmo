@@ -5,12 +5,13 @@ export { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 export { claudeCaps, disableInline } from './caps.ts';
 export { decodeBase64 } from './decode.ts';
 export { CLAUDE_EVENT_TIMEOUT_MS, createClaudeBroker, ingestClaudeHook } from './events.ts';
-export { type HelperHandle, isolatedFrom, spawnHelper } from './helper.ts';
+export { type HelperHandle, isolatedFrom, spawnHelper, startHelper } from './helper.ts';
 export { canonicalKey, observedKeys } from './keys.ts';
 export {
   configHome,
   dataHome,
-  helperPath,
+  HELPER_PATHS,
+  helperPaths,
   type LocatedPayload,
   loadTable,
   locatePayload,
@@ -26,6 +27,7 @@ export {
   type ClaudeRegister,
   type ClaudeRuntime,
   EDIT_BUDGET_MS,
+  type HostServices,
   INLINE_DISABLED_NOTICE,
   INLINE_MAX_BYTES,
   PLUGIN_VERSION,

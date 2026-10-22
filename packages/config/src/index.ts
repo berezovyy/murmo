@@ -31,6 +31,8 @@ export {
   referencePathProblem,
   shortcutProblem,
 } from './schema.ts';
+export type { LoadedSession, TrustState } from './session.ts';
+export { sessionFromJson } from './session.ts';
 export type { Locator, SourceScan } from './source.ts';
 export { codePointLength, normalizeToml, scanSource, utf8Length } from './source.ts';
 export { displayText, unsafeText } from './text-policy.ts';

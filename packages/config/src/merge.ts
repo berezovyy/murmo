@@ -121,7 +121,7 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
           'untrusted',
           projectFile.file,
           { line: 1, column: 1 },
-          `${parts.join(' and ')} stay off until you review this file: run "murmo trust"`,
+          `${parts.join(' and ')} ${parts.length === 1 && shortcuts === 1 ? 'stays' : 'stay'} off until you review this file: run "murmo trust"`,
         ),
       );
     }

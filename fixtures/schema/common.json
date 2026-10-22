@@ -371,6 +371,7 @@
         "grants": { "$ref": "#/$defs/grants" },
         "settings": { "$ref": "#/$defs/settings" },
         "project": { "$ref": "#/$defs/project" },
+        "projectTrust": { "enum": ["approved", "unreviewed"] },
         "trust": { "$ref": "#/$defs/trust" },
         "host": { "$ref": "#/$defs/hostSetup" },
         "core": {

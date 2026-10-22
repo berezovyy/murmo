@@ -124,6 +124,10 @@ def doctor_argv(product: PackedProduct) -> list[str]:
     return argv
 
 
+def trust_argv(product: PackedProduct) -> list[str]:
+    return [node_bin(), str(product.cli()), 'trust']
+
+
 def plugin_argv(product: PackedProduct, args: list[str]) -> list[str]:
     return [node_bin(), str(product.cli()), 'plugin', *args]
 

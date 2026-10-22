@@ -67,10 +67,16 @@ test('a typed timeout from one plugin does not mark the session healthy-with-a-p
   await host.dispose();
 });
 
-test('spawnHelper uses a short murmo-<id>.sock path (E11)', async () => {
+test('the helper socket path always fits sun_path (E11)', async () => {
+  // Catches the live-host bug: a 153-byte socket path under a deep $TMPDIR made
+  // the helper exit before ready, so Claude lost project shortcuts.
   const { socketDir } = await import('../src/helper.ts');
-  const fake = new FakeClaude();
-  const dir = await socketDir(fake.$);
-  assert.ok(dir.length < 80);
-  assert.equal(dir.includes('murmo-'), false);
+  const macos = '/var/folders/n4/tcrfg80x6qvd8dg6f9p374c40000gn/T/';
+  assert.equal(socketDir(macos), macos.slice(0, -1));
+  assert.equal(socketDir(undefined), '/tmp');
+  assert.equal(socketDir('/'), '/tmp');
+  const deep = `/private${macos}murmo-harness-20261023-000529-968c5d/001-claude-trusted-project-shortcut/tmp`;
+  assert.equal(socketDir(deep), '/tmp');
+  // Bytes, not UTF-16 units: 42 three-byte characters are 126 bytes.
+  assert.equal(socketDir(`/tmp/${'界'.repeat(42)}`), '/tmp');
 });

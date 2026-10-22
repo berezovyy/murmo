@@ -40,7 +40,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `names/` | splitter 29 cases (moved file read through a table) | 19, 36 |
 | `stress/` | huge paste, regex-heavy inputs, IME and normalization stand-ins | 02 |
 | `generators/` | seeded generators (code) and their run files | 02 |
-| `hosts/` | real-host contract cases (round 14 follow-up fixes) | 20, 29 |
+| `hosts/` | real-host contract cases (round 14 follow-up fixes; project `.murmo.toml` trust, with its project folder in `hosts/projects/`) | 14, 20, 29 |
 | `rescue/` | idle-save lifecycle for the real-host harness (SIGKILL, submit, private; skips until adapters) | 17, 21–24 |
 | `history/` | r9 29-query search oracle (brute scan); provenance cases live in the history plugin tests | 35 |
 
@@ -67,6 +67,8 @@ Offsets are UTF-16 code units everywhere. Large text uses `{"repeat": "ab", "tim
 6. Run `check`, then the subject that owns the case.
 
 **Trust.** `trust` is `builtin`, `third-party` or `both` (the default: run once per level). `expect.thirdParty` replaces fields for the third-party run. The ported canonical cases are `builtin`, as `run.mjs` loaded them; third-party rules live in `security/`.
+
+**Projects.** `project` names a folder under `fixtures/` that the subject copies into the case's working repository; `projectTrust` says whether its `.murmo.toml` is approved (`approved`) or never reviewed (`unreviewed`) when the session starts. A case with `projectTrust` must `require` `host.project-config`: the pure subjects never read `.murmo.toml` and skip it, where they would otherwise pass the unreviewed case for the wrong reason.
 
 **Skips.** `requires` lists capability paths (`executor.isolated`, `fn.text.offsets`); an unmet one skips the run with its reason, never passes it. A `skip` entry is a reviewed exception with a reason; only declared skips may differ between runtimes in `compare`.
 

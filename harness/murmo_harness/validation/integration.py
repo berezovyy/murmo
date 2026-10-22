@@ -15,7 +15,15 @@ from pathlib import Path
 from ..integrations import Integration, IntegrationState, PluginState
 from ..paths import REPO
 from .matrix import PLUGIN_SETS
-from .product import PackedProduct, doctor_argv, enable_autocorrect, launcher_path, murmo_data, setup_argv
+from .product import (
+    PackedProduct,
+    doctor_argv,
+    enable_autocorrect,
+    launcher_path,
+    murmo_data,
+    setup_argv,
+    trust_argv,
+)
 
 
 def _records(host: str) -> dict:
@@ -43,7 +51,7 @@ class PackedMurmo(Integration):
     features = frozenset({
         'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
         'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
-        'plugin.shortcuts',
+        'plugin.shortcuts', 'host.project-config',
     })
 
     def __init__(self, product: PackedProduct | None, plugin_set: str = 'b') -> None:
@@ -86,6 +94,14 @@ class PackedMurmo(Integration):
             table = payload / 'data' / 'en' / 'english.bin'
             if table.is_file():
                 profile.env['MURMO_ENGLISH_TABLE'] = str(table)
+
+    def approve_project(self, host, profile, run=None) -> None:
+        """`murmo trust` in the profile's repository, answering its review prompt."""
+        if run is None or self.product is None:
+            raise RuntimeError('approving a project file needs the packed CLI and a Run')
+        result = run.sandboxed(profile, trust_argv(self.product), timeout=60, input='y\n')
+        if result.code != 0 or 'Approved' not in result.stdout:
+            raise RuntimeError(f'murmo trust did not approve: {(result.stdout + result.stderr)[-2000:]}')
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         # Stock Pi uses --no-extensions (no discovery). Explicit `-e` still

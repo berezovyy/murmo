@@ -22,6 +22,15 @@ test('process access is rejected: Claude and QuickJS have no process', async () 
   assert.match((await dynamicProblems({ code: 'var M=process.env.X;', format: 'iife' })).join('\n'), /process/);
 });
 
+test('process as a property passes: Claude hands plugins `$.process.spawn` (docs/plan/24)', () => {
+  // Catches the gate refusing the packed Claude entry, whose analyzer only
+  // accepts `$.noun.event(...)`, while `globalThis.process` still fails.
+  assert.deepEqual(statics('var M=(t)=>t.process.spawn({argv:["x"]});'), []);
+  assert.match(statics('var M=globalThis.process.env.X;').join('\n'), /process/);
+  assert.match(statics('var M=globalThis?.process.env.X;').join('\n'), /process/);
+  assert.match(statics('var M=1;process.exit(1)').join('\n'), /process/);
+});
+
 test('eval and new Function are rejected: the Claude runtime throws on both', async () => {
   assert.match(statics('var M=eval("1");').join('\n'), /eval/);
   assert.match(statics('var M=new Function("return 1");').join('\n'), /new Function/);

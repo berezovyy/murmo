@@ -210,8 +210,13 @@ pub fn merge_config(
                     plural(untrusted_plugins, "plugin")
                 ));
             }
+            let verb = if parts.len() == 1 && shortcuts == 1 {
+                "stays"
+            } else {
+                "stay"
+            };
             let message = format!(
-                "{} stay off until you review this file: run \"murmo trust\"",
+                "{} {verb} off until you review this file: run \"murmo trust\"",
                 parts.join(" and ")
             );
             notices.push(Diagnostic::new(
