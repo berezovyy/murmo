@@ -88,6 +88,7 @@ pub struct ConfigFile {
     pub protect: Vec<String>,
     pub autocorrect: Option<bool>,
     pub names: Option<NamesSettings>,
+    pub phrases_learn: Option<bool>,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, PluginTable>,
     pub private: Option<bool>,
@@ -150,6 +151,9 @@ impl ConfigFile {
         if let Some(n) = &self.names {
             v["names"] = n.to_json();
         }
+        if let Some(p) = self.phrases_learn {
+            v["phrasesLearn"] = json!(p);
+        }
         if let Some(o) = &self.plugin_order {
             v["pluginOrder"] = json!(o);
         }
@@ -178,6 +182,7 @@ pub fn ignored_file(
         protect: Vec::new(),
         autocorrect: None,
         names: None,
+        phrases_learn: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -445,6 +450,7 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
         protect: Vec::new(),
         autocorrect: None,
         names: None,
+        phrases_learn: None,
         plugin_order: None,
         plugins: BTreeMap::new(),
         private: None,
@@ -470,6 +476,7 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
                 config.autocorrect = check_switch(&mut check, value, "autocorrect", "enabled")
             }
             "names" => config.names = check_names(&mut check, value),
+            "phrases" => config.phrases_learn = check_switch(&mut check, value, "phrases", "learn"),
             "plugins" => (config.plugin_order, config.plugins) = check_plugins(&mut check, value),
             "privacy" => config.private = check_switch(&mut check, value, "privacy", "private"),
             _ => check.unknown(&[key], &format!("\"{key}\"")),
@@ -493,6 +500,14 @@ pub fn parse_config(text: &str, file: &str, origin: Origin) -> ConfigFile {
                 );
                 names.enabled = None;
             }
+        }
+        if config.phrases_learn == Some(true) {
+            check.warn(
+                "project-only-reduces",
+                &["phrases", "learn"],
+                "a project file can only turn phrase learning off; \"learn = true\" ignored",
+            );
+            config.phrases_learn = None;
         }
         if config.private == Some(false) {
             config.private = None;

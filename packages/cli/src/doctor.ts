@@ -7,6 +7,9 @@ import { join } from 'node:path';
 import { DATA_DIR, loadTrustAnchor, npmPlatform, VerifyError, verifyPackage } from '@murmo/integrity';
 import { openLanguagePack } from '@murmo/lang/node';
 import { doctorLine } from '@murmo/plugin-autocorrect';
+import { doctorLine as phrasesDoctorLine } from '@murmo/plugin-phrases';
+import { readMetrics } from '@murmo/plugin-phrases/node';
+import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { namesDoctorLine, tryReadProtection } from '@murmo/vocab/node';
 import { detectHosts, lookup } from './detect.ts';
 import { checkHelper } from './helper.ts';
@@ -36,6 +39,7 @@ export interface DoctorOptions {
   readonly packageRoot?: string;
   readonly keyPath?: string;
   readonly json?: boolean;
+  readonly stats?: boolean;
 }
 
 function check(name: string, ok: boolean, detail: string, action: string): DoctorCheck {
@@ -299,6 +303,16 @@ export async function doctorCommand(options: DoctorOptions = {}): Promise<Doctor
   }
 
   checks.push(...vocabPartial(layout));
+
+  if (options.stats) {
+    try {
+      const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
+      const metrics = await readMetrics(store);
+      checks.push(check('phrases-stats', true, phrasesDoctorLine(metrics), 'none'));
+    } catch (error) {
+      checks.push(check('phrases-stats', true, phrasesDoctorLine(), error instanceof Error ? error.message : 'none'));
+    }
+  }
 
   const lock = lockDir(layout.data, env);
   checks.push(

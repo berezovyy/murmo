@@ -18,6 +18,7 @@ import {
   provideEnglishPack,
   resolveAutocorrectSettings,
 } from '@murmo/plugin-autocorrect';
+import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
@@ -33,7 +34,7 @@ import {
 } from './payload.ts';
 import { type ClaudeRuntime, INLINE_MAX_BYTES, PLUGIN_VERSION } from './types.ts';
 
-const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue'] as const;
+const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases'] as const;
 
 export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
@@ -150,6 +151,10 @@ async function builtIns(
       drafts: createMemoryDrafts(),
       identity: { project, host: 'claude', session: PLUGIN_VERSION },
     }),
+    phrasesPlugin(
+      { identity: { project, host: 'claude', session: PLUGIN_VERSION } },
+      { learn: config.phrasesLearn === true },
+    ),
   ];
   const disabled = new Set(
     Object.entries(config.plugins)

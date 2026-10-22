@@ -64,6 +64,14 @@ impl StoreLayout {
     pub fn log_directory(&self, kind: &str) -> Option<PathBuf> {
         LOG_KINDS.contains(&kind).then(|| self.logs.join(kind))
     }
+
+    /// Packed phrase index (phase 34).
+    pub fn phrase_directory(&self, project_id: Option<&str>) -> Option<PathBuf> {
+        match project_id {
+            None => Some(self.store.join("phrases")),
+            Some(id) => self.project_directory(id).map(|d| d.join("phrases")),
+        }
+    }
 }
 
 pub const LOG_KINDS: [&str; 2] = ["phrases", "history"];

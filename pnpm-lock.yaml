@@ -46,6 +46,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../../plugins/phrases
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../../plugins/rescue
@@ -76,6 +79,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../../plugins/phrases
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../../plugins/rescue
@@ -110,6 +116,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../../plugins/phrases
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../../plugins/rescue
@@ -143,6 +152,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../../plugin-autocorrect
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../../plugins/phrases
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../../plugins/rescue
@@ -187,6 +199,9 @@ importers:
       '@murmo/plugin-autocorrect':
         specifier: workspace:*
         version: link:../plugin-autocorrect
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../plugins/phrases
       '@murmo/plugin-shortcuts':
         specifier: workspace:*
         version: link:../plugins/shortcuts
@@ -381,6 +396,22 @@ importers:
       '@murmo/fixtures':
         specifier: workspace:*
         version: link:../../../fixtures
+
+  packages/plugins/phrases:
+    dependencies:
+      '@murmo/api':
+        specifier: workspace:*
+        version: link:../../api
+      '@murmo/store':
+        specifier: workspace:*
+        version: link:../../store
+      '@murmo/text':
+        specifier: workspace:*
+        version: link:../../text
+    devDependencies:
+      '@murmo/core':
+        specifier: workspace:*
+        version: link:../../core
 
   packages/plugins/rescue:
     dependencies:

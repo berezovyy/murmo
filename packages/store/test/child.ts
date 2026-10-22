@@ -102,6 +102,17 @@ if (mode === 'write-loop') {
     );
     if (outcome.status === 'ok') announce();
   }
+} else if (mode === 'log-loop') {
+  const kind = (rest[0] ?? 'phrases') as 'phrases' | 'history';
+  const session = rest[1] ?? 'crash';
+  const log = store.logs.session(kind, session);
+  for (let n = 0; ; n++) {
+    const result = await log.append([
+      { phrase: `update the cache module for scenario ${n}`, host: 'fake', project: hex(n), at: n },
+    ]);
+    if (result.status === 'error') throw new Error(result.reason);
+    if (result.status === 'ok') announce();
+  }
 } else if (mode === 'draft-loop') {
   const [project = '', host = 'fake', session = 'crash'] = rest;
   const id = { project, host: host as 'fake', session };

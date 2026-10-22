@@ -7,6 +7,7 @@ import { createMemoryStorage, createPluginHost, createSession, type HostPluginSp
 import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
+import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
@@ -74,6 +75,10 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
       drafts: createMemoryDrafts(),
       identity: { host: 'opencode', project: '0'.repeat(64), session: 'opencode-session' },
     }),
+    phrasesPlugin(
+      { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
+      { learn: options.config?.phrasesLearn === true },
+    ),
   ];
   return specs;
 }

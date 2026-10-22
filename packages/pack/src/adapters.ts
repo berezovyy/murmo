@@ -67,6 +67,11 @@ function packPlugins(packageDir: string, repoRoot: string): void {
       bundle: 'packages/plugins/rescue/dist/node/plugin-rescue.js',
       manifest: 'packages/plugins/rescue/murmo.plugin.json',
     },
+    {
+      id: 'phrases',
+      bundle: 'packages/plugins/phrases/dist/node/plugin-phrases.js',
+      manifest: 'packages/plugins/phrases/murmo.plugin.json',
+    },
   ];
   for (const p of plugins) {
     const dest = join(packageDir, 'plugins', p.id, 'plugin.js');

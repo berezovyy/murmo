@@ -27,11 +27,11 @@ const usage = `murmo ${PACKAGE_VERSION}
   murmo verify [--key PUBLIC.pem]
   murmo setup [--json] [--key PUBLIC.pem] [--package DIR]
   murmo uninstall [--json]
-  murmo doctor [--json] [--key PUBLIC.pem]
+  murmo doctor [--json] [--stats] [--key PUBLIC.pem]
   murmo codex [args...]
   murmo plugin new|test|dev
   murmo plugin list|inspect|add|update|disable|enable|remove|rollback|reinstall|doctor
-  murmo trust | init | vocab | words | names | index | data | private
+  murmo trust | init | vocab | words | names | index | phrases | data | private
 `;
 
 export interface MainOptions {
@@ -42,7 +42,7 @@ export interface MainOptions {
 }
 
 const VALUE_FLAGS = new Set(['--key', '--package']);
-const BARE_FLAGS = new Set(['--json']);
+const BARE_FLAGS = new Set(['--json', '--stats']);
 
 function parseFlags(args: readonly string[]): { positional: string[]; flags: Map<string, string | true> } | string {
   const positional: string[] = [];
@@ -86,6 +86,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         return 2;
       }
       const json = parsed.flags.has('--json');
+      const stats = parsed.flags.has('--stats');
       const keyPath = parsed.flags.get('--key');
       const pkgFlag = parsed.flags.get('--package');
       const root = typeof pkgFlag === 'string' ? pkgFlag : env.MURMO_PACKAGE_ROOT || packageRoot();
@@ -113,6 +114,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
       const report = await doctorCommand({
         env,
         json,
+        stats,
         ...(existsSync(root) ? { packageRoot: root } : {}),
         ...(typeof keyPath === 'string' ? { keyPath } : {}),
       });
@@ -136,7 +138,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         rest,
       );
     }
-    if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'data', 'private'].includes(cmd)) {
+    if (['trust', 'init', 'vocab', 'words', 'names', 'index', 'phrases', 'data', 'private'].includes(cmd)) {
       return dispatchMounted(cmd, rest, env, cwd, err);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);

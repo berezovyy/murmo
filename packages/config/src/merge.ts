@@ -23,6 +23,8 @@ export interface EffectiveConfig {
   readonly autocorrect: boolean;
   /** `[names]` from the user file; a project file may only set enabled = false. */
   readonly names?: NamesSettings;
+  /** Phrase learning is opt-in: false unless the user file turns it on. */
+  readonly phrasesLearn: boolean;
   /** Only from the user file; overrides the order `murmo plugin` keeps (phase 28). */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, EffectivePlugin>>;
@@ -72,6 +74,7 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
   // parseConfig already dropped what a project file may not turn on (autocorrect,
   // a plugin, `private = false`, `[plugins] order`), with a warning for each.
   const autocorrect = projectFile?.autocorrect === false ? false : (userFile?.autocorrect ?? false);
+  const phrasesLearn = projectFile?.phrasesLearn === false ? false : (userFile?.phrasesLearn ?? false);
   const isPrivate = projectFile?.private === true || (userFile?.private ?? false);
 
   const plugins: Record<string, EffectivePlugin> = {};
@@ -127,6 +130,7 @@ export function mergeConfig({ user, project, projectTrusted }: MergeInput): Effe
     protect,
     autocorrect,
     ...(names === undefined ? {} : { names }),
+    phrasesLearn,
     ...(userFile?.pluginOrder ? { pluginOrder: userFile.pluginOrder } : {}),
     plugins,
     private: isPrivate,

@@ -702,6 +702,57 @@
       }
     },
     {
+      "id": "phrases-learn",
+      "input": {
+        "source": "[phrases]\nlearn = true\nscope = \"all\"\n"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "unknown-key",
+            "severity": "warning",
+            "line": 3,
+            "column": 1
+          }
+        ],
+        "shortcuts": [],
+        "phrasesLearn": true
+      }
+    },
+    {
+      "id": "phrases-learn-project",
+      "input": {
+        "source": "[phrases]\nlearn = true\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [
+          {
+            "code": "project-only-reduces",
+            "severity": "warning",
+            "line": 2,
+            "column": 1
+          }
+        ],
+        "shortcuts": []
+      }
+    },
+    {
+      "id": "phrases-learn-off-project",
+      "input": {
+        "source": "[phrases]\nlearn = false\n",
+        "origin": "project"
+      },
+      "output": {
+        "status": "ok",
+        "diagnostics": [],
+        "shortcuts": [],
+        "phrasesLearn": false
+      }
+    },
+    {
       "id": "privacy",
       "input": {
         "source": "[privacy]\nprivate = true\n"

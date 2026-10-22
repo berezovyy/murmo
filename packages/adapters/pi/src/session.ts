@@ -92,6 +92,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
         config: config.effective,
         drafts: store.drafts,
         identity,
+        store,
         cwd,
       });
   for (const notice of loaded.notices) options.ctx.ui.notify(notice, 'warning');

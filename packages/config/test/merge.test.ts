@@ -86,6 +86,7 @@ test('an untrusted project file still turns things off, never on', () => {
   );
   assert.deepEqual(merged.overrides, []);
   assert.equal(merged.autocorrect, false, 'autocorrect = false applies untrusted');
+  assert.equal(merged.phrasesLearn, false, 'phrase learning stays off until the user file turns it on');
   assert.deepEqual(merged.protect, ['ratatui', 'OutboxWorker'], 'protected words apply untrusted');
   assert.equal(merged.language, 'de', 'language applies untrusted');
   assert.deepEqual(merged.plugins.rescue, { enabled: false, settings: { idle: 1500, mode: 'user' } });

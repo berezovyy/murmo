@@ -49,6 +49,8 @@ export interface ConfigFile {
   readonly autocorrect?: boolean;
   /** `[names]` on-request project-name menu (phase 36). */
   readonly names?: NamesSettings;
+  /** `[phrases] learn`. Opt-in; default is off. */
+  readonly phrasesLearn?: boolean;
   /** `[plugins] order`. */
   readonly pluginOrder?: readonly string[];
   readonly plugins: Readonly<Record<string, PluginTable>>;
@@ -256,6 +258,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
   let protect: string[] = [];
   let autocorrect: boolean | undefined;
   let names: NamesSettings | undefined;
+  let phrasesLearn: boolean | undefined;
   let pluginOrder: string[] | undefined;
   let plugins: Record<string, PluginTable> = {};
   let privacy: boolean | undefined;
@@ -282,6 +285,9 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
         break;
       case 'names':
         names = checkNames(check, value);
+        break;
+      case 'phrases':
+        phrasesLearn = checkSwitch(check, value, 'phrases', 'learn');
         break;
       case 'plugins':
         ({ order: pluginOrder, tables: plugins } = checkPlugins(check, value));
@@ -313,6 +319,15 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
       );
       const { enabled: _ignored, ...rest } = names;
       names = Object.keys(rest).length ? rest : undefined;
+    }
+    if (phrasesLearn === true) {
+      check.report(
+        'warning',
+        'project-only-reduces',
+        ['phrases', 'learn'],
+        'a project file can only turn phrase learning off; "learn = true" ignored',
+      );
+      phrasesLearn = undefined;
     }
     if (privacy === false) privacy = undefined;
     if (pluginOrder !== undefined) {
@@ -346,6 +361,7 @@ export function parseConfig(text: string, origin: ConfigSource): ConfigFile {
     ...(language === undefined ? {} : { language }),
     ...(autocorrect === undefined ? {} : { autocorrect }),
     ...(names === undefined ? {} : { names }),
+    ...(phrasesLearn === undefined ? {} : { phrasesLearn }),
     ...(pluginOrder === undefined ? {} : { pluginOrder }),
     ...(privacy === undefined ? {} : { private: privacy }),
   };

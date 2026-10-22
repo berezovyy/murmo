@@ -3,6 +3,7 @@
 
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec, provideEnglishPack } from '@murmo/plugin-autocorrect';
+import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
@@ -70,6 +71,7 @@ export function builtinSpecs(config: EngineConfig): HostPluginSpec[] {
       drafts: createMemoryDrafts(),
       identity: { project: '0'.repeat(64), host: 'codex', session: 'session' },
     }),
+    phrasesPlugin({ identity: { project: '0'.repeat(64), host: 'codex', session: 'session' } }, { ghost: false }),
   ];
   const order = config.pluginOrder;
   if (!order?.length) return specs;

@@ -66,7 +66,7 @@ export {
 export type { HeldLock, Locked, LockOptions } from './lock.ts';
 export { LOCK_RETRY_MS, LOCK_STALE_MS, LOCK_TIMEOUT_MS, lockPath, withLock } from './lock.ts';
 export type { LogEntry, LogRead } from './logs.ts';
-export { SEGMENT_BYTES } from './logs.ts';
+export { compactLog, parseSegment, SEGMENT_BYTES } from './logs.ts';
 export type { ProjectIdentity } from './paths.ts';
 export { findRepositoryRoot, projectIdentity, projectIdOf, storeRootsFromEnv } from './paths.ts';
 export type { PluginStorageBroker } from './plugin-storage.ts';

@@ -18,6 +18,7 @@
     "@murmo/integrity": "workspace:*",
     "@murmo/lang": "workspace:*",
     "@murmo/plugin-autocorrect": "workspace:*",
+    "@murmo/plugin-phrases": "workspace:*",
     "@murmo/plugin-shortcuts": "workspace:*",
     "@murmo/store": "workspace:*",
     "@murmo/vocab": "workspace:*"

@@ -6,11 +6,14 @@ import type { EffectiveConfig } from '@murmo/config';
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
+import { phrasesPlugin } from '@murmo/plugin-phrases';
+import { persistEvents } from '@murmo/plugin-phrases/node';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, SAMPLE_SHORTCUTS, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import type { DraftIdentity, Drafts } from '@murmo/store';
+import type { Store } from '@murmo/store/node';
 
-export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue'] as const;
+export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases'] as const;
 
 export interface BuiltinLoad {
   readonly specs: HostPluginSpec[];
@@ -22,6 +25,7 @@ export interface BuiltinOptions {
   readonly config?: EffectiveConfig;
   readonly drafts?: Drafts;
   readonly identity?: DraftIdentity;
+  readonly store?: Store;
   readonly cwd?: string;
   /** Tests pass a subset; the extension loads every built-in. */
   readonly ids?: readonly string[];
@@ -83,6 +87,21 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
         identity: options.identity,
         isPrivate: async () => config?.private === true,
       }),
+    );
+  }
+
+  if (ids.has('phrases')) {
+    const identity = options.identity;
+    const store = options.store;
+    specs.push(
+      phrasesPlugin(
+        {
+          ...(identity ? { identity: { project: identity.project, host: 'pi', session: identity.session } } : {}),
+          isPrivate: async () => config?.private === true,
+          ...(store && identity ? { persist: (events) => void persistEvents(store, identity.session, events) } : {}),
+        },
+        { learn: config?.phrasesLearn === true },
+      ),
     );
   }
 

@@ -1,0 +1,43 @@
+{
+  "name": "phrases",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "src/plugin.ts",
+  "permissions": [
+    { "name": "draft:read", "reason": "See the words you type so a learned phrase can be offered as ghost text." },
+    { "name": "draft:read:full", "reason": "See an accepted ghost in the draft so it is not offered again." },
+    { "name": "draft:write", "reason": "Insert the visible ghost, or a menu-row fallback, as one undoable edit." },
+    { "name": "submit:observe", "reason": "Learn clauses only from a confirmed send, never from an unsent draft." }
+  ],
+  "capabilities": {
+    "required": {},
+    "optional": {
+      "ghost": "end-only",
+      "menu": true,
+      "status": true,
+      "edit.atomic": true,
+      "edit.exactRestore": true
+    }
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "learn": {
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. Off until you set [phrases] learn = true."
+      },
+      "ghost": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show ghost text. Codex stays off unless this is true and the host route is on."
+      },
+      "skipWhenBusy": {
+        "type": "boolean",
+        "default": true,
+        "description": "Do not show a ghost while the agent is busy."
+      }
+    },
+    "additionalProperties": false
+  }
+}

@@ -21,6 +21,7 @@ pub struct EffectiveConfig {
     pub protect: Vec<String>,
     pub autocorrect: bool,
     pub names: Option<crate::schema::NamesSettings>,
+    pub phrases_learn: bool,
     pub plugin_order: Option<Vec<String>>,
     pub plugins: BTreeMap<String, EffectivePlugin>,
     pub private: bool,
@@ -42,6 +43,7 @@ impl EffectiveConfig {
             "overrides": self.overrides,
             "protect": self.protect,
             "autocorrect": self.autocorrect,
+            "phrasesLearn": self.phrases_learn,
             "plugins": plugins,
             "private": self.private,
             "diagnostics": self.diagnostics.iter().map(Diagnostic::to_json).collect::<Vec<_>>(),
@@ -124,6 +126,13 @@ pub fn merge_config(
     } else {
         user_file
             .and_then(|u| u.config.autocorrect)
+            .unwrap_or(false)
+    };
+    let phrases_learn = if project_file.and_then(|p| p.config.phrases_learn) == Some(false) {
+        false
+    } else {
+        user_file
+            .and_then(|u| u.config.phrases_learn)
             .unwrap_or(false)
     };
     let private = project_file.and_then(|p| p.config.private) == Some(true)
@@ -230,6 +239,7 @@ pub fn merge_config(
             }
             names
         },
+        phrases_learn,
         plugin_order: user_file.and_then(|u| u.config.plugin_order.clone()),
         plugins,
         private,

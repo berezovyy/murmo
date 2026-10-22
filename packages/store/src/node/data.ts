@@ -6,7 +6,15 @@
 // keeps the file is the prior-art failure this answers (lesson 4, knowledge § 7).
 import fsp from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import { LOG_KINDS, type LogKind, projectCache, projectDirectory, projectDrafts, type StoreLayout } from '../layout.ts';
+import {
+  LOG_KINDS,
+  type LogKind,
+  phraseDirectory,
+  projectCache,
+  projectDirectory,
+  projectDrafts,
+  type StoreLayout,
+} from '../layout.ts';
 import { decodeRecord, EMPTY_WORDS } from '../records.ts';
 import { errorCode, exists, type ModeRepairs } from './files.ts';
 import { compactLog, parseSegment } from './logs.ts';
@@ -73,6 +81,9 @@ function classify(layout: StoreLayout, path: string): Omit<InventoryRow, 'files'
     if (store.length === 1 && name.startsWith('words.json'))
       return { kind: 'words', scope: 'global', path: layout.words };
     if (first === 'plugins') return { kind: 'plugins', scope: 'global', path: layout.plugins };
+    if (first === 'phrases') {
+      return { kind: 'logs', scope: 'global', label: 'phrases', path: phraseDirectory(layout) };
+    }
     if (first === 'logs' && second && (LOG_KINDS as readonly string[]).includes(second)) {
       return { kind: 'logs', scope: 'global', label: second, path: join(layout.logs, second) };
     }
@@ -80,6 +91,15 @@ function classify(layout: StoreLayout, path: string): Omit<InventoryRow, 'files'
       const dir = projectDirectory(layout, second);
       if (third?.replace(/^\./, '').startsWith('words.json') && store.length === 3) {
         return { kind: 'words', scope: 'project', projectId: second, path: join(dir, 'words.json') };
+      }
+      if (third === 'phrases') {
+        return {
+          kind: 'logs',
+          scope: 'project',
+          projectId: second,
+          label: 'phrases',
+          path: phraseDirectory(layout, second),
+        };
       }
       return { kind: 'other', scope: 'project', projectId: second, path: dir };
     }
@@ -300,6 +320,8 @@ export async function deleteData(
         break;
       case 'logs':
         removedFiles += await removeTree(layout.logs);
+        removedFiles += await removeTree(phraseDirectory(layout));
+        for (const id of await projectIds(layout)) removedFiles += await removeTree(phraseDirectory(layout, id));
         break;
       case 'drafts':
         removedFiles += await removeTree(layout.drafts);

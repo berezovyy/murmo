@@ -143,6 +143,19 @@ export function logDirectory(layout: StoreLayout, kind: LogKind): string {
   return `${layout.logs}/${kind}`;
 }
 
+/** Packed phrase index (phase 34): global `<data>/store/v1/phrases/`. */
+export function phraseDirectory(layout: StoreLayout, projectId?: string): string {
+  return projectId === undefined ? `${layout.store}/phrases` : `${projectDirectory(layout, projectId)}/phrases`;
+}
+
+export function phraseSnapshotPath(layout: StoreLayout, projectId?: string): string {
+  return `${phraseDirectory(layout, projectId)}/phrases.bin`;
+}
+
+export function phraseMetricsPath(layout: StoreLayout): string {
+  return `${layout.store}/phrases/metrics.json`;
+}
+
 const PROJECT_ID = /^[0-9a-f]{64}$/;
 
 /** A project ID is a SHA-256 hex digest; anything else would let a caller escape the layout. */
