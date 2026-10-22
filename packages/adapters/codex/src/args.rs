@@ -228,6 +228,17 @@ pub fn with_run_state_title(mut argv: Vec<String>) -> Vec<String> {
     argv
 }
 
+/// Stock `codex` uses the alternate screen. Harness claims (`teh ` → `the`)
+/// only proved with `--no-alt-screen`. Interactive wrap adds it unless the
+/// user already passed the flag, so a plain `murmo codex` matches that path.
+pub fn with_no_alt_screen(mut argv: Vec<String>) -> Vec<String> {
+    if argv.iter().any(|a| a == "--no-alt-screen") {
+        return argv;
+    }
+    argv.insert(0, "--no-alt-screen".into());
+    argv
+}
+
 /// Resolve stock `codex`, skipping this wrapper and honouring `MURMO_CODEX_BIN`.
 pub fn resolve_stock(self_exe: &Path, path: &OsStr) -> Result<PathBuf, ResolveError> {
     if env::var_os(RECURSION_GUARD).is_some() {
@@ -288,7 +299,7 @@ pub fn launch(self_exe: &Path, args: &[String], path: &OsStr) -> Result<Launch, 
     match classify(args) {
         Kind::Wrap => Ok(Launch::Wrap {
             bin,
-            argv: with_run_state_title(rest),
+            argv: with_run_state_title(with_no_alt_screen(rest)),
         }),
         Kind::PassThrough => Ok(Launch::PassThrough { bin, argv: rest }),
     }
@@ -349,5 +360,19 @@ mod tests {
             .any(|w| w[0] == "-c" && w[1] == RUN_STATE_TITLE));
         let already = s(&["-c", r#"tui.terminal_title=["cwd"]"#]);
         assert_eq!(with_run_state_title(already.clone()), already);
+    }
+
+    #[test]
+    fn interactive_wrap_adds_no_alt_screen_so_plain_murmo_codex_matches_harness() {
+        // Catches a live `murmo codex` that never corrected because stock
+        // Codex uses the alternate screen and the harness always passed
+        // `--no-alt-screen` (claims.screen.txt showed › teh after paste).
+        let added = with_no_alt_screen(s(&[]));
+        assert_eq!(added[0], "--no-alt-screen");
+        let already = with_no_alt_screen(s(&["--no-alt-screen", "-c", "x=1"]));
+        assert_eq!(
+            already.iter().filter(|a| *a == "--no-alt-screen").count(),
+            1
+        );
     }
 }
