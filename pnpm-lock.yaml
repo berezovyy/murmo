@@ -52,6 +52,9 @@ importers:
       '@murmo/plugin-history':
         specifier: workspace:*
         version: link:../../plugins/history
+      '@murmo/plugin-names':
+        specifier: workspace:*
+        version: link:../../plugins/names
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -91,6 +94,9 @@ importers:
       '@murmo/plugin-history':
         specifier: workspace:*
         version: link:../../plugins/history
+      '@murmo/plugin-names':
+        specifier: workspace:*
+        version: link:../../plugins/names
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -134,6 +140,9 @@ importers:
       '@murmo/plugin-history':
         specifier: workspace:*
         version: link:../../plugins/history
+      '@murmo/plugin-names':
+        specifier: workspace:*
+        version: link:../../plugins/names
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases
@@ -176,6 +185,9 @@ importers:
       '@murmo/plugin-history':
         specifier: workspace:*
         version: link:../../plugins/history
+      '@murmo/plugin-names':
+        specifier: workspace:*
+        version: link:../../plugins/names
       '@murmo/plugin-phrases':
         specifier: workspace:*
         version: link:../../plugins/phrases

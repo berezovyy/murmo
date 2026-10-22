@@ -8,6 +8,7 @@ import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
 import { historyPlugin } from '@murmo/plugin-history';
+import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
@@ -85,6 +86,14 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
       { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
       { enabled: historyOn },
     ),
+    (() => {
+      const settings = {
+        enabled: options.config?.names?.enabled !== false,
+        ...(options.config?.names?.key ? { key: options.config.names.key } : {}),
+      };
+      const names = namesPlugin(memoryBackend([]), settings, 'opencode');
+      return { id: names.id, builtin: true as const, factory: names.factory, settings };
+    })(),
   ];
   return specs;
 }

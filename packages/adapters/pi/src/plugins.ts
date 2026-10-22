@@ -8,6 +8,7 @@ import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
 import { historyPlugin } from '@murmo/plugin-history';
 import { persistEvents as persistHistory } from '@murmo/plugin-history/node';
+import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { persistEvents } from '@murmo/plugin-phrases/node';
 import { rescuePlugin } from '@murmo/plugin-rescue';
@@ -15,7 +16,7 @@ import { compileShortcuts, menuPlugin, SAMPLE_SHORTCUTS, shortcutsPlugin } from 
 import type { DraftIdentity, Drafts } from '@murmo/store';
 import type { Store } from '@murmo/store/node';
 
-export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history'] as const;
+export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
 
 export interface BuiltinLoad {
   readonly specs: HostPluginSpec[];
@@ -106,6 +107,15 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
         { learn: config?.phrasesLearn === true },
       ),
     );
+  }
+
+  if (ids.has('names')) {
+    const settings = {
+      enabled: config?.names?.enabled !== false,
+      ...(config?.names?.key ? { key: config.names.key } : {}),
+    };
+    const names = namesPlugin(memoryBackend([]), settings, 'pi');
+    specs.push({ id: names.id, builtin: true, factory: names.factory, settings });
   }
 
   if (ids.has('history')) {

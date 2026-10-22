@@ -4,6 +4,7 @@
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec, provideEnglishPack } from '@murmo/plugin-autocorrect';
 import { historyPlugin } from '@murmo/plugin-history';
+import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
@@ -82,6 +83,10 @@ export function builtinSpecs(config: EngineConfig): HostPluginSpec[] {
       { identity: { project: '0'.repeat(64), host: 'codex', session: 'session' } },
       { enabled: config.history === true },
     ),
+    (() => {
+      const names = namesPlugin(memoryBackend([]), { enabled: true }, 'codex');
+      return { id: names.id, builtin: true as const, factory: names.factory, settings: { enabled: true } };
+    })(),
   ];
   const order = config.pluginOrder;
   if (!order?.length) return specs;

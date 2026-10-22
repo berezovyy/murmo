@@ -6,7 +6,7 @@ import { loadBuiltins } from '../src/plugins.ts';
 
 test('loadBuiltins registers shortcut literals as inline replacements (E18)', () => {
   const loaded = loadBuiltins({
-    ids: ['shortcuts', 'menu'],
+    ids: ['shortcuts', 'menu', 'names'],
     config: {
       language: 'en',
       replacements: [{ shortcut: 'r14', text: 'round fourteen', origin: 'user' }],
@@ -43,7 +43,13 @@ test('loadBuiltins registers shortcut literals as inline replacements (E18)', ()
     },
   });
   assert.equal(semi.specs[0]?.inline?.[0]?.replacements?.entries?.[';r14'], 'round fourteen');
-  assert.deepEqual(loaded.order, ['shortcuts', 'menu']);
+  assert.deepEqual(loaded.order, ['shortcuts', 'menu', 'names']);
+});
+
+test('default builtins include the names plugin so Tab can open project names (phase 36)', () => {
+  const loaded = loadBuiltins();
+  assert.ok(loaded.specs.some((spec) => spec.id === 'names'));
+  assert.ok(loaded.order.includes('names'));
 });
 
 test('explicit pluginOrder AB/BA is honored when it names every spec (E20)', () => {

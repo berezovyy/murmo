@@ -119,6 +119,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
       shortcuts: ['draft:read', 'draft:write'],
       menu: ['draft:read', 'draft:write'],
       rescue: ['draft:read', 'draft:write', 'submit:observe'],
+      names: ['draft:read', 'draft:write'],
     },
   });
   const session = createSession({

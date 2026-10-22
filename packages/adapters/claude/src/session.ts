@@ -20,6 +20,7 @@ import {
   resolveAutocorrectSettings,
 } from '@murmo/plugin-autocorrect';
 import { historyPlugin } from '@murmo/plugin-history';
+import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
 import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
@@ -37,7 +38,7 @@ import {
 } from './payload.ts';
 import { type ClaudeRuntime, INLINE_MAX_BYTES, PLUGIN_VERSION } from './types.ts';
 
-const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history'] as const;
+const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
 
 export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
@@ -163,6 +164,14 @@ async function builtIns(
       { identity: { project, host: 'claude', session: PLUGIN_VERSION } },
       { enabled: config.historyEnabled === true },
     ),
+    (() => {
+      const settings = {
+        enabled: config.names?.enabled !== false,
+        ...(config.names?.key ? { key: config.names.key } : {}),
+      };
+      const names = namesPlugin(memoryBackend([]), settings, 'claude');
+      return { id: names.id, builtin: true as const, factory: names.factory, settings };
+    })(),
   ];
   const disabled = new Set(
     Object.entries(config.plugins)
