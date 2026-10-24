@@ -41,6 +41,12 @@ export interface InlineStage {
    * finishes against the rewriter it started with.
    */
   swap(rule: RegisteredInline): void;
+  /**
+   * Replace every rule set of one owner (a reloaded plugin) between keys; an
+   * owner with no enabled rules left drops out. Plans in flight finish as in
+   * `swap`.
+   */
+  replaceOwner(owner: string, rules: readonly RegisteredInline[]): void;
   shortcutCounts(): ShortcutCounts;
 }
 
@@ -196,6 +202,14 @@ export function createInlineStage(
       const previous = ordered[index];
       if (previous) retiring.push(previous);
       ordered = ordered.map((r, i) => (i === index ? next : r));
+    },
+
+    replaceOwner(owner, rules) {
+      retiring.push(...ordered.filter((r) => r.owner === owner));
+      const next = rules
+        .filter((r) => r.owner === owner && r.enabled)
+        .map((r) => createInlineRewriter(r, allowBackspace, skipShortcut));
+      ordered = [...ordered.filter((r) => r.owner !== owner), ...next].sort((a, b) => a.priority - b.priority);
     },
 
     shortcutCounts: () => mergeCounts([...ordered, ...retiring]),

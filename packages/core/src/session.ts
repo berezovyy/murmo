@@ -156,9 +156,16 @@ export interface Session {
   replaceInline(rule: RegisteredInline): void;
   /**
    * Reload one plugin. Other plugins keep their in-memory state (E5). Key
-   * handling never waits for this.
+   * handling never waits for this. A replaced built-in's inline rule sets
+   * replace the old ones between keys, as `replaceInline` does.
    */
   applyPlugin(change: PluginChange): Promise<PluginActivation>;
+  /**
+   * The host's startup notices changed (its config was edited while the
+   * session runs): those no longer true leave the screen, the new ones show.
+   * Before `ready`, these are the notices the session starts with.
+   */
+  restateNotices(notices: readonly string[]): void;
 }
 
 export type PluginActivation = 'loaded' | 'activated' | 'disabled' | 'error';
@@ -288,9 +295,12 @@ class CoreSession implements Session {
   #review: ReviewLog | undefined;
   readonly #sessionId: string;
   readonly #clock: Clock;
+  /** The host's startup notices as last stated (`SessionOptions.notices`, then `restateNotices`). */
+  #startup: readonly string[];
 
   constructor(options: SessionOptions) {
     this.#options = options;
+    this.#startup = options.notices ?? [];
     this.#adapter = options.adapter;
     this.#runner = options.runner;
     this.#clock = options.clock ?? options.runner.clock;
@@ -562,7 +572,7 @@ class CoreSession implements Session {
       }
     }
     // Last, so the host's own startup lines are the newest: the first one given shows first.
-    for (const text of [...(this.#options.notices ?? [])].reverse()) presentation.notice(text);
+    for (const text of [...this.#startup].reverse()) presentation.notice(text);
     presentation.render();
   }
 
@@ -631,29 +641,39 @@ class CoreSession implements Session {
     hostCaps: HostCapabilities,
     notice: (text: string) => void,
   ): InlineStage | undefined {
-    const registered: RegisteredInline[] = [];
-    for (const plugin of loaded) {
-      if (!plugin.inline?.length) continue;
-      const entry = this.#byId.get(plugin.descriptor.id);
-      for (const rule of plugin.inline) {
-        try {
-          registered.push(
-            registerRuleSet(rule, {
-              owner: plugin.descriptor.id,
-              builtin: plugin.builtin,
-              permissions: entry?.permissions ?? plugin.descriptor.permissions,
-              assets: plugin.assets,
-              transportMaxBytes: hostCaps.inline.maxBytes,
-            }),
-          );
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          notice(`${plugin.descriptor.name}: inline registration rejected: ${reason}`);
-        }
-      }
-    }
+    const registered = loaded.flatMap((plugin) => this.#inlineRules(plugin, hostCaps, notice));
     if (!registered.length) return undefined;
     return createInlineStage(registered, hostCaps, () => this.#fields.frozen());
+  }
+
+  #inlineRules(plugin: LoadedPlugin, hostCaps: HostCapabilities, notice: (text: string) => void): RegisteredInline[] {
+    const registered: RegisteredInline[] = [];
+    const entry = this.#byId.get(plugin.descriptor.id);
+    for (const rule of plugin.inline ?? []) {
+      try {
+        registered.push(
+          registerRuleSet(rule, {
+            owner: plugin.descriptor.id,
+            builtin: plugin.builtin,
+            permissions: entry?.permissions ?? plugin.descriptor.permissions,
+            assets: plugin.assets,
+            transportMaxBytes: hostCaps.inline.maxBytes,
+          }),
+        );
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        notice(`${plugin.descriptor.name}: inline registration rejected: ${reason}`);
+      }
+    }
+    return registered;
+  }
+
+  /** A replaced plugin's inline rule sets take the old ones' place (a reloaded shortcuts table). */
+  #replaceInline(plugin: LoadedPlugin, hostCaps: HostCapabilities): void {
+    const notice = (text: string) => this.#presentation?.notice(text);
+    const rules = this.#inlineRules(plugin, hostCaps, notice);
+    if (this.#inline) this.#inline.replaceOwner(plugin.descriptor.id, rules);
+    else if (rules.length) this.#inline = createInlineStage(rules, hostCaps, () => this.#fields.frozen());
   }
 
   #planInline(snapshot: InlineSnapshot): InlineAnswer {
@@ -1009,6 +1029,7 @@ class CoreSession implements Session {
       const { claims, notices } = validateClaims(entry, loaded.descriptor.keys, this.#hostCaps);
       entry.claims = claims;
       for (const text of notices) this.#presentation?.notice(text);
+      this.#replaceInline(loaded, this.#hostCaps);
     }
     if (entry.disabled) return 'error';
     if (entry.hooks.has('activate')) this.#schedule(entry, 'activate', null);
@@ -1016,6 +1037,17 @@ class CoreSession implements Session {
     this.#presentation?.render();
     this.#menu?.render();
     return entry.disabled ? 'error' : entry.hooks.has('activate') ? 'loaded' : 'activated';
+  }
+
+  restateNotices(notices: readonly string[]): void {
+    const previous = this.#startup;
+    this.#startup = [...notices];
+    const presentation = this.#presentation;
+    if (!presentation || this.#disposed) return;
+    presentation.withdraw(previous.filter((text) => !notices.includes(text)));
+    const added = notices.filter((text) => !previous.includes(text));
+    // As at start: the first one given shows first.
+    for (const text of [...added].reverse()) presentation.notice(text);
   }
 
   /** Per-draft state that a committed send drops (pending `.` and rejected words are 07/13). */

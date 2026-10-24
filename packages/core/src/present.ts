@@ -190,6 +190,14 @@ export class Presentation {
     this.render();
   }
 
+  /** Notices that are no longer true leave the screen; the session log keeps them. */
+  withdraw(texts: readonly string[]): void {
+    const live = this.#live.filter((n) => !texts.includes(n.text));
+    if (live.length === this.#live.length) return;
+    this.#live = live;
+    this.render();
+  }
+
   /** A send was committed: notices about the old draft leave the screen. */
   expireOnSend(): void {
     if (!this.#live.length) return;

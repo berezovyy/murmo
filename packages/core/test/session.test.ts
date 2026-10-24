@@ -130,6 +130,23 @@ test('startup notices show at session start, first given first, and leave at the
   await h.session?.dispose();
 });
 
+test('restated startup notices drop the ones no longer true and show only the new ones', async () => {
+  // After `murmo trust` Claude still said the project file was unreviewed:
+  // startup notices were fixed for the session, so a config change that
+  // applied live left a false notice on screen.
+  const trust = '.murmo.toml has 1 shortcut. Run "murmo trust" to review.';
+  const h = await createHarness({ notices: [trust, 'murmo on · 1 shortcut', 'murmo.toml:3: bad key'] });
+  await h.session?.ready;
+  h.session?.restateNotices(['murmo.toml:3: bad key', 'murmo on · 2 shortcuts']);
+  assert.equal(h.adapter.status, 'murmo on · 2 shortcuts | murmo.toml:3: bad key');
+  await h.driver.type('hi');
+  await h.driver.submit('send');
+  await h.driver.settle();
+  h.session?.restateNotices(['murmo.toml:3: bad key', 'murmo on · 2 shortcuts']);
+  assert.equal(h.adapter.status, null, 'nothing new: notices the user already sent away stay away');
+  await h.session?.dispose();
+});
+
 test('a narrow status keeps whole rows: the first in full, the rest only if they fit', () => {
   // Claude cut its trust notice before the command ("run \"murmo tr…").
   assert.equal(fitRows(['first row', 'second'], 12), 'first row');

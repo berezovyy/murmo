@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { registerRuleSet } from '@murmo/core';
+import { type PluginHost, registerRuleSet, reloadPlugins } from '@murmo/core';
 import { createHarness } from '@murmo/core/testing';
 import { utf8Length } from '@murmo/text';
 import { compileShortcuts, shortcutsInlineRules, shortcutsPlugin } from '../src/index.ts';
@@ -116,5 +116,32 @@ test('a config swap between keys does not change an in-flight expansion', async 
   h.session?.replaceInline(registered);
   await h.driver.type('s ');
   assert.equal(h.adapter.getDraft().text, 'two ');
+  await h.session?.dispose();
+});
+
+test('a shortcut added to the config expands once the plugin reloads, also mid-word', async () => {
+  // Catches a config edit that never reaches a running session: replacing the
+  // shortcuts plugin kept its old inline table, so a new shortcut stayed
+  // literal until the agent restarted.
+  const h = await createHarness({ plugins: [pluginOf({ s: 'one' })] });
+  await h.driver.type('n');
+  await reloadPlugins(h.session as NonNullable<typeof h.session>, h.runner as unknown as PluginHost, [
+    pluginOf({ s: 'two', n: 'new' }),
+  ]);
+  await h.driver.type(' s ');
+  await h.driver.settle();
+  assert.equal(h.adapter.getDraft().text, 'new two ');
+  assert.equal(h.session?.stats().plugins.find((p) => p.id === 'shortcuts')?.disabled, false);
+  await h.session?.dispose();
+});
+
+test('a shortcut removed from the config stops expanding once the plugin reloads', async () => {
+  // Catches the old table staying behind next to the new one.
+  const h = await createHarness({ plugins: [pluginOf({ s: 'one', x: 'gone' })] });
+  await reloadPlugins(h.session as NonNullable<typeof h.session>, h.runner as unknown as PluginHost, [
+    pluginOf({ s: 'two' }),
+  ]);
+  await h.driver.type('x s ');
+  assert.equal(h.adapter.getDraft().text, 'x two ');
   await h.session?.dispose();
 });

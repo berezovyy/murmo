@@ -154,6 +154,7 @@ export {
   STATUS_SEPARATOR,
   type VisibleGhost,
 } from './present.ts';
+export { reloadPlugins } from './reload.ts';
 export {
   onScreenRange,
   REVIEW_BLOCK,
