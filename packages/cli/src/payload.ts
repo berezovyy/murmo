@@ -46,7 +46,8 @@ export function restoreExecBits(root: string): void {
   for (const rel of files) {
     const path = join(root, rel);
     if (!existsSync(path)) continue;
-    chmodSync(path, MODE_EXEC);
+    // Only a lost bit is written back: a package on a read-only mount refuses any chmod.
+    if ((statSync(path).mode & 0o777) !== MODE_EXEC) chmodSync(path, MODE_EXEC);
   }
 }
 

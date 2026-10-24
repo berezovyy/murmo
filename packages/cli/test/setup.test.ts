@@ -1,12 +1,14 @@
 // Setup: verify before HOME write, exact uninstall, re-run, faults (E5, E7, E9).
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync, spawn } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { helperPath, npmPlatform } from '@murmo/integrity';
 import { USER_TEMPLATE } from '@murmo/plugin-shortcuts';
 import { main } from '../src/cli.ts';
+import { restoreExecBits } from '../src/payload.ts';
 import { capture, cliPath, makeHome, tree, writePayload } from './helpers.ts';
 
 async function setup(t: ReturnType<typeof makeHome>): Promise<{ code: number; io: ReturnType<typeof capture> }> {
@@ -282,5 +284,33 @@ test('a plugin command creates a missing plugin store instead of failing', async
     assert.match(io.out.join(''), /autocorrect \(built-in\)/);
   } finally {
     t.remove();
+  }
+});
+
+test('setup reads a package it may not write, and still restores lost exec bits', async (t) => {
+  // Setup chmod-ed every executable of the incoming package even when its
+  // mode was already right, so a package on a read-only mount (the Linux
+  // harness container) failed with EROFS before anything was installed.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-exec-bits-'));
+  const cli = join(dir, 'cli.mjs');
+  const helper = join(dir, 'bin', npmPlatform(), 'murmo-plugin-host');
+  try {
+    mkdirSync(dirname(helper), { recursive: true });
+    writeFileSync(cli, '');
+    writeFileSync(helper, '');
+    chmodSync(cli, 0o755);
+    chmodSync(helper, 0o644);
+    restoreExecBits(dir);
+    assert.equal(statSync(helper).mode & 0o777, 0o755, 'a lost exec bit comes back');
+    if (process.platform !== 'darwin') {
+      t.diagnostic('the read-only half needs chflags (macOS)');
+      return;
+    }
+    // An immutable file refuses chmod like a read-only mount does.
+    execFileSync('chflags', ['uchg', cli, helper]);
+    assert.doesNotThrow(() => restoreExecBits(dir));
+  } finally {
+    if (process.platform === 'darwin') execFileSync('chflags', ['nouchg', cli, helper]);
+    rmSync(dir, { recursive: true, force: true });
   }
 });
