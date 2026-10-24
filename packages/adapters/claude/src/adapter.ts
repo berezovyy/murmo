@@ -59,6 +59,9 @@ import { defaultProbes, HINT_SEPARATOR, INLINE_DISABLED_NOTICE, TESTED_HOST } fr
 
 const typing: TypingRules = { evidence: 'host-labeled', keyBursts: false };
 
+/** Claude's footer in `!` shell mode: `! for shell mode` (2.1.30x). */
+const SHELL_HINT = /^!\s/;
+
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 const emptyDraft = (): Draft => ({
@@ -146,6 +149,7 @@ export class ClaudeAdapter implements Adapter {
   #ready = false;
   #baselineHint: string | null = null;
   #opaque = false;
+  #shell = false;
   #owned: OwnedEdit | null = null;
   #pending: PendingCommit | null = null;
   #pendingClear: PromptChangeInput | null = null;
@@ -344,15 +348,25 @@ export class ClaudeAdapter implements Adapter {
 
   hint(props: PromptHintProps): void {
     this.#state = { ...this.#state, busy: props.isWorking === true };
-    if (props.isWorking || props.isDraft || this.#draft.text) return;
+    if (props.isWorking) return;
     const prefix = props.hint.split(HINT_SEPARATOR)[0] ?? '';
-    if (this.#baselineHint === null) {
-      this.#baselineHint = prefix;
-      this.#opaque = false;
-    } else {
-      this.#opaque = !props.hint.startsWith(this.#baselineHint);
+    // Claude names its `!` shell mode in the hint on every render, with
+    // isDraft set even before the first letter, so the empty-draft baseline
+    // below never sees it.
+    const shell = SHELL_HINT.test(prefix);
+    const left = this.#shell && !shell;
+    this.#shell = shell;
+    if (!props.isDraft && !this.#draft.text) {
+      if (this.#baselineHint === null) {
+        if (!shell) this.#baselineHint = prefix;
+        this.#opaque = false;
+      } else {
+        this.#opaque = !props.hint.startsWith(this.#baselineHint);
+      }
+      this.#state = { ...this.#state, mode: this.#opaque || shell ? 'unknown' : 'prose' };
+    } else if (shell || left) {
+      this.#state = { ...this.#state, mode: shell || this.#opaque ? 'unknown' : this.#textMode(this.#draft.text) };
     }
-    this.#state = { ...this.#state, mode: this.#opaque ? 'unknown' : 'prose' };
   }
 
   measureHint(hint: string): void {
@@ -640,16 +654,17 @@ export class ClaudeAdapter implements Adapter {
     } else this.#owned = null;
   }
 
+  #textMode(text: string): HostState['mode'] {
+    return text.trimStart().startsWith('/') ? 'command' : 'prose';
+  }
+
   #observedBefore(event: PromptEditInput): void {
     if (this.#draft.text !== event.text || this.#draft.cursor !== event.cursor) {
       this.#adopt(event, 'unknown', []);
     }
     this.#state = { ...this.#state, history: false };
-    if (this.#opaque) this.#state = { ...this.#state, mode: 'unknown' };
-    else {
-      const command = event.text.trimStart().startsWith('/') || event.inputText === '/';
-      this.#state = { ...this.#state, mode: command ? 'command' : 'prose' };
-    }
+    if (this.#opaque || this.#shell) this.#state = { ...this.#state, mode: 'unknown' };
+    else this.#state = { ...this.#state, mode: event.inputText === '/' ? 'command' : this.#textMode(event.text) };
     const prefix = event.text.slice(0, event.cursor).match(/\S*$/)?.[0] ?? '';
     const popup = /^[/@]/.test(prefix) || event.inputText === '/' || event.inputText === '@';
     this.#state = { ...this.#state, popup: popup ? { owner: 'host' } : null };
@@ -727,7 +742,12 @@ export class ClaudeAdapter implements Adapter {
     this.#owned = null;
     this.#pending = null;
     this.#adopt({ text: '', cursor: 0 }, 'unknown', []);
-    this.#state = { ...this.#state, history: false, mode: this.#opaque ? 'unknown' : 'prose', popup: null };
+    this.#state = {
+      ...this.#state,
+      history: false,
+      mode: this.#opaque || this.#shell ? 'unknown' : 'prose',
+      popup: null,
+    };
   }
 
   async #probeHost(rt: ClaudeRuntime): Promise<void> {

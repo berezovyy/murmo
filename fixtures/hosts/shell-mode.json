@@ -1,0 +1,31 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. In Claude Code 2.1.306 `!echo teh ` became `! echo the`, typed or in one burst: Claude names its shell mode only in the prompt hint (`! for shell mode`, sent with isDraft set), and the adapter read the hint only on an empty draft. The `!` never reaches the draft, so Claude reads `echo teh` and the cases are Claude's own",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["autocorrect"],
+    "requires": ["host=claude", "plugin.autocorrect=release"],
+    "settings": { "autocorrect": { "enabled": true } }
+  },
+  "cases": [
+    {
+      "id": "claude-shell-command-typed-left-alone",
+      "tags": ["autocorrect", "shell"],
+      "note": "Autocorrect leaves a shell command alone (phase 13: shell input is never prose).",
+      "steps": [{ "type": "!echo teh " }],
+      "expect": { "draft": { "text": "echo teh " }, "requests": [] }
+    },
+    {
+      "id": "claude-shell-command-burst-left-alone",
+      "tags": ["autocorrect", "shell"],
+      "note": "The same when `!` and the command arrive in one read.",
+      "steps": [{ "burst": [{ "origin": "typed", "text": "!echo teh " }] }],
+      "expect": { "draft": { "text": "echo teh " }, "requests": [] }
+    }
+  ]
+}

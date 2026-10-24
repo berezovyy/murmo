@@ -149,6 +149,12 @@
       "variants": 1
     },
     {
+      "file": "hosts/shell-mode.json",
+      "owner": "13, 24",
+      "cases": 2,
+      "variants": 2
+    },
+    {
       "file": "hosts/stock-canary.json",
       "owner": "20",
       "cases": 5,
