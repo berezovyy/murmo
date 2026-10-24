@@ -2,7 +2,7 @@
 
 Every change to the API surface lands here: the API report gate (`pnpm check:api`) fails a change to `packages/api/report/` that doesn't edit this file. During the preview each breaking change bumps `API_DRAFT` (`2.0-pre.1`, ...); `API_VERSION` stays 2.0.0 until v1.
 
-Earlier drafts (0, 1.1, 1.2, 1.3 and the prototype's 2.0-pre) are recorded in the prototype's changelog, [`experiments/platform/shared-v2/CHANGELOG.md`](../../../experiments/platform/shared-v2/CHANGELOG.md) (the experiments folder is git-ignored, so the link works in the research checkout only).
+Earlier drafts (0, 1.1, 1.2, 1.3 and the prototype's 2.0-pre) were research prototypes and are not documented here.
 
 ## 2.0-pre.0 (2026-10-22)
 

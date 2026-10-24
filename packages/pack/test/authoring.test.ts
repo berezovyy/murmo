@@ -4,7 +4,16 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { generateKeyPairSync } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -95,4 +104,20 @@ test('murmo plugin test runs the scaffold from the installed tarball', () => {
   assert.ok(report.contract.cases.passed > 0);
   assert.equal(report.contract.cases.failed, 0);
   assert.deepEqual(report.skipped.map((s) => s.executor).sort(), ['helper', 'quickjs']);
+});
+
+test('every relative link in the shipped guides resolves inside the installed package', () => {
+  // The guides linked to docs/plan and experiments/, git-ignored research
+  // folders that no user has, and the devkit guide still said to run the CLI
+  // from the repo.
+  const dir = join(installed, 'docs');
+  const broken: string[] = [];
+  for (const name of readdirSync(dir).filter((file) => file.endsWith('.md'))) {
+    const text = readFileSync(join(dir, name), 'utf8');
+    for (const match of text.matchAll(/\]\((?!https?:|#|mailto:)([^)#\s]+)/g)) {
+      const target = match[1] as string;
+      if (!existsSync(join(dir, target))) broken.push(`${name}: ${target}`);
+    }
+  }
+  assert.deepEqual(broken, []);
 });

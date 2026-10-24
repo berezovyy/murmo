@@ -89,6 +89,7 @@ Install and manage:
   murmo plugin project-apply <file> --approve-project HEX
 
 A source is a .tgz archive, git+<url>#<commit> or npm:<name>@<version>.
+The plugin API guide is docs/AUTHORING.md in the installed package; murmo plugin new prints its path.
 `;
 
 export interface PluginCommandContext {

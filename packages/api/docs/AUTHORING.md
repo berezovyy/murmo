@@ -101,7 +101,17 @@ Ask for keys through capabilities, never by host name. What the round 13 and 14 
 
 Declare whether you own or compose the editor, which keys you consume, and how to disable or rebind overlapping features. Preserve existing change/submit callbacks and render contributions; getters must not make a captured callback recurse after replacement. Do not take another editor's identity as evidence that its state was transferred safely. Respect native menus and dialogs, forward unclaimed keys, and provide teardown. Emit programmatic insertion as bracketed paste or an origin-tagged action; raw `send-keys` cannot promise paste protection. Never accept an invisible suggestion, and never let Enter accept a ghost. Describe the observed accept/undo behavior and submit boundary. State the tested host/Murmo versions and unsupported features; managed guards, isolated-runtime event support and fake-adapter results must be labeled accurately.
 
-Tested peers, versions and remedies: [docs/plan/25-coexistence.md](../../../docs/plan/25-coexistence.md#known-peer-table).
+Tested peers (host versions Pi 1.3.0, OpenCode 2.1.1, Claude Code 2.1.304, Codex 0.163.0; never more than was run):
+
+| Peer | Host | Result | Remedy |
+|---|---|---|---|
+| pi-autosuggestions 0.8.26 | Pi | works once callbacks are wrapped as data properties | none needed |
+| pi-prompt-autocomplete 0.3.0 | Pi | replaces the editor; Murmo's correction and revert still work | pick one editor |
+| opencode-snippets 3.3.2 | OpenCode | takes Tab until handed back | `murmo.prioritize` once; a later peer can retake it |
+| Grammar Guard 0.2.0, prompt coach 0.1.2, Privacy Guard 0.3.0 | Claude Code | compose in both load orders | none needed |
+| tmux 3.3a | Codex | a global `bind-key -n Tab` takes Tab | bind Tab and F6 behind the prefix, or rebind Murmo's keys |
+| editprompt 1.6.0 | Codex | raw `send-keys` looks typed | `tmux paste-buffer -p` |
+| Zellij 0.45.1, Prompt Line 0.41.6 | Codex, Claude Code | not supported | none |
 
 ## Not available yet
 

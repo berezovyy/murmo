@@ -1,8 +1,9 @@
 # Authoring against draft 2.0-pre
 
 The plugin API is a **preview** until Murmo v1. Breaking changes bump `API_DRAFT`
-(`2.0-pre.0` today). Read `packages/api/docs/CHANGELOG.md` and
-`docs/plan/03-plugin-api.md`.
+(`2.0-pre.0` today). The API guide is `packages/api/docs/AUTHORING.md`
+(`docs/AUTHORING.md` in the installed package, printed by `murmo plugin new`);
+changes are in `packages/api/docs/CHANGELOG.md`.
 
 ## Commands
 
@@ -11,11 +12,16 @@ murmo plugin new hello
 murmo plugin test hello
 murmo plugin test hello --profile claude --executor all
 murmo plugin dev hello --profile codex
+murmo plugin add ./hello      # review its permissions, then use it in your agents
+murmo plugin update ./hello   # after each edit
+murmo plugin pack ./hello     # a signed archive to share
 ```
 
-Until phase 27 mounts `murmo`, run `node packages/devkit/src/cli.ts plugin …`
-from the repo. The functions `pluginNewCommand`, `pluginTestCommand` and
-`pluginDevCommand` are what the CLI will mount.
+`add` and `update` with a folder sign it with your local development key
+(made on first use, kept in Murmo's data folder); that key only ever signs
+what you add from a folder on your own machine. Anyone else adds your
+`pack`ed archive with `--trust-key` and your public key. In a checkout of the
+repo, `node packages/cli/src/cli.ts plugin …` runs the same commands.
 
 `new` writes `murmo.plugin.json` (`api: "^2.0.0"`), a self-contained
 `plugin.mjs`, a copy of the public types, `plugin.test.mjs` and a README. It
@@ -35,7 +41,7 @@ symlink.
    default budgets.
 5. A route-parity probe (`onSubmitCommitted`, `ctx.storage`, `ctx.project.read`).
    Missing routes fail naming the route. If the helper binary is not built for
-   this platform, `test` says so and skips the helper route (phase 26).
+   this platform, `test` says so and skips the helper route.
 
 Non-zero exit on any hook fault, disabled plugin or missing service route.
 
@@ -78,7 +84,7 @@ emit fresh JSON.
 
 Declare whether you own or compose the editor, which keys you consume, and how to disable or rebind overlapping features. Preserve existing change/submit callbacks and render contributions; getters must not make a captured callback recurse after replacement. Do not take another editor's identity as evidence that its state was transferred safely. Respect native menus and dialogs, forward unclaimed keys, and provide teardown. Emit programmatic insertion as bracketed paste or an origin-tagged action; raw `send-keys` cannot promise paste protection. Never accept an invisible suggestion, and never let Enter accept a ghost. Describe the observed accept/undo behavior and submit boundary. State the tested host/Murmo versions and unsupported features; managed guards, isolated-runtime event support and fake-adapter results must be labeled accurately.
 
-Known peers (r14, never more than was run): see [docs/plan/25-coexistence.md](../../docs/plan/25-coexistence.md#known-peer-table). Pi prompt-autocomplete is exclusive; snippets/autocomplete are global Tab owners; tmux is an outer owner; editprompt's raw delivery lacks safe input origin. Zellij 0.45.1 and Prompt Line stay BLOCKED.
+Known peers (r14, never more than was run; the table is in `packages/api/docs/AUTHORING.md`): Pi prompt-autocomplete is exclusive; snippets/autocomplete are global Tab owners; tmux is an outer owner; editprompt's raw delivery lacks safe input origin. Zellij 0.45.1 and Prompt Line stay BLOCKED.
 
 ## Public driver
 

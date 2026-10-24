@@ -28,7 +28,7 @@ An adapter connects one host to the Murmo core. It implements `Adapter` from `@m
 
 ## Per-host limits known so far
 
-From [docs/03-host-integrations.md](../../../docs/03-host-integrations.md); the adapter phases re-measure them on the 2.0 contract.
+Measured on the real hosts before the 2.0 contract; each adapter measures them again on 2.0.
 
 | Host | Limits to report |
 |---|---|

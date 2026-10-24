@@ -6,7 +6,7 @@ import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Docs that a plugin author reads; PORTING.md is for adapter writers. */
-const AUTHOR_DOCS = ['AUTHORING.md', 'api.md', 'CHANGELOG.md', 'MANIFEST.md', 'events.md'] as const;
+const AUTHOR_DOCS = ['AUTHORING.md', 'api.md', 'CHANGELOG.md', 'MANIFEST.md', 'events.md', 'PORTING.md'] as const;
 
 export function packAuthoring(packageDir: string, repoRoot: string): void {
   const api = join(repoRoot, 'packages/api');
