@@ -63,6 +63,17 @@ export function sessionNotices(
   ];
 }
 
+/**
+ * The short forms of `sessionNotices` rows that have one, by their full text,
+ * for a status row too narrow for the full notice (Claude Code beside its
+ * mode label and effort pill).
+ */
+export function noticeShortForms(compiled: CompiledShortcuts): Readonly<Record<string, string>> {
+  const out: Record<string, string> = Object.create(null);
+  for (const notice of compiled.notices) if (notice.short) out[notice.text] = notice.short;
+  return out;
+}
+
 type Fields = NonNullable<CompileShortcut['fields']>;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>

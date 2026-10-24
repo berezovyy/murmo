@@ -70,6 +70,7 @@ export {
   type ConfigCompileOptions,
   type ConfigShortcuts,
   compileConfigShortcuts,
+  noticeShortForms,
   sessionNotices,
   shortcutRecords,
 } from './records.ts';

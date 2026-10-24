@@ -45,7 +45,13 @@ import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { findOffer, type RescueOptions, rescuePlugin } from '@murmo/plugin-rescue';
-import { compileConfigShortcuts, menuPlugin, sessionNotices, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import {
+  compileConfigShortcuts,
+  menuPlugin,
+  noticeShortForms,
+  sessionNotices,
+  shortcutsPlugin,
+} from '@murmo/plugin-shortcuts';
 import {
   createMemoryDrafts,
   createRemoteDrafts,
@@ -307,7 +313,7 @@ interface ConfigFollow {
   readonly runner: PluginHost;
   readonly everyMs: number | undefined;
   /** The new startup notices, without the boot ones. */
-  readonly restate: (notices: readonly string[]) => void;
+  readonly restate: (notices: readonly string[], short: Readonly<Record<string, string>>) => void;
   /** The config and the built-ins it makes, after each change. */
   readonly rebuilt?: (session: LoadedSession, builtins: readonly HostPluginSpec[]) => void;
 }
@@ -349,7 +355,10 @@ function followConfig(follow: ConfigFollow): () => void {
         follow.runner,
         rebuilt.specs.filter((spec) => changed.has(spec.id)),
       );
-      follow.restate([...restartNotice(restartSettings(follow.started.effective, next.effective)), ...rebuilt.notices]);
+      follow.restate(
+        [...restartNotice(restartSettings(follow.started.effective, next.effective)), ...rebuilt.notices],
+        rebuilt.short,
+      );
     },
   });
 }
@@ -392,6 +401,8 @@ function builtinsFromConfig(
   specs: HostPluginSpec[];
   order: string[];
   notices: string[];
+  /** Short forms of `notices` for a narrow hint row (`ClaudeAdapter.shortForms`). */
+  short: Readonly<Record<string, string>>;
 } {
   const config = session.effective;
   const compiled = compileConfigShortcuts(config, { session, asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES });
@@ -461,7 +472,12 @@ function builtinsFromConfig(
   // Claude's hint row has room for one of Murmo's lines: a draft waiting to be
   // restored says Murmo is on better than "murmo on · …", which hid the offer.
   const hint = rescue.offer === undefined || disabled.has('rescue');
-  return { specs: enabled, order, notices: sessionNotices(session, compiled, { hint }) };
+  return {
+    specs: enabled,
+    order,
+    notices: sessionNotices(session, compiled, { hint }),
+    short: noticeShortForms(compiled),
+  };
 }
 
 export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost {
@@ -492,7 +508,8 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       started: booted.session,
       stamps: booted.stamps,
       everyMs: options.recheckMs,
-      restate: (next) => {
+      restate: (next, short) => {
+        adapter.shortForms(short);
         startup = [...notices, ...next, ...installed];
         boot.session.restateNotices(startup);
       },
@@ -547,8 +564,9 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const table = payload ? await loadTable(rt, payload) : undefined;
       const rescue = await rescueOptions(helper, cwd, clock, services);
       const loaded = options.plugins
-        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
+        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [], short: {} }
         : builtinsFromConfig(booted.session, table, rescue);
+      adapter.shortForms(loaded.short);
       startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
@@ -671,13 +689,14 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       });
       const rescue = await rescueOptions(helper, input.cwd, clock, input.services);
       const builtins = options.plugins
-        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
+        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [], short: {} }
         : builtinsFromConfig(booted.session, table, rescue);
       const loaded = withInstalled(
         { specs: builtins.specs, order: builtins.order, grants: {} },
         options.plugins ? EMPTY_SELECTION : (input.installed ?? EMPTY_SELECTION),
         booted.session.effective.plugins,
       );
+      adapter.shortForms(builtins.short);
       startup = [...notices, ...builtins.notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,

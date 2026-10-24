@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { installTestPolicy } from '@murmo/plugin-autocorrect';
+import { compileShortcuts, noticeShortForms } from '@murmo/plugin-shortcuts';
 import { debugHost, register, resetHost } from '../src/register.ts';
 import { HELPER_FALLBACK_NOTICE } from '../src/session.ts';
 import { CLASSIC_GUARD_TIMEOUT_MS, type PromptEditInput } from '../src/types.ts';
@@ -157,5 +158,33 @@ test('the tail keeps only whole rows beside the parts of the row Claude draws (r
   // The live case: the fallback and the summary, 82 columns, once budgeted as fitting.
   host.adapter.showStatus(`${HELPER_FALLBACK_NOTICE} | ${second}`, host.adapter.getDraft().version);
   assert.equal(await tail('(shift+tab to cycle) · ← for agents', 120), HELPER_FALLBACK_NOTICE);
+  resetHost();
+});
+
+test('the trust notice takes its short form where the full one does not fit the row', async () => {
+  // In auto mode with the effort pill, 120 columns leave 40 for Murmo; the
+  // 57-column trust notice was cut by Claude before the command it names.
+  resetHost();
+  const fake = new FakeClaude();
+  register(fake.on);
+  const start = fake.hooks.get('session.start')?.[0]?.handler as (
+    $: unknown,
+    event: unknown,
+    next: (event: unknown) => unknown,
+  ) => Promise<unknown>;
+  await start(fake.$, {}, (event) => event);
+  const host = debugHost();
+  assert.ok(host);
+  const compiled = compileShortcuts({ replacements: [], trust: 'review', projectShortcutCount: 1 });
+  const trust = compiled.notices.find((n) => n.kind === 'trust');
+  assert.ok(trust?.short);
+  host.adapter.shortForms(noticeShortForms(compiled));
+  host.adapter.notices.length = 0;
+  const second = 'murmo on · 3 shortcuts · autocorrect off';
+  host.adapter.showStatus(`${trust.text} | ${second}`, host.adapter.getDraft().version);
+  host.adapter.measureHint('(shift+tab to cycle) · ← for agents', 120);
+  assert.equal(host.adapter.statusLine(), trust.short);
+  host.adapter.measureHint('(shift+tab to cycle) · ← for agents', 200);
+  assert.equal(host.adapter.statusLine(), `${trust.text} | ${second}`, 'the full form where it fits');
   resetHost();
 });

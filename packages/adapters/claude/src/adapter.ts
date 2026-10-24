@@ -170,6 +170,7 @@ export class ClaudeAdapter implements Adapter {
   #menu: readonly PresentedMenuItem[] | null = null;
   #highlight: readonly Range[] | null = null;
   #status: string | null = null;
+  readonly #short = new Map<string, string>();
   #probe = false;
   #ready = false;
   #baselineHint: string | null = null;
@@ -376,13 +377,26 @@ export class ClaudeAdapter implements Adapter {
     const rows = [...this.notices, ...(this.#status ? displayText(this.#status).split(STATUS_SEPARATOR) : [])];
     const room = this.caps.ui.statusMaxLength;
     let line = '';
-    for (const row of rows) {
-      if (!row) continue;
+    for (const full of rows) {
+      if (!full) continue;
+      // A row with a short form (`shortForms`) uses it where the full one doesn't fit.
+      const left = line ? room - line.length - STATUS_SEPARATOR.length : room;
+      const short = this.#short.get(full);
+      const row = short !== undefined && full.length > left ? short : full;
       if (!line) line = row;
-      else if (line.length + STATUS_SEPARATOR.length + row.length <= room) line += STATUS_SEPARATOR + row;
+      else if (row.length <= left) line += STATUS_SEPARATOR + row;
       else break;
     }
     return line;
+  }
+
+  /**
+   * Short forms of status rows by their full text (the shortcuts package's
+   * `noticeShortForms`), for a hint row too narrow for the full notice: the
+   * row's room is measured here (`measureHint`), after the core joined it.
+   */
+  shortForms(forms: Readonly<Record<string, string>>): void {
+    for (const [full, short] of Object.entries(forms)) this.#short.set(displayText(full), displayText(short));
   }
 
   decorations(): PromptDecoration[] {
