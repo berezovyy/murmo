@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { INTEGRITY_FILE, loadTrustAnchor, parseManifest, VerifyError, verifyPackage } from '@murmo/integrity';
 import { writeUserStarter } from '@murmo/plugin-shortcuts/node';
+import { initPluginStore, storeRootsFromEnv } from '@murmo/store/node';
 import { detectHosts } from './detect.ts';
 import { CliError } from './errors.ts';
 import { homeLayout, inventoryOf, knownFiles, ownedRoots, parentExistence, sha256Bytes } from './home.ts';
@@ -146,6 +147,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
     const newHosts = hosts.filter((h) => h.installed && !existing.hosts.some((o) => o.name === h.name && o.installed));
     const newer = versionCmp(pin.version, existing.package.version) > 0;
     if (!newer && newHosts.length === 0) {
+      await initPluginStore(storeRootsFromEnv(env, layout.home));
       return {
         status: 'unchanged',
         store: layout.data,
@@ -175,6 +177,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
       status = 'upgraded';
     }
     existing.hosts = hosts;
+    await initPluginStore(storeRootsFromEnv(env, layout.home));
     const registered = registerDetected(hosts, existing, layout, layout.payload, env, !newer);
     snapshotWritten(layout, existing);
     const launcher = writeLauncher(layout, env);
@@ -214,6 +217,8 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
   const launcher = writeLauncher(layout, env);
   journal.launcher = launcher.record;
   const personal = await writeStarter(layout, journal);
+  // `murmo plugin list` is the first "did it work?" command; it needs the store.
+  await initPluginStore(storeRootsFromEnv(env, layout.home));
   snapshotWritten(layout, journal);
   journal.complete = true;
   setPhase(journal, layout.journal, 'complete', env);

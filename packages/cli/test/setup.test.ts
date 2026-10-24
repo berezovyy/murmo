@@ -239,3 +239,48 @@ test('setup never overwrites a personal file, and uninstall keeps one the user e
     edited.remove();
   }
 });
+
+test('right after setup the plugin commands work and answer built-ins locally', async () => {
+  // Catches setup never creating the plugin store: `plugin list` (the first
+  // "did it work?" command) said platform-not-installed, `plugin --help` was
+  // an error, `plugin info shortcuts` asked a registry nobody configured and
+  // `plugin inspect shortcuts` was ENOENT.
+  const t = makeHome('murmo-setup-plugins-');
+  try {
+    assert.equal((await setup(t)).code, 0);
+    const run = async (args: string[]) => {
+      const io = capture();
+      const code = await main(['plugin', ...args], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr });
+      return { code, out: io.out.join(''), err: io.err.join('') };
+    };
+    const list = await run(['list']);
+    assert.equal(list.code, 0, list.err);
+    assert.match(list.out, /^on {2}shortcuts \(built-in\)$/m);
+    const help = await run(['--help']);
+    assert.equal(help.code, 0, help.err);
+    assert.match(help.out, /murmo plugin new <name>/);
+    for (const verb of ['info', 'inspect']) {
+      const info = await run([verb, 'shortcuts']);
+      assert.equal(info.code, 0, info.err);
+      assert.match(info.out, /shortcuts: built-in, on/);
+    }
+    assert.equal((await run(['disable', 'shortcuts'])).code, 0);
+    assert.match((await run(['list'])).out, /^off shortcuts \(built-in\)$/m);
+  } finally {
+    t.remove();
+  }
+});
+
+test('a plugin command creates a missing plugin store instead of failing', async () => {
+  // Catches `platform-not-installed` on a home whose store was never made
+  // (an install from before setup created it, or a deleted data folder).
+  const t = makeHome('murmo-plugin-first-use-');
+  try {
+    const io = capture();
+    const code = await main(['plugin', 'list'], { env: t.env, cwd: t.home, out: io.writeOut, err: io.writeErr });
+    assert.equal(code, 0, io.err.join(''));
+    assert.match(io.out.join(''), /autocorrect \(built-in\)/);
+  } finally {
+    t.remove();
+  }
+});

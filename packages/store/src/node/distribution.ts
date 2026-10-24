@@ -134,7 +134,7 @@ export interface SessionAck {
 export const EMPTY_MANIFEST: PluginsManifest = { schema: 1, revision: 0, order: [], plugins: {} };
 export const EMPTY_LEDGER: DistributionLedger = { schema: 1, identities: {}, projects: {} };
 
-export const BUILTIN_IDS = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history'] as const;
+export const BUILTIN_IDS = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
 export const DEFAULT_PLUGIN_ORDER: readonly string[] = BUILTIN_IDS;
 
 export function defaultManifest(): PluginsManifest {

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { API_VERSION } from '@murmo/api';
 import {
@@ -62,18 +62,26 @@ import {
 } from './trust.ts';
 import { verifyInstalled } from './verify.ts';
 
-export const PLUGIN_USAGE = `murmo plugin
+export const PLUGIN_USAGE = `murmo plugin: write, install and manage prompt-box plugins
+
+Write your own:
+  murmo plugin new <name>                  scaffold a plugin folder
+  murmo plugin test [folder] [--profile fake|claude|codex|opencode|pi] [--executor in-process|quickjs|helper|all]
+  murmo plugin dev [folder] [--profile HOST]   try it in a fake prompt box
+
+Install and manage:
   murmo plugin list [--json]
-  murmo plugin search <words> [--index URL] [--registry-key PUBLIC.pem] [--json]
-  murmo plugin info <id> [--index URL] [--registry-key PUBLIC.pem] [--json]
-  murmo plugin inspect <source> [--registry URL] [--json]
+  murmo plugin info|inspect <id|source> [--json]
   murmo plugin add <source|id[@version]> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL] [--index URL] [--rotate-statement FILE]
   murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL] [--rotate-statement FILE]
   murmo plugin disable|enable|remove|rollback|reinstall <id>
+  murmo plugin search <words> [--index URL] [--registry-key PUBLIC.pem] [--json]
   murmo plugin revoke --statement FILE --trust-key PUBLIC.pem
   murmo plugin doctor [--json]
   murmo plugin project-review <file>
   murmo plugin project-apply <file> --approve-project HEX
+
+A source is a .tgz archive, git+<url>#<commit> or npm:<name>@<version>.
 `;
 
 export interface PluginCommandContext {
@@ -104,11 +112,55 @@ function print(ctx: PluginCommandContext, json: boolean, value: unknown, text: s
   return 0;
 }
 
+/** The plugin list, created with the built-ins on first use (setup makes it too). */
 async function requireManifest(ctx: PluginCommandContext): Promise<PluginsManifest> {
   await recoverInterrupted(ctx.roots);
-  const manifest = await readPluginsManifest(ctx.roots);
-  if (!manifest) fail('platform-not-installed');
-  return manifest;
+  return (await readPluginsManifest(ctx.roots)) ?? (await initPluginStore(ctx.roots));
+}
+
+/** What each built-in does, for `plugin info` without a registry. */
+const BUILTIN_ABOUT: Readonly<Record<string, string>> = {
+  autocorrect: 'fixes typos as you type (opt-in: [autocorrect] enabled = true in murmo.toml)',
+  shortcuts: 'expands your shortcuts (;rvw then a space) from murmo.toml',
+  menu: 'the ; menu of your shortcuts and templates',
+  rescue: 'keeps an unsent draft so a crash or quit does not lose it',
+  phrases: 'remembers phrases you type often and offers them as ghost text',
+  history: 'searches what you sent before',
+  names: 'completes names from the current project',
+};
+
+/** `plugin info|inspect <id>` for a built-in or an installed plugin, answered from plugins.json. */
+function localInfo(
+  manifest: PluginsManifest,
+  id: string,
+): { value: Record<string, unknown>; text: string } | undefined {
+  const plugin = manifest.plugins[id];
+  if (!plugin) return undefined;
+  const state = plugin.enabled === false ? 'off' : 'on';
+  if (plugin.builtin) {
+    const about = BUILTIN_ABOUT[id];
+    return {
+      value: { id, builtin: true, enabled: plugin.enabled !== false, ...(about ? { about } : {}) },
+      text: `${id}: built-in, ${state}${about ? `\n  ${about}` : ''}`,
+    };
+  }
+  const dist = plugin.distribution;
+  const version = typeof dist?.manifest.version === 'string' ? dist.manifest.version : undefined;
+  return {
+    value: {
+      id,
+      builtin: false,
+      enabled: plugin.enabled !== false,
+      ...(version ? { version } : {}),
+      ...(dist ? { publisher: dist.publisher, digest: dist.digest, source: dist.source } : {}),
+      grants: plugin.grants,
+    },
+    text: [
+      `${id}${version ? `@${version}` : ''}: installed, ${state}`,
+      ...(dist ? [`  publisher ${dist.publisher}`, `  digest ${dist.digest}`] : []),
+      `  granted: ${plugin.grants.join(', ') || '(nothing)'}`,
+    ].join('\n'),
+  };
 }
 
 function pluginOf(manifest: PluginsManifest, id: string): InstalledPlugin {
@@ -240,6 +292,10 @@ async function writeLiveStorage(roots: StoreRoots, id: string, data: Record<stri
 }
 
 export async function pluginCommand(ctx: PluginCommandContext, args: readonly string[]): Promise<number> {
+  if (args.includes('--help') || args.includes('-h')) {
+    ctx.out(PLUGIN_USAGE);
+    return 0;
+  }
   const parsed = parsePluginArgs(args);
   const json = parsed.flags.has('--json');
   const [command, ...rest] = parsed.positional;
@@ -280,6 +336,8 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
       ctx.err('usage: murmo plugin info <id>\n');
       return 2;
     }
+    const local = localInfo(await requireManifest(ctx), id);
+    if (local) return print(ctx, json, local.value, local.text);
     const loaded = await ingestRegistry(ctx, parsed.flags, true);
     if (!loaded) fail('registry-index-unconfigured');
     const target = parseRegistryTarget(id, ctx.cwd) ?? { id };
@@ -303,6 +361,10 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
     if (!source) {
       ctx.err('usage: murmo plugin inspect <source>\n');
       return 2;
+    }
+    if (!existsSync(source)) {
+      const local = localInfo(await requireManifest(ctx), source);
+      if (local) return print(ctx, json, local.value, local.text);
     }
     const resolved = await resolveSource(source, {
       registry: flagString(parsed.flags, '--registry'),
@@ -388,7 +450,7 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
       rows
         .map((r) => {
           const extra = r.highTrust.length ? ` high-trust:${r.highTrust.join(',')}` : '';
-          return `${r.enabled ? 'on ' : 'off'} ${r.id}${r.builtin ? ' (builtin)' : r.version ? ` ${r.version}` : ''}${extra}`;
+          return `${r.enabled ? 'on ' : 'off'} ${r.id}${r.builtin ? ' (built-in)' : r.version ? ` ${r.version}` : ''}${extra}`;
         })
         .join('\n') || 'no plugins',
     );
