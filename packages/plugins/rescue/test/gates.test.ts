@@ -35,10 +35,9 @@ test('a draft over 64 KiB is not saved, the previous snapshot is removed, and on
   await idleSave(h, store, id);
   await h.driver.fill('x'.repeat(DRAFT_MAX_TEXT_BYTES + 1), 'typed');
   await h.driver.settle();
-  await new Promise((r) => setTimeout(r, 30));
-  assert.equal(await store.drafts.read(id), undefined);
   assert.match(h.adapter.status ?? '', /over 64 KiB/);
-  await h.session?.dispose();
+  await h.session?.dispose(); // waits for the queued delete
+  assert.equal(await store.drafts.read(id), undefined);
 });
 
 test('private mode saves nothing and removes this session snapshot', async () => {
@@ -52,9 +51,8 @@ test('private mode saves nothing and removes this session snapshot', async () =>
   await h.driver.fill('secret diary!', 'typed');
   await h.driver.wait(500);
   await h.driver.settle();
-  await new Promise((r) => setTimeout(r, 30));
+  await h.session?.dispose(); // waits for the queued delete
   assert.equal(await store.drafts.read(id), undefined);
-  await h.session?.dispose();
 });
 
 test('25-hour-old and foreign-project snapshots give no offer and are cleaned at start', async () => {
@@ -71,9 +69,11 @@ test('25-hour-old and foreign-project snapshots give no offer and are cleaned at
   await store.drafts.save(foreign, { text: UNICODE, cursorUTF16: 0, revision: 1, now: MANUAL_EPOCH_MS });
   const h = await withRescue(store, 'fresh');
   await assertNoOffer(h);
+  // Cleanup runs off the hook on real fs; closing the session waits for it,
+  // where a fixed sleep lost the race on a loaded machine.
+  await h.session?.dispose();
   assert.equal(await store.drafts.read(stale), undefined, 'expired file is removed at start');
   assert.equal((await store.drafts.read(foreign))?.text, UNICODE, 'another project is left alone');
-  await h.session?.dispose();
 });
 
 test('unknown certainty is not saved (Codex shadow draft)', async () => {
