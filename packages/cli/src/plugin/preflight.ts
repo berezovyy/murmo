@@ -1,18 +1,22 @@
-// Bounded preflight: load the candidate in-process, check the descriptor
-// against the signed envelope, activate, and return storage. First-party
-// plugins run in-process; the isolated guest is the seam for phase 32.
+// Bounded preflight: load the candidate in the isolated helper, inside the
+// same OS sandbox the hosts give a third-party plugin, check its descriptor
+// against the signed envelope, activate it once and return its storage. Its
+// code never runs in the CLI's own process.
 
-import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
-import type { Permission, Plugin, PluginContext, PluginFactory } from '@murmo/api';
+import type { PluginContext } from '@murmo/api';
+import { DEADLINES } from '@murmo/api';
+import type { Executor, PluginDescriptor } from '@murmo/api/adapter';
 import { createMemoryStorage, createStorageBroker } from '@murmo/core';
-import { createClock } from '@murmo/executor';
+import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import type { InspectedPlugin } from '@murmo/integrity';
 import { fail } from './errors.ts';
 
 export interface PreflightResult {
   readonly storage: Record<string, unknown>;
 }
+
+/** Where preflight runs plugin code: the isolated helper unless a test supplies a stand-in. */
+export type PreflightExecutor = () => Executor;
 
 const emptyDraft = { text: '', cursor: 0, version: 0, certainty: 'unknown' as const, typedSpans: [] as const };
 
@@ -21,72 +25,90 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Escape text for a RegExp. */
+function literal(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
- * A syntax error from `import()` names no line, so ask `node --check`,
- * whose first output line is `<path>:<line>`.
+ * The helper names the module after the plugin ID (`at hello:13:12`); say
+ * the file the author edits instead, on one line.
  */
-function syntaxLocation(entryPath: string): string | undefined {
-  const check = spawnSync(process.execPath, ['--check', entryPath], { encoding: 'utf8', timeout: 5_000 });
-  const first = check.stderr?.split('\n')[0]?.trim();
-  return first && /:\d+$/.test(first) ? first : undefined;
+function located(message: string, id: string, file: string): string {
+  return message
+    .replace(new RegExp(`\\b${literal(id)}:(\\d+)`, 'g'), `${file}:$1`)
+    .replace(/\s*\n\s*/g, ' ')
+    .trim();
 }
 
-async function loadFactory(entryPath: string, file: string): Promise<PluginFactory> {
-  const href = `${pathToFileURL(entryPath).href}?preflight=${Date.now()}`;
-  let mod: { default?: unknown };
+async function load(executor: Executor, inspected: InspectedPlugin): Promise<PluginDescriptor> {
+  const file = inspected.envelope.entry;
+  const bytes = inspected.files[file];
+  if (!bytes) fail('load-failed', { file, error: 'the package has no such file' });
   try {
-    mod = (await import(href)) as { default?: unknown };
+    return await executor.load({
+      id: inspected.envelope.id,
+      builtin: false,
+      source: new TextDecoder().decode(bytes),
+      manifest: inspected.portable,
+      settings: {},
+      sandbox: true,
+    });
   } catch (error) {
-    const where = error instanceof SyntaxError ? syntaxLocation(entryPath) : undefined;
-    fail('load-failed', { file, error: where ? `${messageOf(error)} at ${where}` : messageOf(error) });
+    fail('load-failed', { file, error: located(messageOf(error), inspected.envelope.id, file) });
   }
-  if (typeof mod.default !== 'function') fail('load-failed', { file, error: 'it must default-export a factory' });
-  return mod.default as PluginFactory;
-}
-
-function asPlugin(value: unknown): Plugin {
-  if (!value || typeof value !== 'object') fail('load-failed', { error: 'factory did not return a plugin' });
-  return value as Plugin;
 }
 
 export async function preflightActivate(
   inspected: InspectedPlugin,
-  entryPath: string,
   data: Record<string, unknown>,
-  _grants: readonly Permission[],
+  executorOf: PreflightExecutor = () => createNodeIsolatedExecutor(),
 ): Promise<PreflightResult> {
-  const file = inspected.envelope.entry;
-  const factory = await loadFactory(entryPath, file);
-  let plugin: Plugin;
+  const id = inspected.envelope.id;
+  const executor = executorOf();
   try {
-    plugin = asPlugin(factory({}));
-  } catch (error) {
-    fail('load-failed', { file, error: messageOf(error) });
+    const plugin = await load(executor, inspected);
+    if (plugin.permissions.some((name) => !inspected.envelope.permissions.includes(name))) {
+      fail('descriptor-permissions-mismatch', {
+        declared: plugin.permissions,
+        envelope: inspected.envelope.permissions,
+      });
+    }
+    if (plugin.name !== id || plugin.version !== inspected.envelope.version) {
+      fail('descriptor-version-mismatch', {
+        entry: inspected.envelope.entry,
+        name: plugin.name,
+        version: plugin.version,
+        expectedName: id,
+        expectedVersion: inspected.envelope.version,
+      });
+    }
+    const backend = createMemoryStorage();
+    await backend.save(id, JSON.stringify(data));
+    if (plugin.hooks.includes('activate')) {
+      try {
+        await executor.run(id, 'activate', null, context(executor, createStorageBroker(backend).forPlugin(id)), {
+          timeoutMs: DEADLINES.activateMs,
+        });
+      } catch (error) {
+        fail('activation-failed', { error: messageOf(error) });
+      }
+    }
+    return { storage: parsedStorage(await backend.load(id), data) };
+  } finally {
+    await executor.dispose().catch(() => {});
   }
-  const declared = plugin.permissions ?? [];
-  if (declared.some((name) => !inspected.envelope.permissions.includes(name))) {
-    fail('descriptor-permissions-mismatch', { declared, envelope: inspected.envelope.permissions });
-  }
-  if (plugin.name !== inspected.envelope.id || plugin.version !== inspected.envelope.version) {
-    fail('descriptor-version-mismatch', {
-      entry: file,
-      name: plugin.name,
-      version: plugin.version,
-      expectedName: inspected.envelope.id,
-      expectedVersion: inspected.envelope.version,
-    });
-  }
-  const backend = createMemoryStorage();
-  await backend.save(inspected.envelope.id, JSON.stringify(data));
-  const storage = createStorageBroker(backend).forPlugin(inspected.envelope.id);
-  const clock = createClock();
-  const ctx: PluginContext = {
+}
+
+/** What `activate` sees: no draft, no project, every broker but storage denied. */
+function context(executor: Executor, storage: PluginContext['storage']): PluginContext {
+  return {
     host: { name: 'fake', version: 'preflight', caps: { status: true } as PluginContext['host']['caps'] },
     draft: emptyDraft,
     state: { mode: 'prose', popup: null, dialog: false, busy: false, editorMode: 'insert', history: false },
     settings: {},
     signal: { cancelled: false },
-    clock,
+    clock: executor.clock,
     storage,
     project: {
       read: async () => ({ status: 'denied', reason: 'fs:project-read must be declared, granted and brokered' }),
@@ -96,22 +118,14 @@ export async function preflightActivate(
     git: { query: async () => ({ status: 'denied', reason: 'project:git must be declared, granted and brokered' }) },
     session: { id: 'preflight' },
   };
-  if (typeof plugin.activate === 'function') {
-    try {
-      await plugin.activate(ctx);
-    } catch (error) {
-      fail('activation-failed', { error: error instanceof Error ? error.message : String(error) });
-    }
-  }
-  const raw = await backend.load(inspected.envelope.id);
-  let storageOut: Record<string, unknown> = data;
+}
+
+function parsedStorage(raw: string, fallback: Record<string, unknown>): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) storageOut = parsed as Record<string, unknown>;
-  } catch {
-    storageOut = data;
-  }
-  return { storage: storageOut };
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch {}
+  return fallback;
 }
 
 export function migrateStorage(

@@ -14,6 +14,8 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Executor } from '@murmo/api/adapter';
+import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import {
   buildManifest,
   helperPath,
@@ -295,6 +297,16 @@ export interface PluginHome {
   remove(): void;
 }
 
+/**
+ * Preflight in the real helper, minus the OS sandbox: the offline test runner
+ * already sandboxes every test and macOS refuses a nested one. The plugin's
+ * code still runs only in the helper's engine, which has no Node APIs.
+ */
+export function helperWithoutOsSandbox(): Executor {
+  const executor = createNodeIsolatedExecutor();
+  return { ...executor, load: (spec) => executor.load({ ...spec, sandbox: false }) };
+}
+
 export function pluginHome(): PluginHome {
   const dir = mkdtempSync(join(tmpdir(), 'murmo-plugin-'));
   const roots: StoreRoots = {
@@ -321,6 +333,7 @@ export function pluginHome(): PluginHome {
       stderr.push(text);
     },
     quiesceMs: 200,
+    preflight: helperWithoutOsSandbox,
   };
   return {
     dir,

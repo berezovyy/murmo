@@ -39,7 +39,7 @@ import { type DevKey, devKey } from './devkey.ts';
 import { fail } from './errors.ts';
 import { grantReview, HIGH_TRUST, parseGrantList, requireGrants } from './grants.ts';
 import { isPluginFolder, packFolder, readFolderManifest } from './pack.ts';
-import { migrateStorage, preflightActivate } from './preflight.ts';
+import { migrateStorage, type PreflightExecutor, preflightActivate } from './preflight.ts';
 import { reviewProjectFile } from './project.ts';
 import {
   assertListedArchive,
@@ -108,6 +108,8 @@ export interface PluginCommandContext {
   readonly quiesceMs?: number;
   /** Asks the review question (`add` without --grant); '' when input ends. Without it, --grant is required. */
   readonly ask?: (prompt: string) => Promise<string>;
+  /** Where add and update run the candidate once; default the isolated helper in its OS sandbox. */
+  readonly preflight?: PreflightExecutor;
 }
 
 function gateOf(ctx: PluginCommandContext): TrustGate {
@@ -931,8 +933,7 @@ async function install(
       toDigest: inspected.digest,
       ...(old?.distribution ? { fromDigest: old.distribution.digest, previousEnabled: old.enabled } : {}),
     });
-    const entryPath = join(dest, inspected.envelope.entry);
-    const activated = await preflightActivate(inspected, entryPath, data, inspected.envelope.permissions);
+    const activated = await preflightActivate(inspected, data, ctx.preflight);
     data = activated.storage;
     const { writeAtomic, ensurePrivateDir } = await import('@murmo/store/node');
     await ensurePrivateDir(dirname(join(ctx.roots.data, storageRel)), ctx.roots.data);

@@ -3,9 +3,11 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pluginNew } from '@murmo/devkit';
+import { SANDBOX_UNAVAILABLE } from '@murmo/executor';
 import { readLedger, readPluginsManifest } from '@murmo/store/node';
 import { main } from '../src/cli.ts';
 import { type PluginCommandContext, pluginCommand } from '../src/plugin/commands.ts';
@@ -168,6 +170,81 @@ test('the CLI prints what an approval error needs, not only its code', async () 
     const err = io.err.join('');
     assert.match(err, /hello is signed by publisher [0-9a-f]{64}/);
     assert.match(err, /--trust-key/);
+  } finally {
+    t.remove();
+  }
+});
+
+test('plugin add never runs the plugin in its own process: hostile code cannot touch files or sockets', async () => {
+  // Preflight imported the plugin into the CLI's Node process, so its
+  // top-level code and activate() ran with the user's full file system and
+  // network before any review mattered.
+  const home = await preparedHome();
+  const listener = createServer((socket) => socket.end());
+  const socketPath = join(home.dir, 'hostile.sock');
+  let connections = 0;
+  listener.on('connection', () => {
+    connections++;
+  });
+  await new Promise<void>((resolve) => listener.listen(socketPath, resolve));
+  try {
+    const folder = await pluginNew('hello', home.dir);
+    const entry = join(folder, 'plugin.mjs');
+    const canary = join(home.dir, 'canary');
+    const attempts = (label: string) => `
+  try { (await import('node:fs')).writeFileSync(${JSON.stringify(`${canary}-${label}-fs`)}, 'x'); } catch {}
+  try { (await import('node:child_process')).execFileSync('/usr/bin/touch', [${JSON.stringify(`${canary}-${label}-spawn`)}]); } catch {}
+  try {
+    const net = await import('node:net');
+    await new Promise((done) => { const s = net.connect(${JSON.stringify(socketPath)}, done); s.on('error', done); });
+  } catch {}`;
+    writeFileSync(
+      entry,
+      `${attempts('top')}
+export default () => ({
+  name: 'hello',
+  version: '0.1.0',
+  permissions: ['draft:read'],
+  async activate() {${attempts('activate')}
+    return [];
+  },
+});
+`,
+    );
+    const added = await run(home, ['add', folder, '--grant', 'draft:read']);
+    assert.equal(added.code, 0, added.err);
+    for (const label of ['top', 'activate']) {
+      for (const kind of ['fs', 'spawn'])
+        assert.equal(existsSync(`${canary}-${label}-${kind}`), false, `${label} ${kind}`);
+    }
+    assert.equal(connections, 0, 'the plugin reached a local socket');
+  } finally {
+    listener.close();
+    home.remove();
+  }
+});
+
+test('the real CLI preflights a plugin inside the OS sandbox the hosts use', async () => {
+  // Without a stand-in, add must ask the helper for the third-party sandbox.
+  // Inside the macOS offline runner that sandbox is refused (no nesting), so
+  // the refusal proves it was asked for, and the user reads why, not a crash.
+  const t = makeHome('murmo-plugin-sandboxed-');
+  try {
+    const folder = await pluginNew('hello', t.root);
+    const io = capture();
+    const add = await main(['plugin', 'add', folder, '--grant', 'draft:read'], {
+      env: t.env,
+      cwd: t.root,
+      out: io.writeOut,
+      err: io.writeErr,
+    });
+    const err = io.err.join('');
+    if (process.platform === 'darwin' && process.env.MURMO_OFFLINE === '1') {
+      assert.equal(add, 1, io.out.join(''));
+      assert.match(err, new RegExp(`could not load plugin\\.mjs: ${SANDBOX_UNAVAILABLE}`));
+    } else {
+      assert.ok(add === 0 || err.includes(SANDBOX_UNAVAILABLE), err);
+    }
   } finally {
     t.remove();
   }
