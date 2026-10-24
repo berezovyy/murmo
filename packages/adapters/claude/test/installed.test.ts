@@ -132,6 +132,7 @@ test('plugin add and disable apply to an open Claude session', async () => {
       },
       fetch: () => Promise.reject(new Error('no helper in this test')),
       repaint() {},
+      suggest: async () => ({ isShown: false }),
     },
     selection: {
       revision: async () => parsePluginsManifest(await read(pluginsManifestPath(roots)))?.revision ?? 0,

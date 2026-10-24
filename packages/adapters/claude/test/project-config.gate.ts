@@ -196,7 +196,7 @@ test('without a helper the personal file still loads and project shortcuts are o
     await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, ';hp ;me ');
     assert.equal(fake.draft.text, ';hp personal shortcut ');
     assert.deepEqual(host.notices, [
-      'project shortcuts off: the Murmo helper is missing from this install (murmo doctor)',
+      'project shortcuts off: run murmo doctor',
       'murmo on · 1 shortcut · autocorrect off',
     ]);
   } finally {
