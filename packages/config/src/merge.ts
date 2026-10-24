@@ -17,7 +17,10 @@ export interface EffectiveConfig {
   readonly replacements: readonly Shortcut[];
   /** Shortcuts where a project entry replaced a personal one. */
   readonly overrides: readonly string[];
-  /** User words, then project words, without duplicates. */
+  /**
+   * `[words] protect` from the user file, then the project file; a session
+   * load (`loadSessionConfig`) then adds the `murmo words` lists. No duplicates.
+   */
   readonly protect: readonly string[];
   /** Autocorrect is opt-in: false unless the user file turns it on. */
   readonly autocorrect: boolean;

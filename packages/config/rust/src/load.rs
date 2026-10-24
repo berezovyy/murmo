@@ -313,6 +313,27 @@ impl SessionConfig {
     }
 }
 
+/// A `murmo words` list (personal or one project's); missing or unreadable is empty.
+fn stored_words(path: &Path) -> Vec<String> {
+    let mut repairs = ModeRepairs::default();
+    match read_record(RecordKind::Words, path, RECORD_MAX_BYTES, &mut repairs) {
+        RecordRead::Ok(record) => record
+            .get("words")
+            .and_then(Json::as_array)
+            .map(|words| {
+                words
+                    .iter()
+                    .filter_map(|w| w.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+/// `protect` is the files' `[words] protect`, then the `murmo words` lists
+/// (personal, then this project's), without duplicates: the user's own, so
+/// trust never gates them.
 pub fn load_session_config(
     cwd: &Path,
     user_path: &Path,
@@ -322,8 +343,9 @@ pub fn load_session_config(
     stamps.push(stamp_of(&layout.trust));
     let mut project = None;
     let mut trust = TrustState::None;
-    if let Some(root) = find_repository_root(cwd)? {
-        project = scan_project(&root)?;
+    let root = find_repository_root(cwd)?;
+    if let Some(root) = &root {
+        project = scan_project(root)?;
         match &project {
             Some(p) => {
                 stamps.extend(p.stamps.iter().cloned());
@@ -342,14 +364,29 @@ pub fn load_session_config(
                 };
                 trust = trust_state_of(p, approval.as_ref());
             }
-            None => stamps.push(stamp_of(&fs::canonicalize(&root)?.join(PROJECT_FILE))),
+            None => stamps.push(stamp_of(&fs::canonicalize(root)?.join(PROJECT_FILE))),
         }
     }
-    let effective = merge_config(
+    let mut effective = merge_config(
         user.as_ref(),
         project.as_ref().map(|p| &p.config),
         trust == TrustState::Approved,
     );
+    let project_id = match (&project, &root) {
+        (Some(p), _) => Some(p.identity.project_id.clone()),
+        (None, Some(root)) => project_identity(root).ok().map(|id| id.project_id),
+        (None, None) => None,
+    };
+    let mut word_files = vec![layout.words.clone()];
+    word_files.extend(project_id.and_then(|id| layout.project_words(&id)));
+    for path in word_files {
+        stamps.push(stamp_of(&path));
+        for word in stored_words(&path) {
+            if !effective.protect.contains(&word) {
+                effective.protect.push(word);
+            }
+        }
+    }
     Ok(SessionConfig {
         user,
         project,

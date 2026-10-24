@@ -152,6 +152,15 @@ async function sessionLeg(binary) {
     // Sessions agree without a project file, and from a subfolder.
     await agree(ws.repo('bare'), 'no project file', 'none');
     await agree(join(base, '.git'), 'from a subfolder', 'approved');
+    // `murmo words` lists join protect: personal, then the project's, also with no project file.
+    const words = ws.repo('words');
+    const { projectIdentity } = await import('../packages/store/src/node/index.ts');
+    assert.equal((await store.words.add('teh', { learned: false })).status, 'ok');
+    const projectId = (await projectIdentity(words)).projectId;
+    assert.equal((await store.words.add('recieve', { learned: false, projectId })).status, 'ok');
+    await agree(words, 'stored words', 'none');
+    const stored = (await loadSessionConfig({ cwd: words, store, env: ws.env })).effective.protect;
+    assert.deepEqual(stored.slice(-2), ['teh', 'recieve'], 'stored words reach protect');
   } finally {
     ws.remove();
   }

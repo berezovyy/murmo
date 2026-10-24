@@ -6,7 +6,7 @@ import { constants } from 'node:fs';
 import fsp from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
-import type { TrustApproval } from '@murmo/store';
+import { projectWordsPath, type TrustApproval } from '@murmo/store';
 import {
   findRepositoryRoot,
   type ProjectIdentity,
@@ -241,6 +241,36 @@ export interface SessionConfigOptions {
   readonly home?: string;
 }
 
+async function projectIdOf(root: string | undefined): Promise<string | undefined> {
+  if (!root) return undefined;
+  try {
+    return (await projectIdentity(root)).projectId;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The `murmo words` lists: personal, then this project's. They are the user's own, so trust never gates them. */
+async function storedWords(
+  store: Store,
+  projectId: string | undefined,
+): Promise<{ words: string[]; stamps: FileStamp[] }> {
+  const words = await store.words.list();
+  const stamps = [await stampOf(store.layout.words)];
+  if (projectId !== undefined) {
+    words.push(...(await store.words.list(projectId)));
+    stamps.push(await stampOf(projectWordsPath(store.layout, projectId)));
+  }
+  return { words, stamps };
+}
+
+/** `protect` gains the stored words after the files' `[words] protect`, without duplicates. */
+function withWords(effective: EffectiveConfig, words: readonly string[]): EffectiveConfig {
+  const protect = [...effective.protect];
+  for (const word of words) if (!protect.includes(word)) protect.push(word);
+  return protect.length === effective.protect.length ? effective : { ...effective, protect };
+}
+
 export async function loadSessionConfig(options: SessionConfigOptions): Promise<SessionConfig> {
   const env = options.env ?? process.env;
   const userPath = userConfigPath(env, options.home ?? (env.HOME || homedir()));
@@ -259,11 +289,14 @@ export async function loadSessionConfig(options: SessionConfigOptions): Promise<
       stamps.push(await stampOf(join(await fsp.realpath(root), PROJECT_FILE)));
     }
   }
-  const effective = mergeConfig({
+  const merged = mergeConfig({
     ...(user.config ? { user: user.config } : {}),
     ...(project ? { project: project.config } : {}),
     projectTrusted: trust === 'approved',
   });
+  const words = await storedWords(options.store, project?.identity.projectId ?? (await projectIdOf(root)));
+  stamps.push(...words.stamps);
+  const effective = withWords(merged, words.words);
   options.store.privacy.setConfigPrivate(effective.private);
   return {
     ...(user.config ? { user: user.config } : {}),

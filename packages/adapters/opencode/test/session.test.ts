@@ -10,6 +10,7 @@ import { testInlinePlugin } from '@murmo/core/testing';
 import { createInProcessExecutor } from '@murmo/executor';
 import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
 import { compileShortcuts, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { OpenCodeAdapter } from '../src/adapter.ts';
 import { loadHostSessionConfig, startSession } from '../src/session.ts';
 import { FakeOpenCode } from './fake-opencode.ts';
@@ -157,4 +158,50 @@ test('a template shortcut from config inserts its field defaults (real-host bug)
   await Promise.resolve();
   assert.match(adapter.getDraft().text, /^Review this change for correctness\./);
   await started.close();
+});
+
+test('a word added with murmo words is left alone in the next session', async () => {
+  // `murmo words add teh` printed "Added teh." yet teh still became the:
+  // no host read the stored list into autocorrect's protection.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-words-'));
+  const prev = process.env.MURMO_PACKAGE_ROOT;
+  try {
+    const root = join(dir, 'package');
+    mkdirSync(join(root, 'data', 'en'), { recursive: true });
+    writeFileSync(join(root, 'data', 'en', 'english.bin'), loadEnglishPack().bytes);
+    process.env.MURMO_PACKAGE_ROOT = root;
+    const home = join(dir, 'home');
+    const env: NodeJS.ProcessEnv = {
+      HOME: home,
+      XDG_CONFIG_HOME: join(home, '.config'),
+      XDG_DATA_HOME: join(home, '.local', 'share'),
+      XDG_STATE_HOME: join(home, '.local', 'state'),
+      XDG_CACHE_HOME: join(home, '.cache'),
+    };
+    mkdirSync(join(env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
+    writeFileSync(join(env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'), '[autocorrect]\nenabled = true\n');
+    const store = await openStore({ roots: storeRootsFromEnv(env) });
+    assert.equal((await store.words.add('teh', { learned: false })).status, 'ok');
+    const cwd = join(dir, 'proj');
+    mkdirSync(cwd);
+    const host = new FakeOpenCode();
+    const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+    const started = await startSession({
+      adapter,
+      executor: executor(),
+      config: await loadHostSessionConfig(cwd, env),
+    });
+    host.type('teh');
+    host.press({ name: 'space', sequence: ' ' });
+    host.type('adn');
+    host.press({ name: 'space', sequence: ' ' });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(adapter.getDraft().text, 'teh and ');
+    await started.close();
+  } finally {
+    if (prev === undefined) delete process.env.MURMO_PACKAGE_ROOT;
+    else process.env.MURMO_PACKAGE_ROOT = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

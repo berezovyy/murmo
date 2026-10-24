@@ -111,3 +111,30 @@ test('a 1,000-shortcut trusted load stays within p50 1.5 ms and p99 3 ms', async
   assert.ok(p50 <= 1.5 * slack, `p50 ${p50} ms`);
   assert.ok(p99 <= 3 * slack, `p99 ${p99} ms`);
 });
+
+test('murmo words lists join [words] protect in the session, personal then project', async () => {
+  // Catches `murmo words add teh` printing "Added teh." while sessions never
+  // read the list, so teh was still corrected; and a later add not being seen
+  // by the idle re-check.
+  const own = workspace('murmo-load-words-');
+  try {
+    const words = await openStore({ roots: own.roots });
+    writeFileSync(join(own.home, '.config', 'murmo', 'murmo.toml'), '[words]\nprotect = ["Kubernetes"]\n');
+    const root = own.repo('words', trustCases.base);
+    const projectId = (await scanProject(root))?.identity.projectId as string;
+    assert.equal((await words.words.add('teh', { learned: false })).status, 'ok');
+    assert.equal((await words.words.add('Kubernetes', { learned: false })).status, 'ok');
+    assert.equal((await words.words.add('recieve', { learned: false, projectId })).status, 'ok');
+    const session = await loadSessionConfig({ cwd: root, store: words, env: own.env });
+    assert.deepEqual(session.effective.protect, ['Kubernetes', 'teh', 'recieve']);
+    const elsewhere = await loadSessionConfig({ cwd: own.dir, store: words, env: own.env });
+    assert.deepEqual(elsewhere.effective.protect, ['Kubernetes', 'teh']);
+
+    assert.equal(await recheckSessionConfig(session, { cwd: root, store: words, env: own.env }), undefined);
+    assert.equal((await words.words.add('adn', { learned: false })).status, 'ok');
+    const next = await recheckSessionConfig(session, { cwd: root, store: words, env: own.env });
+    assert.deepEqual(next?.effective.protect, ['Kubernetes', 'teh', 'adn', 'recieve']);
+  } finally {
+    own.remove();
+  }
+});
