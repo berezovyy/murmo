@@ -88,5 +88,6 @@ export type {
 export { decodeRecord, EMPTY_TRUST, EMPTY_WORDS, encodeRecord, RECORD_MAX_BYTES, RECORD_SCHEMA } from './records.ts';
 export type { RemoteStore, RemoteWrite, StoreTransport } from './remote.ts';
 export { createRemoteStore } from './remote.ts';
+export { createRemoteDrafts, remoteProjectId } from './remote-drafts.ts';
 export type { ReadRange, Snapshot, SnapshotDecode, SnapshotFields, SnapshotHeader } from './snapshot.ts';
 export { CHUNK_BYTES, decodeSnapshot, encodeSnapshot, readSnapshotChunked } from './snapshot.ts';

@@ -8,10 +8,14 @@
 //   namespace lose no key.
 // - protocol: the same requests give the same replies from the Node handler
 //   (handleStoreRequest) and the Rust one (Store::handle).
+// - draft locks: a draft session lock held by a live Rust process reads as
+//   live to Node and the other way round (same lock body and start token), so
+//   neither offers a running session's draft or hides a dead one's.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { rustExample } from './config-parity.mjs';
 
 const RUNS = 20;
@@ -74,10 +78,78 @@ async function setsLeg(binary, h, store) {
   }
 }
 
+const PROJECT = 'b'.repeat(64);
+const draftId = (session, project = PROJECT, host = 'claude') => ({ project, host, session });
+const save = (session, text, now, extra = {}) => ({
+  op: 'drafts.save',
+  draft: draftId(session),
+  text,
+  cursorUTF16: text.length,
+  revision: 1,
+  now,
+  ...extra,
+});
+
+/** Draft rescue requests; `cwd` is a directory outside any repository. */
+function draftRequests(cwd) {
+  return [
+    { op: 'project.id', cwd: 'relative/dir' },
+    { op: 'project.id', cwd },
+    { op: 'project.id', cwd: join(cwd, 'missing') },
+    save('s-dead', 'crash draft\n你好 👨\u200d👩\u200d👧', 1_000_000),
+    { op: 'drafts.read', draft: draftId('s-dead') },
+    { op: 'drafts.read', draft: draftId('s-none') },
+    // A dead session's draft (no lock) is offered to another session, never to its own.
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 's-live', now: 1_000_001 },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 's-dead', now: 1_000_001 },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', now: 1_000_000 + 86_400_000 },
+    save('s-live', '', 1_000_002),
+    save('s-live', 'x'.repeat(65_537), 1_000_002),
+    save('s-live', '😀', 1_000_002, { cursorUTF16: 1 }),
+    save('s-live', 'ok', 1_000_002, { revision: 1.5 }),
+    { ...save('s-live', 'bad project', 1_000_002), draft: draftId('s-live', 'B'.repeat(64)) },
+    { ...save('s-live', 'bad host', 1_000_002), draft: draftId('s-live', PROJECT, 'vim') },
+    { ...save('s-live', 'bad session', 1_000_002), draft: draftId('s.live') },
+    { op: 'drafts.lock', draft: draftId('s-live') },
+    { op: 'drafts.lock', draft: draftId('s-live') },
+    // Saving sweeps dead sessions' drafts; the held lock keeps this one live.
+    save('s-live', 'live draft', 1_000_003),
+    { op: 'drafts.read', draft: draftId('s-dead') },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 's-other', now: 1_000_004 },
+    { op: 'drafts.unlock', draft: draftId('s-live') },
+    { op: 'drafts.unlock', draft: draftId('s-live') },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 's-other', now: 1_000_004 },
+    { op: 'drafts.markAttempted', draft: draftId('s-live'), now: 1_000_005 },
+    { op: 'drafts.read', draft: draftId('s-live') },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 's-other', now: 1_000_006 },
+    { op: 'drafts.markAttempted', draft: draftId('s-none') },
+    // pid 1 is always alive and never ours: its session is still running.
+    { writeLock: { session: 's-init', body: { pid: 1, start: '', acquiredAt: 1, token: 't' } } },
+    { op: 'drafts.lock', draft: draftId('s-init') },
+    save('s-old', 'old draft', 0, { draft: draftId('s-old', PROJECT, 'pi') }),
+    { op: 'drafts.offer', project: PROJECT, host: 'pi', now: 1 },
+    { op: 'drafts.cleanup', now: 86_400_000 },
+    { op: 'drafts.offer', project: PROJECT, host: 'pi', now: 1 },
+    { op: 'drafts.offer', project: 'nope', host: 'pi' },
+    { op: 'drafts.offer', project: PROJECT, host: 'vim' },
+    { op: 'drafts.delete', draft: draftId('s-live') },
+    { op: 'drafts.read', draft: draftId('s-live') },
+    { op: 'drafts.delete', draft: draftId('s.bad') },
+    { op: 'drafts.save', draft: draftId('s-x'), text: 'a', cursorUTF16: 1 },
+    { op: 'drafts.save', draft: draftId('s-x'), text: 'a', cursorUTF16: 1, revision: 0, now: null },
+    { op: 'drafts.read', draft: { project: PROJECT, host: 'claude' } },
+    { op: 'drafts.offer', project: PROJECT, host: 'claude', session: 7 },
+    { op: 'drafts.cleanup', now: 'soon' },
+    { op: 'drafts.nope', draft: draftId('s-x') },
+    { op: 'project.id' },
+  ];
+}
+
 /** Requests that cover every op and every refusal both handlers can give. */
-function requests() {
+function requests(cwd) {
   const big = 'x'.repeat(70_000);
   return [
+    ...draftRequests(cwd),
     { op: 'generation.get' },
     { op: 'private.get' },
     { op: 'storage.get', plugin: 'p', key: 'missing' },
@@ -108,11 +180,15 @@ function requests() {
     { op: 'storage.set', plugin: 'p', key: 'k', value: 2 },
     { op: 'log.append', kind: 'history', session: 's-2', lines: ['{"text":"sent"}'] },
     { op: 'storage.get', plugin: 'p', key: 'k' },
+    // Private mode saves no draft and removes this session's.
+    save('s-private', 'private draft', 2_000_000),
+    { op: 'drafts.read', draft: draftId('s-private') },
   ];
 }
 
 async function protocolLeg(binary, h, store) {
   const [jsRoots, rustRoots] = [h.tempRoots('murmo-store-parity-js-'), h.tempRoots('murmo-store-parity-rs-')];
+  const cwd = mkdtempSync(join(tmpdir(), 'murmo-store-parity-cwd-'));
   try {
     const node = await store.openStore({ roots: jsRoots.roots });
     const rust = spawn(binary, [...h.rootArgs(rustRoots.roots), 'handle'], { stdio: ['pipe', 'pipe', 'inherit'] });
@@ -130,9 +206,23 @@ async function protocolLeg(binary, h, store) {
         waiting.push(resolve);
         rust.stdin.write(`${JSON.stringify(message)}\n`);
       });
-    const list = requests();
+    const list = requests(cwd);
     try {
       for (const [i, message] of list.entries()) {
+        if (message && typeof message === 'object' && 'writeLock' in message) {
+          for (const t of [jsRoots, rustRoots]) {
+            const dir = join(store.projectDrafts(store.storeLayout(t.roots), PROJECT), 'claude');
+            mkdirSync(dir, { recursive: true, mode: 0o700 });
+            writeFileSync(
+              join(dir, `${message.writeLock.session}.lock`),
+              `${JSON.stringify(message.writeLock.body)}\n`,
+              {
+                mode: 0o600,
+              },
+            );
+          }
+          continue;
+        }
         if (message && typeof message === 'object' && 'flag' in message) {
           // Private mode on for both stores, as `murmo private on` would.
           for (const t of [jsRoots, rustRoots]) {
@@ -151,14 +241,67 @@ async function protocolLeg(binary, h, store) {
     // Both wrote the same records.
     const words = async (t) => (await store.openStore({ roots: t.roots })).words.list();
     assert.deepEqual(await words(rustRoots), await words(jsRoots));
-    return list.length - 1;
+    return list.filter((m) => !(m && typeof m === 'object' && ('flag' in m || 'writeLock' in m))).length;
   } finally {
     jsRoots.remove();
     rustRoots.remove();
+    rmSync(cwd, { recursive: true, force: true });
   }
 }
 
-/** @returns {Promise<{crashRuns: number, sets: number, requests: number}>} */
+/**
+ * One store, a live Rust process and this Node process each holding a draft
+ * session lock: each must judge the other's lock live (pid and start token),
+ * and offer the draft once its owner lets go.
+ */
+async function draftLockLeg(binary, h, store) {
+  const t = h.tempRoots('murmo-store-parity-locks-');
+  const rust = spawn(binary, [...h.rootArgs(t.roots), 'handle'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  let buffered = '';
+  const waiting = [];
+  rust.stdout.on('data', (chunk) => {
+    buffered += chunk.toString();
+    for (let at = buffered.indexOf('\n'); at >= 0; at = buffered.indexOf('\n')) {
+      waiting.shift()?.(JSON.parse(buffered.slice(0, at)));
+      buffered = buffered.slice(at + 1);
+    }
+  });
+  const ask = (message) =>
+    new Promise((resolve) => {
+      waiting.push(resolve);
+      rust.stdin.write(`${JSON.stringify(message)}\n`);
+    });
+  try {
+    const node = await store.openStore({ roots: t.roots });
+    const query = { project: PROJECT, host: 'claude', session: 'probe', now: 1_000_100 };
+    assert.deepEqual(await ask({ op: 'drafts.lock', draft: draftId('rs') }), { status: 'ok' });
+    assert.deepEqual(await ask(save('rs', 'rust draft', 1_000_000)), { status: 'ok' });
+    const held = await node.drafts.holdLock(draftId('js'));
+    assert.deepEqual(
+      await node.drafts.save(draftId('js'), { text: 'node draft', cursorUTF16: 0, revision: 1, now: 1_000_001 }),
+      {
+        status: 'ok',
+      },
+    );
+    assert.equal(await node.drafts.findOfferable(query), undefined, 'Node offered a live Rust session draft');
+    assert.deepEqual(
+      await ask({ op: 'drafts.offer', ...query }),
+      { status: 'ok' },
+      'Rust offered a live Node session draft',
+    );
+    await held.release();
+    assert.equal((await ask({ op: 'drafts.offer', ...query })).value?.text, 'node draft');
+    assert.deepEqual(await ask({ op: 'drafts.unlock', draft: draftId('rs') }), { status: 'ok' });
+    assert.equal((await node.drafts.findOfferable({ ...query, session: 'js' }))?.text, 'rust draft');
+    return 2;
+  } finally {
+    rust.stdin.end();
+    await h.finished(rust);
+    t.remove();
+  }
+}
+
+/** @returns {Promise<{crashRuns: number, sets: number, requests: number, draftLocks: number}>} */
 export async function storeParity() {
   const binary = rustExample('murmo-store', 'store-tool');
   const h = await import('../packages/store/test/helpers.ts');
@@ -170,12 +313,13 @@ export async function storeParity() {
     crashRuns: await crashLeg(binary, h, store),
     sets: await setsLeg(binary, h, store),
     requests: await protocolLeg(binary, h, store),
+    draftLocks: await draftLockLeg(binary, h, store),
   };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = await storeParity();
   console.log(
-    `store parity: ${r.crashRuns} Rust crash runs read back whole, ${r.sets} mixed sets lost nothing, ${r.requests} protocol replies agree`,
+    `store parity: ${r.crashRuns} Rust crash runs read back whole, ${r.sets} mixed sets lost nothing, ${r.requests} protocol replies agree, ${r.draftLocks} draft locks judged live across Node and Rust`,
   );
 }

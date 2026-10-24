@@ -13,7 +13,7 @@ import { compileShortcuts, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { OpenCodeAdapter } from '../src/adapter.ts';
 import { DEGRADED_NOTICE } from '../src/capabilities.ts';
-import { hostSessionOptions, loadHostSession, startSession } from '../src/session.ts';
+import { hostSessionOptions, loadHostSession, prepareRescue, startSession } from '../src/session.ts';
 import { createStatusSurface } from '../src/status.ts';
 import { FakeOpenCode, setHideMeasureText } from './fake-opencode.ts';
 
@@ -296,6 +296,46 @@ test('a broken personal murmo.toml is named with its line in the footer (real-ho
       'murmo.toml:2: unknown key "shortcuts" ignored\nmurmo on · no shortcuts · autocorrect off',
     );
     await started.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an unsent OpenCode draft is saved to the drafts store and offered to the next session', async () => {
+  // OpenCode kept drafts in memory with one fixed identity: after a SIGKILL
+  // the text existed nowhere under $HOME.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-rescue-'));
+  try {
+    const home = join(dir, 'home');
+    const env: NodeJS.ProcessEnv = {
+      HOME: home,
+      XDG_CONFIG_HOME: join(home, '.config'),
+      XDG_DATA_HOME: join(home, '.local', 'share'),
+      XDG_STATE_HOME: join(home, '.local', 'state'),
+      XDG_CACHE_HOME: join(home, '.cache'),
+    };
+    const cwd = join(dir, 'proj');
+    mkdirSync(cwd);
+    const first = await prepareRescue(cwd, env);
+    assert.equal(first.offer, undefined);
+    const host = new FakeOpenCode();
+    const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+    const started = await startSession({ adapter, executor: executor(), loadLanguagePack: false, rescue: first });
+    host.type('an unsent opencode draft');
+    const store = await openStore({ roots: storeRootsFromEnv(env) });
+    const deadline = Date.now() + 3000;
+    while (!(await store.drafts.read(first.identity)) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal((await store.drafts.read(first.identity))?.text, 'an unsent opencode draft');
+    await started.close();
+    const next = await prepareRescue(cwd, env);
+    assert.notEqual(next.identity.session, first.identity.session, 'each session has its own id');
+    assert.equal(next.identity.project, first.identity.project);
+    assert.equal(next.offer?.text, 'an unsent opencode draft');
+    const other = join(dir, 'other');
+    mkdirSync(other);
+    assert.equal((await prepareRescue(other, env)).offer, undefined, 'another folder is another project');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

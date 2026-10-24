@@ -11,7 +11,7 @@ import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/
 import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
-import { rescuePlugin } from '@murmo/plugin-rescue';
+import { findOffer, type RescueOptions, rescuePlugin } from '@murmo/plugin-rescue';
 import {
   type CompileShortcut,
   compileConfigShortcuts,
@@ -19,8 +19,8 @@ import {
   sessionNotices,
   shortcutsPlugin,
 } from '@murmo/plugin-shortcuts';
-import { createMemoryDrafts } from '@murmo/store';
-import { openStore, storeRootsFromEnv } from '@murmo/store/node';
+import { createMemoryDrafts, newDraftSession } from '@murmo/store';
+import { openStore, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
 
 export interface SessionStartOptions {
@@ -36,6 +36,8 @@ export interface SessionStartOptions {
   readonly replacements?: readonly CompileShortcut[];
   readonly loadLanguagePack?: boolean;
   readonly notify?: (message: string) => void;
+  /** Draft rescue on the file store (`prepareRescue`); without it drafts stay in memory (tests). */
+  readonly rescue?: RescueOptions;
 }
 
 export interface StartedSession {
@@ -87,10 +89,12 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
     },
     { id: shortcuts.id, builtin: true, factory: shortcuts.factory, inline: [...shortcuts.inline] },
     { id: menu.id, builtin: true, factory: menu.factory },
-    rescuePlugin({
-      drafts: createMemoryDrafts(),
-      identity: { host: 'opencode', project: '0'.repeat(64), session: 'opencode-session' },
-    }),
+    rescuePlugin(
+      options.rescue ?? {
+        drafts: createMemoryDrafts(),
+        identity: { host: 'opencode', project: '0'.repeat(64), session: newDraftSession('opencode') },
+      },
+    ),
     phrasesPlugin(
       { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
       { learn: options.config?.phrasesLearn === true },
@@ -142,6 +146,31 @@ export async function hostSessionOptions(
   } catch (error) {
     return { notices: [configLoadNotice(error)] };
   }
+}
+
+/**
+ * Draft rescue for a session in `cwd`: the file store, this project's
+ * identity with a new session id, and the offer looked up now, before the
+ * session starts, so it shows on the empty prompt at once.
+ */
+export async function prepareRescue(
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env,
+  isPrivate?: () => boolean,
+): Promise<RescueOptions> {
+  const store = await openStore({ roots: storeRootsFromEnv(env) });
+  const identity = {
+    project: await projectIdOfCwd(cwd),
+    host: 'opencode' as const,
+    session: newDraftSession('opencode'),
+  };
+  const offer = await findOffer(store.drafts, identity);
+  return {
+    drafts: store.drafts,
+    identity,
+    ...(isPrivate ? { isPrivate } : {}),
+    ...(offer ? { offer } : {}),
+  };
 }
 
 export async function startSession(options: SessionStartOptions): Promise<StartedSession> {

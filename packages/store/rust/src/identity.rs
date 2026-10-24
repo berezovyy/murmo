@@ -39,6 +39,17 @@ pub fn project_id_of(canonical_root: &Path) -> String {
     sha256_hex(canonical_root.as_os_str().as_encoded_bytes())
 }
 
+/// The project a session started in `cwd` belongs to: its repository root,
+/// or the directory itself outside a repository (`projectIdOfCwd` in
+/// `src/node/paths.ts`).
+pub fn project_id_of_cwd(cwd: &Path) -> io::Result<String> {
+    let root = match find_repository_root(cwd)? {
+        Some(root) => root,
+        None => fs::canonicalize(cwd)?,
+    };
+    Ok(project_id_of(&root))
+}
+
 pub fn project_identity(root: &Path) -> io::Result<ProjectIdentity> {
     let canonical = fs::canonicalize(root)?;
     let meta = fs::metadata(&canonical)?;

@@ -3,9 +3,11 @@
 //! handler (`src/node/server.ts`).
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use serde_json::{json, Map, Value};
 
+use crate::drafts::{DraftDocument, DraftSave, DraftWrite, Drafts};
 use crate::files::{remove_stale_temps, ModeRepairs};
 use crate::layout::{check_project_id, StoreLayout, StoreRoots, LOG_KINDS};
 use crate::logs::LogWriter;
@@ -19,6 +21,8 @@ pub struct Store {
     pub config_private: bool,
     pub repairs: ModeRepairs,
     writers: HashMap<(String, String), LogWriter>,
+    /// Draft rescue files, and the session locks this process holds for its clients.
+    drafts: Drafts,
 }
 
 /// JavaScript's `\s` plus U+0085: the set `src/node/store.ts` uses.
@@ -68,6 +72,41 @@ fn str_field<'a>(r: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
     r.get(key).and_then(Value::as_str)
 }
 
+/// An optional field: absent, or of its type (`null` is neither), as `parseStoreRequest` reads it.
+fn optional<'a, T>(
+    r: &'a Map<String, Value>,
+    key: &str,
+    get: impl Fn(&'a Value) -> Option<T>,
+) -> Option<Option<T>> {
+    match r.get(key) {
+        None => Some(None),
+        Some(v) => get(v).map(Some),
+    }
+}
+
+/// A draft identity on the wire (`draft`, since the helper stamps every
+/// request with its numeric `id`): three strings; the store checks them.
+fn draft_id(r: &Map<String, Value>) -> Option<(&str, &str, &str)> {
+    let id = r.get("draft")?.as_object()?;
+    Some((
+        str_field(id, "project")?,
+        str_field(id, "host")?,
+        str_field(id, "session")?,
+    ))
+}
+
+fn document_reply(document: Option<DraftDocument>) -> Value {
+    match document {
+        Some(d) => json!({ "status": "ok", "value": d.to_value() }),
+        None => result("ok", None),
+    }
+}
+
+/// A thrown error of the JS backend becomes `{status:"error", reason}` there too.
+fn replied(outcome: Result<Value, String>) -> Value {
+    outcome.unwrap_or_else(|reason| result("error", Some(&reason)))
+}
+
 impl Store {
     /// Opens the store; stale temps of killed writers are removed.
     pub fn open(roots: StoreRoots, config_private: bool) -> Self {
@@ -85,6 +124,7 @@ impl Store {
             config_private,
             repairs: ModeRepairs::default(),
             writers: HashMap::new(),
+            drafts: Drafts::default(),
         }
     }
 
@@ -179,8 +219,97 @@ impl Store {
                 };
                 self.append_log(kind, session, &lines)
             }
+            Some("project.id") => match str_field(r, "cwd") {
+                Some(cwd) => project_id_reply(cwd),
+                None => malformed(),
+            },
+            Some(op) if op.starts_with("drafts.") => {
+                self.handle_draft(op, r).unwrap_or_else(malformed)
+            }
             _ => malformed(),
         }
+    }
+
+    /// The draft ops; None when the request is malformed.
+    fn handle_draft(&mut self, op: &str, r: &Map<String, Value>) -> Option<Value> {
+        let private = self.is_private();
+        let layout = &self.layout;
+        let repairs = &mut self.repairs;
+        // Only the ops that take `now` read it, as `parseStoreRequest` does.
+        let now = match op {
+            "drafts.save" | "drafts.markAttempted" | "drafts.offer" | "drafts.cleanup" => {
+                optional(r, "now", Value::as_f64)?
+            }
+            _ => None,
+        };
+        Some(match op {
+            "drafts.save" => {
+                let id = draft_id(r)?;
+                let write = DraftWrite {
+                    text: str_field(r, "text")?,
+                    cursor_utf16: r.get("cursorUTF16")?.as_f64()?,
+                    revision: r.get("revision")?.as_f64()?,
+                    now,
+                    attempted: optional(r, "attempted", Value::as_bool)? == Some(true),
+                };
+                replied(
+                    self.drafts.save(layout, repairs, private, id, &write).map(
+                        |saved| match saved {
+                            DraftSave::Ok => result("ok", None),
+                            DraftSave::Denied(reason) => result("denied", Some(reason)),
+                            DraftSave::Error(reason) => result("error", Some(&reason)),
+                        },
+                    ),
+                )
+            }
+            "drafts.read" => {
+                let id = draft_id(r)?;
+                replied(self.drafts.read(layout, repairs, id).map(document_reply))
+            }
+            "drafts.delete" => {
+                let id = draft_id(r)?;
+                replied(self.drafts.delete(layout, id).map(|()| result("ok", None)))
+            }
+            "drafts.markAttempted" => {
+                let id = draft_id(r)?;
+                replied(
+                    self.drafts
+                        .mark_attempted(layout, repairs, id, now)
+                        .map(|()| result("ok", None)),
+                )
+            }
+            "drafts.lock" => {
+                let id = draft_id(r)?;
+                replied(
+                    self.drafts
+                        .hold_lock(layout, repairs, id)
+                        .map(|()| result("ok", None)),
+                )
+            }
+            "drafts.unlock" => {
+                let id = draft_id(r)?;
+                replied(
+                    self.drafts
+                        .release_lock(layout, id)
+                        .map(|()| result("ok", None)),
+                )
+            }
+            "drafts.offer" => {
+                let (project, host) = (str_field(r, "project")?, str_field(r, "host")?);
+                let session = optional(r, "session", Value::as_str)?;
+                replied(
+                    self.drafts
+                        .find_offerable(layout, repairs, project, host, session, now)
+                        .map(document_reply),
+                )
+            }
+            "drafts.cleanup" => replied(
+                self.drafts
+                    .cleanup(layout, repairs, now)
+                    .map(|removed| json!({ "status": "ok", "value": { "removed": removed } })),
+            ),
+            _ => return None,
+        })
     }
 
     fn add_word(&mut self, word: &str, learned: bool, project: Option<&str>) -> Value {
@@ -254,6 +383,21 @@ impl Store {
             Ok(_) => result("ok", None),
             Err(e) => result("error", Some(&e.to_string())),
         }
+    }
+}
+
+/// `project.id`: the project a session in `cwd` belongs to.
+fn project_id_reply(cwd: &str) -> Value {
+    let cwd = Path::new(cwd);
+    if !cwd.is_absolute() {
+        return result("error", Some("cwd must be an absolute path"));
+    }
+    match crate::identity::project_id_of_cwd(cwd) {
+        Ok(id) => json!({ "status": "ok", "value": id }),
+        Err(_) => result(
+            "error",
+            Some("cannot resolve the project of this directory"),
+        ),
     }
 }
 

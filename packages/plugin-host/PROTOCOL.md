@@ -36,7 +36,7 @@ The client must refuse a binary whose `protocol` or `apiVersion` does not match.
 | `names.search` | `raw`, `key?`, `limit?`, `budgetUs?` | `{status, rows, ids, visits}` — 96 candidates, 300 µs; rows include `source` bits (phase 38) |
 | `names.unload` | | `{status:"ok"}` |
 
-Store protocol (Claude sessions, same socket): `storage.get/set/delete`, `private.get`, `generation.get`, `words.add`, `log.append`. Handled by `murmo-store::Store::handle`. Plugin `ctx.storage` does **not** use this path; it request/resumes to the coordinator.
+Store protocol (Claude sessions, same socket): `storage.get/set/delete`, `private.get`, `generation.get`, `words.add`, `log.append`, `project.id`, and draft rescue's `drafts.save/read/delete/markAttempted/lock/unlock/offer/cleanup` (`drafts.lock` is held by the helper process, so a session's draft becomes offerable once its helper has exited with it). Handled by `murmo-store::Store::handle`. Plugin `ctx.storage` does **not** use this path; it request/resumes to the coordinator.
 
 Config (Claude sessions, same socket): `{"op":"config.load","cwd":"/abs/dir"}` → `{status:"ok", session}`, where `session` is the JSON of `@murmo/config/node`'s `SessionConfig` without stamps (`trust`, `effective`, `user?`, `project?`). Handled by `murmo-config::load_session_config` with the helper's own `HOME`, `XDG_CONFIG_HOME` and store roots; `tools/config-parity.mjs` holds it to the Node loader. A relative `cwd` is a `transport` error. Claude's runtime cannot check a project file's trust itself (no lstat, realpath or `O_NOFOLLOW`).
 

@@ -749,3 +749,39 @@ fn http_mode_removes_sockets_that_killed_helpers_left() {
     assert_eq!(post(&socket, &json!({"op": "shutdown"}))["status"], "ok");
     let _ = child.wait();
 }
+
+#[test]
+fn a_restarted_helper_keeps_its_session_draft_unoffered_until_unlocked() {
+    // The adapter restarts a crashed helper while Claude still runs: the
+    // session's lock is owned by Claude (the helper's parent), so the new
+    // helper must neither offer the running session's draft nor be refused its
+    // lock, and its unlock must make the draft offerable again.
+    let t = ConfigHome::new("drafts");
+    let id = json!({"project": "c".repeat(64), "host": "claude", "session": "claude-1"});
+    let offer = json!({"op": "drafts.offer", "project": "c".repeat(64), "host": "claude", "session": "claude-2"});
+    {
+        let mut first = t.host();
+        assert_eq!(
+            first.rpc(json!({"op": "drafts.lock", "draft": id}))["status"],
+            "ok"
+        );
+        let saved = first.rpc(json!({"op": "drafts.save", "draft": id, "text": "unsent", "cursorUTF16": 6, "revision": 1}));
+        assert_eq!(saved["status"], "ok", "{saved}");
+    }
+    let mut second = t.host();
+    let r = second.rpc(offer.clone());
+    assert!(
+        r.get("value").is_none(),
+        "a running session's draft was offered: {r}"
+    );
+    assert_eq!(
+        second.rpc(json!({"op": "drafts.lock", "draft": id}))["status"],
+        "ok"
+    );
+    assert_eq!(
+        second.rpc(json!({"op": "drafts.unlock", "draft": id}))["status"],
+        "ok"
+    );
+    let r = second.rpc(offer);
+    assert_eq!(r["value"]["text"], "unsent", "{r}");
+}

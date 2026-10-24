@@ -6,6 +6,7 @@
 //! other while writing. `protocol::handle` answers the store protocol Claude
 //! sessions speak to the helper (`packages/store/src/protocol.ts`).
 
+pub mod drafts;
 pub mod files;
 pub mod identity;
 pub mod layout;
@@ -16,7 +17,9 @@ pub mod protocol;
 pub mod record;
 pub mod records;
 
-pub use identity::{find_repository_root, project_id_of, project_identity, ProjectIdentity};
+pub use identity::{
+    find_repository_root, project_id_of, project_id_of_cwd, project_identity, ProjectIdentity,
+};
 pub use layout::{roots_from_env, StoreLayout, StoreRoots};
 
 use sha2::{Digest, Sha256};

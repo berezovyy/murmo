@@ -59,5 +59,14 @@ pub fn is_store_op(op: &str) -> bool {
             | "generation.get"
             | "words.add"
             | "log.append"
+            | "project.id"
+            | "drafts.save"
+            | "drafts.read"
+            | "drafts.delete"
+            | "drafts.markAttempted"
+            | "drafts.lock"
+            | "drafts.unlock"
+            | "drafts.offer"
+            | "drafts.cleanup"
     )
 }

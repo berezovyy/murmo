@@ -29,9 +29,16 @@ import {
 import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
-import { rescuePlugin } from '@murmo/plugin-rescue';
+import { findOffer, type RescueOptions, rescuePlugin } from '@murmo/plugin-rescue';
 import { compileConfigShortcuts, menuPlugin, sessionNotices, shortcutsPlugin } from '@murmo/plugin-shortcuts';
-import { createMemoryDrafts } from '@murmo/store';
+import {
+  createMemoryDrafts,
+  createRemoteDrafts,
+  newDraftSession,
+  remoteProjectId,
+  type StoreReply,
+  type StoreTransport,
+} from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
 import { createClaudeBroker } from './events.ts';
@@ -198,10 +205,43 @@ async function loadConfig(boot: ConfigBoot): Promise<{ session: LoadedSession; h
   }
 }
 
+/**
+ * Draft rescue through the helper, which owns the draft files: Claude's `$.fs`
+ * can't write a 0600 file atomically, list a folder or delete. Requests go to
+ * the current helper, so a restarted one takes over. Without a helper (or a
+ * project id from it) drafts stay in memory and nothing is offered.
+ */
+async function rescueOptions(helper: HelperHandle | undefined, cwd: string, clock: Clock): Promise<RescueOptions> {
+  const session = newDraftSession('claude');
+  const memory = {
+    drafts: createMemoryDrafts(),
+    identity: { project: '0'.repeat(64), host: 'claude' as const, session },
+  };
+  if (!helper) return memory;
+  const transport: StoreTransport = {
+    request: async (message) => (await helper.transport().request({ ...message })) as unknown as StoreReply,
+  };
+  const project = await within(clock, CONFIG_LOAD_MS, 'project.id', remoteProjectId(transport, cwd)).catch(
+    () => undefined,
+  );
+  if (!project) return memory;
+  const drafts = createRemoteDrafts(() => transport);
+  const identity = { project, host: 'claude' as const, session };
+  // Looked up before the session starts: a hook can't wait on the helper.
+  const offer = await within(
+    clock,
+    CONFIG_LOAD_MS,
+    'drafts.offer',
+    findOffer(drafts, identity, clock.wallTimeMs()),
+  ).catch(() => undefined);
+  return { drafts, identity, ...(offer ? { offer } : {}) };
+}
+
 function builtinsFromConfig(
   session: LoadedSession,
   cwd: string,
   table: PayloadTable | undefined,
+  rescue: RescueOptions,
 ): {
   specs: HostPluginSpec[];
   order: string[];
@@ -252,10 +292,7 @@ function builtinsFromConfig(
     autocorrect,
     shortcutsPlugin(compiled, { asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES }),
     menuPlugin(compiled, { history: config.historyEnabled === true }),
-    rescuePlugin({
-      drafts: createMemoryDrafts(),
-      identity: { project, host: 'claude', session: PLUGIN_VERSION },
-    }),
+    rescuePlugin(rescue),
     phrasesPlugin(
       { identity: { project, host: 'claude', session: PLUGIN_VERSION } },
       { learn: config.phrasesLearn === true },
@@ -339,7 +376,12 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(booted.session, cwd, payload ? await loadTable(rt, payload) : undefined);
+        : builtinsFromConfig(
+            booted.session,
+            cwd,
+            payload ? await loadTable(rt, payload) : undefined,
+            await rescueOptions(helper, cwd, clock),
+          );
       startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
@@ -452,7 +494,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(booted.session, input.cwd, table);
+        : builtinsFromConfig(booted.session, input.cwd, table, await rescueOptions(helper, input.cwd, clock));
       startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,

@@ -2,8 +2,34 @@
 // helper (rust/src/protocol.rs) is the one Claude sessions reach in
 // production; this handler is its reference, and the protocol test checks
 // both give the same replies.
-import { parseStoreRequest, type StoreReply } from '../protocol.ts';
+import { isAbsolute } from 'node:path';
+import type { DraftDocument, DraftIdentity, HeldDraftLock } from '../draft.ts';
+import type { DraftHost } from '../layout.ts';
+import { type DraftWireId, parseStoreRequest, type StoreReply } from '../protocol.ts';
+import { projectIdOfCwd } from './paths.ts';
 import type { Store, WriteResult } from './store.ts';
+
+/** Draft session locks this process holds for its clients, per store, until `drafts.unlock`. */
+const heldLocks = new WeakMap<Store, Map<string, HeldDraftLock>>();
+
+function locksOf(store: Store): Map<string, HeldDraftLock> {
+  let locks = heldLocks.get(store);
+  if (!locks) {
+    locks = new Map();
+    heldLocks.set(store, locks);
+  }
+  return locks;
+}
+
+/** The store checks the fields; a bad host fails that check like a bad project does. */
+const identityOf = (id: DraftWireId): DraftIdentity => ({
+  project: id.project,
+  host: id.host as DraftHost,
+  session: id.session,
+});
+const lockKey = (id: DraftWireId) => `${id.project}/${id.host}/${id.session}`;
+const documentReply = (document: DraftDocument | undefined): StoreReply =>
+  document ? { status: 'ok', value: { header: document.header, text: document.text } } : { status: 'ok' };
 
 function fromWrite(result: WriteResult): StoreReply {
   if (result.status === 'ok') return { status: 'ok' };
@@ -55,6 +81,53 @@ export async function handleStoreRequest(store: Store, message: unknown): Promis
         const entries = request.lines.map((line) => JSON.parse(line) as Record<string, unknown>);
         return fromWrite(await store.logs.session(request.kind, request.session).append(entries));
       }
+      case 'project.id': {
+        if (!isAbsolute(request.cwd)) return { status: 'error', reason: 'cwd must be an absolute path' };
+        try {
+          return { status: 'ok', value: await projectIdOfCwd(request.cwd) };
+        } catch {
+          return { status: 'error', reason: 'cannot resolve the project of this directory' };
+        }
+      }
+      case 'drafts.save':
+        return await store.drafts.save(identityOf(request.draft), {
+          text: request.text,
+          cursorUTF16: request.cursorUTF16,
+          revision: request.revision,
+          ...(request.now === undefined ? {} : { now: request.now }),
+          ...(request.attempted === true ? { attempted: true } : {}),
+        });
+      case 'drafts.read':
+        return documentReply(await store.drafts.read(identityOf(request.draft)));
+      case 'drafts.delete':
+        await store.drafts.delete(identityOf(request.draft));
+        return { status: 'ok' };
+      case 'drafts.markAttempted':
+        await store.drafts.markAttempted(identityOf(request.draft), request.now);
+        return { status: 'ok' };
+      case 'drafts.lock': {
+        const held = await store.drafts.holdLock(identityOf(request.draft));
+        locksOf(store).set(lockKey(request.draft), held);
+        return { status: 'ok' };
+      }
+      case 'drafts.unlock': {
+        const locks = locksOf(store);
+        const held = locks.get(lockKey(request.draft));
+        locks.delete(lockKey(request.draft));
+        await held?.release();
+        return { status: 'ok' };
+      }
+      case 'drafts.offer':
+        return documentReply(
+          await store.drafts.findOfferable({
+            project: request.project,
+            host: request.host as DraftHost,
+            ...(request.session === undefined ? {} : { session: request.session }),
+            ...(request.now === undefined ? {} : { now: request.now }),
+          }),
+        );
+      case 'drafts.cleanup':
+        return { status: 'ok', value: await store.drafts.cleanup(request.now) };
     }
   } catch (error) {
     return { status: 'error', reason: (error as Error).message };

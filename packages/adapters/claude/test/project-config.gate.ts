@@ -6,14 +6,25 @@
 // closed, one `POST /rpc` per request over the Unix socket.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { approveProject, scanProject } from '@murmo/config/node';
 import { helperBinary } from '@murmo/executor/node';
-import { openStore, storeRootsFromEnv } from '@murmo/store/node';
+import { decodeDraft } from '@murmo/store';
+import { openStore, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
 import { createClaudeHost } from '../src/session.ts';
 import { type HostServices, PLUGIN_VERSION, type SpawnChunk } from '../src/types.ts';
 import { FakeClaude, typeChars } from './fake-runtime.ts';
@@ -184,4 +195,35 @@ test('without a helper the personal file still loads and project shortcuts are o
   } finally {
     await host.dispose();
   }
+});
+
+test('an unsent Claude draft reaches the drafts store through the helper, and a clean quit releases its lock', async () => {
+  // Claude kept drafts in memory, so after a SIGKILL the text
+  // existed nowhere under $HOME and nothing could be offered.
+  const root = repo('rescue');
+  const { host, fake } = await boot(root);
+  const folder = join(storeRootsFromEnv(env, env.HOME).state, 'drafts', 'v1', await projectIdOfCwd(root), 'claude');
+  const files = () => (existsSync(folder) ? readdirSync(folder) : []);
+  try {
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'an unsent claude draft');
+    await host.session?.settle();
+    const deadline = Date.now() + 3000;
+    while (!files().some((name) => name.endsWith('.draft')) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const draft = files().find((name) => name.endsWith('.draft'));
+    assert.ok(draft, `no draft under ${folder}`);
+    assert.ok(files().includes(draft.replace(/\.draft$/, '.lock')), 'the live session holds its lock');
+    const bytes = readFileSync(join(folder, draft));
+    assert.equal(statSync(join(folder, draft)).mode & 0o777, 0o600);
+    const decoded = decodeDraft(bytes);
+    assert.equal(decoded.ok && decoded.document.text, 'an unsent claude draft');
+  } finally {
+    await host.dispose();
+  }
+  assert.deepEqual(
+    files().filter((name) => name.endsWith('.lock')),
+    [],
+    'a clean quit leaves no lock, so the next session may offer the draft',
+  );
 });
