@@ -190,6 +190,14 @@ export interface Measure {
   scope: 'callback';
 }
 
+/** A plugin folder under fixtures/ (`murmo.plugin.json` plus its entry), added with these grants. */
+export interface InstalledPlugin {
+  folder: string;
+  grants: string[];
+  /** `false`: then turned off with `murmo plugin disable`. */
+  enabled?: boolean;
+}
+
 export interface EditorCase {
   id: string;
   tags?: string[];
@@ -210,6 +218,8 @@ export interface EditorCase {
    * config folder (OpenCode's `cli.json`, Claude's `settings.json`, …).
    */
   hostConfig?: string;
+  /** Plugins the user installed with `murmo plugin add` before the host starts. */
+  installed?: InstalledPlugin[];
   trust?: Trust;
   host?: HostSetup;
   core?: { guardPolicy?: 'final-boundary' };

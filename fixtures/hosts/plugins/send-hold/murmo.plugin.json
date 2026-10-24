@@ -1,0 +1,27 @@
+{
+  "name": "send-hold",
+  "version": "1.0.0",
+  "api": "^2.0.0",
+  "entry": "plugin.mjs",
+  "permissions": [
+    {
+      "name": "draft:read",
+      "reason": "See whether the typed prompt says zzhold."
+    },
+    {
+      "name": "submit",
+      "reason": "Hold a send that says zzhold."
+    }
+  ],
+  "capabilities": {
+    "required": {
+      "submit.block": true
+    },
+    "optional": {}
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  }
+}

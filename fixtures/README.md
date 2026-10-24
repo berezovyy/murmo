@@ -40,7 +40,7 @@ pnpm test:conformance                                   # the gate (offline; nee
 | `names/` | splitter 29 cases (moved file read through a table) | 19, 36 |
 | `stress/` | huge paste, regex-heavy inputs, IME and normalization stand-ins | 02 |
 | `generators/` | seeded generators (code) and their run files | 02 |
-| `hosts/` | real-host contract cases (round 14 follow-up fixes; project `.murmo.toml` trust, with its project folder in `hosts/projects/`) | 14, 20, 29 |
+| `hosts/` | real-host contract cases (round 14 follow-up fixes; project `.murmo.toml` trust, with its project folder in `hosts/projects/`; installed plugins, with their folders in `hosts/plugins/`) | 14, 20, 29 |
 | `rescue/` | idle-save lifecycle for the real-host harness (SIGKILL, submit, private; skips until adapters) | 17, 21–24 |
 | `history/` | r9 29-query search oracle (brute scan); provenance cases live in the history plugin tests | 35 |
 
@@ -71,6 +71,8 @@ Offsets are UTF-16 code units everywhere. Large text uses `{"repeat": "ab", "tim
 **Projects.** `project` names a folder under `fixtures/` that the subject copies into the case's working repository; `projectTrust` says whether its `.murmo.toml` is approved (`approved`) or never reviewed (`unreviewed`) when the session starts. A case with `projectTrust` must `require` `host.project-config`: the pure subjects never read `.murmo.toml` and skip it, where they would otherwise pass the unreviewed case for the wrong reason.
 
 **Host settings.** `hostConfig` names a folder under `fixtures/` whose `<host>/` subfolder holds the user's own settings for that host (OpenCode's `cli.json`, Claude's `settings.json`), written into the host's config folder before Murmo is installed. The files are data, not suites, and may use the host's own format (JSONC comments). A case with `hostConfig` must `require` `host.config-files`, which only the real-host harness has.
+
+**Installed plugins.** `installed` lists plugin folders under `fixtures/` (`murmo.plugin.json` plus its entry, as `murmo plugin new` writes them) with the `grants` the user approves; the harness runs `murmo plugin add <folder> --grant …` after setup, then `murmo plugin disable` when `enabled` is `false`, before the host starts. A case with `installed` must `require` `host.installed-plugins`.
 
 **Skips.** `requires` lists capability paths (`executor.isolated`, `fn.text.offsets`); an unmet one skips the run with its reason, never passes it. A `skip` entry is a reviewed exception with a reason; only declared skips may differ between runtimes in `compare`.
 

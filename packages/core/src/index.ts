@@ -132,13 +132,17 @@ export {
   grantAccess,
   grantedPermissions,
   type HostPluginSpec,
+  type InstalledSelection,
   inspectDisplayName,
   isGranted,
   nameNotice,
   type PluginHost,
   type PluginHostOptions,
+  type PluginTables,
   permissionGate,
   reviewCapabilityGate,
+  type SessionPlugins,
+  withInstalled,
 } from './plugins/index.ts';
 export {
   DEFAULT_STATUS_MAX_LENGTH,

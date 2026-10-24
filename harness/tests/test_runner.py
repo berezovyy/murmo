@@ -176,6 +176,44 @@ class FunctionalNotLoaded(unittest.TestCase):
         self.assertEqual(recording.prepared, 1)
         self.assertEqual(len(set(recording.homes)), 1)
 
+    def test_installed_plugin_is_added_after_setup_before_launch(self):
+        """Catches an installed-plugin case whose host starts before the plugin
+        is added, or an add that runs before setup created the plugin store."""
+        needs_sandbox()
+
+        class Recording(Integration):
+            name = 'recording'
+            features = frozenset({'host.installed-plugins'})
+
+            def __init__(self):
+                self.calls = []
+
+            def prepare(self, host, profile, run=None):
+                self.calls.append('prepare')
+
+            def install_plugin(self, host, profile, plugin, run=None):
+                self.calls.append(('install', plugin['folder'].name, plugin['grants'], plugin.get('enabled', True)))
+
+        suite, cases = load_suite(paths.FIXTURES / 'hosts' / 'installed-plugin.json')
+        disabled = next(c for c in cases if c['id'] == 'disabled-plugin-stops')
+        recording = Recording()
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                subject(run, folder / 'a', recording).run_case(suite, {**disabled, **CASE})
+        self.assertEqual(recording.calls, ['prepare', ('install', 'send-hold', ['draft:read', 'submit'], False)])
+
+    def test_installed_plugin_without_plugin_add_support_skips(self):
+        """An integration that cannot run `murmo plugin add` must skip: the
+        disabled case would otherwise pass on a host that never had the plugin."""
+        with scratch() as folder, stub_host():
+            run = new_run(folder)
+            _, cases = load_suite(paths.FIXTURES / 'hosts' / 'installed-plugin.json')
+            case = {**cases[1], 'requires': []}
+            verdict = subject(run, folder / 'a').run_case('t.json', case)
+            self.assertEqual(verdict['status'], 'skip')
+            self.assertIn('murmo plugin add', verdict['reason'])
+            self.assertEqual(run.launches, 0)
+
     def test_valued_integration_feature_meets_a_valued_requirement(self):
         """Catches every autocorrect case skipping on the packed product: the
         integration says `plugin.autocorrect=release` and cases require exactly
@@ -207,7 +245,7 @@ class FunctionalNotLoaded(unittest.TestCase):
 
     def test_shared_fixture_suites_load(self):
         """The runner reads the shared fixture format; every host case maps or skips."""
-        for name in ('stock-canary.json', 'r14-followup.json', 'project-shortcuts.json'):
+        for name in ('stock-canary.json', 'r14-followup.json', 'project-shortcuts.json', 'installed-plugin.json'):
             suite, cases = load_suite(paths.FIXTURES / 'hosts' / name)
             self.assertTrue(cases)
             self.assertEqual(suite, f'hosts/{name}')

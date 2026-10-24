@@ -16,9 +16,11 @@ import {
   createSession,
   type EventBroker,
   type HostPluginSpec,
+  type InstalledSelection,
   type Session,
+  withInstalled,
 } from '@murmo/core';
-import { createClock, createInProcessExecutor } from '@murmo/executor';
+import { createClock, createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
 import { mapTable } from '@murmo/lang';
 import {
   autocorrectFactory,
@@ -34,6 +36,7 @@ import { compileConfigShortcuts, menuPlugin, sessionNotices, shortcutsPlugin } f
 import {
   createMemoryDrafts,
   createRemoteDrafts,
+  EMPTY_SELECTION,
   newDraftSession,
   remoteProjectId,
   type StoreReply,
@@ -42,7 +45,7 @@ import {
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
 import { createClaudeBroker } from './events.ts';
-import { type HelperHandle, type HelperWatch, socketDir, superviseHelper } from './helper.ts';
+import { type HelperHandle, type HelperWatch, isolatedFrom, socketDir, superviseHelper } from './helper.ts';
 import {
   helperPaths,
   type IntegrityFile,
@@ -66,6 +69,8 @@ export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
   readonly payloadRoot?: string;
   readonly clock?: Clock;
+  /** Where installed third-party plugins run; default the session's helper. Tests pass a stand-in. */
+  readonly thirdParty?: (clock: Clock) => Executor;
 }
 
 export interface ClaudeHost {
@@ -94,6 +99,8 @@ export interface PackedBoot {
   readonly helperBinaries?: readonly string[];
   /** `$TMPDIR`, for the helper's socket. */
   readonly tmpdir?: string;
+  /** What `murmo plugin` installed (`readPluginSelection`, read through `$.fs`). */
+  readonly installed?: InstalledSelection;
 }
 
 function servicesOf(rt: ClaudeRuntime): HostServices {
@@ -491,14 +498,30 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         }
         table = { bytes, sha256: '', entries: mapped.entries, lowercaseOnly };
       }
-      const executor: Executor = createInProcessExecutor({ clock });
-      const loaded = options.plugins
+      // Built-ins run in-process; installed plugins only ever in the helper, through
+      // whichever helper process is current when they load.
+      const executor = createRoutedExecutor({
+        trusted: createInProcessExecutor({ clock }),
+        isolated: () => {
+          if (options.thirdParty) return options.thirdParty(clock);
+          if (!helper) throw new Error('the Murmo helper is not running (murmo doctor)');
+          return isolatedFrom(helper, clock);
+        },
+      });
+      const builtins = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
         : builtinsFromConfig(booted.session, input.cwd, table, await rescueOptions(helper, input.cwd, clock));
-      startup = [...notices, ...loaded.notices];
+      const loaded = withInstalled(
+        { specs: builtins.specs, order: builtins.order, grants: {} },
+        options.plugins ? EMPTY_SELECTION : (input.installed ?? EMPTY_SELECTION),
+        booted.session.effective.plugins,
+      );
+      startup = [...notices, ...builtins.notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,
+        grants: loaded.grants,
+        // Third-party storage lasts the session here; Pi and the CLI keep it on disk.
         storage: createMemoryStorage(),
         projectFiles: createMemoryProjectFiles({ root: input.cwd }),
       });

@@ -331,12 +331,15 @@ class Run:
         project: Path | None = None,
         project_trust: str | None = None,
         host_config: Path | None = None,
+        installed: list[dict] | None = None,
     ) -> Session:
         """`project`: a fixture folder copied into the profile's repository
         before launch; `project_trust: 'approved'` then approves its
         `.murmo.toml` through the integration, as a user would.
         `host_config`: a fixture folder whose `<host>/` files are the user's
-        own host settings, written before Murmo is installed."""
+        own host settings, written before Murmo is installed.
+        `installed`: plugin folders (`{folder, grants, enabled?}`) the
+        integration installs after setup, as `murmo plugin add` would."""
         host = HOSTS[host_name]
         if integration.third_party and not sandboxes.in_no_network_container():
             # Rule 7: never on the macOS host, not even under sandbox-exec.
@@ -345,6 +348,7 @@ class Run:
         session = Session(
             self, host, install, prof, integration, driver, cols, rows, tmux_profile,
             project=project, project_trust=project_trust, host_config=host_config,
+            installed=installed or [],
         )
         self.sessions.append(session)
         try:
@@ -369,6 +373,7 @@ class Session:
     project: Path | None = None
     project_trust: str | None = None
     host_config: Path | None = None
+    installed: list[dict] = field(default_factory=list)
     driver: Driver | None = None
     argv: list[str] = field(default_factory=list)
     ready_screen: ScreenView | None = None
@@ -386,6 +391,8 @@ class Session:
             shutil.copytree(self.project, self.profile.project, dirs_exist_ok=True)
             if self.project_trust == 'approved':
                 self.integration.approve_project(self.host, self.profile, run=self.run)
+        for plugin in self.installed:
+            self.integration.install_plugin(self.host, self.profile, plugin, run=self.run)
         self._launch()
 
     def restart(self, how: str) -> None:

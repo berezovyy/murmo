@@ -1,16 +1,32 @@
-// Wire the Pi adapter to a core session: in-process executor for built-ins,
-// optional isolated helper for third-party specs, config + store off the key
-// path. Async isolated hooks run after the native input frame (setImmediate).
+// Wire the Pi adapter to a core session: built-ins in-process, the plugins
+// `murmo plugin add` installed in the isolated helper with their reviewed
+// grants, config + store off the key path. Async isolated hooks run after
+// the native input frame (setImmediate).
 
+import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
 import { loadedSession, loadSessionConfig } from '@murmo/config/node';
-import { createPluginHost, createSession, type HostPluginSpec, type PluginHost, type Session } from '@murmo/core';
+import {
+  createPluginHost,
+  createSession,
+  type HostPluginSpec,
+  type PluginHost,
+  type Session,
+  withInstalled,
+} from '@murmo/core';
 import { createFileStorage, createProjectFileBroker } from '@murmo/core/node';
-import { createInProcessExecutor } from '@murmo/executor';
+import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { findOffer } from '@murmo/plugin-rescue';
-import { newDraftSession } from '@murmo/store';
-import { findRepositoryRoot, openStore, projectIdentity, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
+import { EMPTY_SELECTION, newDraftSession } from '@murmo/store';
+import {
+  findRepositoryRoot,
+  openStore,
+  projectIdentity,
+  projectIdOfCwd,
+  readInstalledPlugins,
+  storeRootsFromEnv,
+} from '@murmo/store/node';
 import { createPiAdapter, type PiAdapter, type PiAdapterOptions } from './adapter.ts';
 import { attachPiEvents, type PiEventsHandle } from './events.ts';
 import { loadBuiltins } from './plugins.ts';
@@ -27,12 +43,24 @@ export interface StartedPi {
 
 export interface StartOptions extends PiAdapterOptions {
   readonly cwd?: string;
+  /** Tests: these specs instead of the built-ins and the installed plugins. */
   readonly specs?: readonly HostPluginSpec[];
   readonly order?: readonly string[];
+  /** Run every plugin, built-ins included, in the helper (tests of the helper route). */
   readonly isolated?: boolean;
+  /** Where installed third-party plugins run; default the isolated helper. Tests pass a stand-in. */
+  readonly thirdParty?: (clock: Clock) => Executor;
   readonly notify?: (message: string) => void;
   readonly pi?: PiHost;
 }
+
+const BUILTIN_GRANTS = {
+  autocorrect: ['draft:read', 'draft:write'],
+  shortcuts: ['draft:read', 'draft:write'],
+  menu: ['draft:read', 'draft:write'],
+  rescue: ['draft:read', 'draft:write', 'submit:observe'],
+  names: ['draft:read', 'draft:write'],
+} as const;
 
 function frameExecutor(inner: Executor): Executor {
   const pending = new Map<ReturnType<typeof setImmediate>, (reason: unknown) => void>();
@@ -78,7 +106,8 @@ function frameExecutor(inner: Executor): Executor {
 export async function startPiSession(options: StartOptions): Promise<StartedPi> {
   const { adapter } = createPiAdapter(options);
   const cwd = options.cwd ?? (typeof process !== 'undefined' ? process.cwd() : '.');
-  const store = await openStore({ roots: storeRootsFromEnv() });
+  const roots = storeRootsFromEnv();
+  const store = await openStore({ roots });
   const config = await loadSessionConfig({ cwd, store });
   const repo = await findRepositoryRoot(cwd);
   const project = repo ? await projectIdentity(repo) : undefined;
@@ -92,7 +121,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     session: sessionId,
   };
   const offer = options.specs ? undefined : await findOffer(store.drafts, rescue);
-  const loaded = options.specs
+  const builtins = options.specs
     ? {
         specs: [...options.specs],
         order: options.order ?? options.specs.map((spec) => spec.id),
@@ -108,8 +137,21 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
         cwd,
       });
 
+  const loaded = withInstalled(
+    { specs: builtins.specs, order: builtins.order, grants: BUILTIN_GRANTS },
+    options.specs ? EMPTY_SELECTION : await readInstalledPlugins(roots),
+    config.effective.plugins,
+  );
+  const notices = [...builtins.notices, ...loaded.notices];
+
   const trusted = createInProcessExecutor();
-  const executor: Executor = options.isolated ? frameExecutor(createNodeIsolatedExecutor()) : trusted;
+  const executor: Executor = options.isolated
+    ? frameExecutor(createNodeIsolatedExecutor())
+    : createRoutedExecutor({
+        trusted,
+        isolated: () =>
+          frameExecutor(options.thirdParty?.(trusted.clock) ?? createNodeIsolatedExecutor({ clock: trusted.clock })),
+      });
   const storage = await createFileStorage(`${store.layout.store}/adapter-namespaces`);
   const projectFiles = await createProjectFileBroker({
     root: cwd,
@@ -122,20 +164,14 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     executor,
     storage,
     projectFiles,
-    grants: {
-      autocorrect: ['draft:read', 'draft:write'],
-      shortcuts: ['draft:read', 'draft:write'],
-      menu: ['draft:read', 'draft:write'],
-      rescue: ['draft:read', 'draft:write', 'submit:observe'],
-      names: ['draft:read', 'draft:write'],
-    },
+    grants: loaded.grants,
   });
   const session = createSession({
     adapter,
     runner,
     keyBursts: true,
     order: loaded.order,
-    notices: loaded.notices,
+    notices,
     notify: options.notify ?? ((message) => options.ctx.ui.notify(message, 'warning')),
   });
   await session.ready;

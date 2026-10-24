@@ -379,6 +379,20 @@
         "project": { "$ref": "#/$defs/project" },
         "projectTrust": { "enum": ["approved", "unreviewed"] },
         "hostConfig": { "$ref": "#/$defs/project" },
+        "installed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["folder", "grants"],
+            "additionalProperties": false,
+            "properties": {
+              "folder": { "$ref": "#/$defs/project" },
+              "grants": { "type": "array", "items": { "type": "string" } },
+              "enabled": { "type": "boolean" }
+            }
+          }
+        },
         "trust": { "$ref": "#/$defs/trust" },
         "host": { "$ref": "#/$defs/hostSetup" },
         "core": {

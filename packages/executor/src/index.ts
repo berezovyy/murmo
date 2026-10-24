@@ -11,6 +11,7 @@ export {
   type IsolatedExecutorOptions,
   type IsolatedStats,
 } from './helper.ts';
+export { createRoutedExecutor, type RoutedExecutorOptions, type RoutedStats } from './routed.ts';
 export { createSocketTransport, type HelperFetch, type SocketTransportOptions } from './socket.ts';
 export {
   createInProcessExecutor,

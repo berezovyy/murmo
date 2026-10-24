@@ -9,6 +9,7 @@ export {
   type PluginHost,
   type PluginHostOptions,
 } from './host.ts';
+export { type InstalledSelection, type PluginTables, type SessionPlugins, withInstalled } from './installed.ts';
 export { inspectDisplayName, nameNotice } from './names.ts';
 export {
   type GrantMap,

@@ -22,6 +22,7 @@ from .product import (
     enable_autocorrect,
     launcher_path,
     murmo_data,
+    plugin_argv,
     setup_argv,
     trust_argv,
 )
@@ -52,7 +53,7 @@ class PackedMurmo(Integration):
     features = frozenset({
         'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
         'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
-        'plugin.shortcuts', 'host.project-config', 'restart',
+        'plugin.shortcuts', 'host.project-config', 'restart', 'host.installed-plugins',
     })
 
     def __init__(self, product: PackedProduct | None, plugin_set: str = 'b') -> None:
@@ -105,6 +106,21 @@ class PackedMurmo(Integration):
         result = run.sandboxed(profile, trust_argv(self.product), timeout=60, input='y\n')
         if result.code != 0 or 'Approved' not in result.stdout:
             raise RuntimeError(f'murmo trust did not approve: {(result.stdout + result.stderr)[-2000:]}')
+
+    def install_plugin(self, host, profile, plugin: dict, run=None) -> None:
+        """`murmo plugin add <folder> --grant …` after setup, then `disable` when
+        the case installs it turned off. The plugin runs in the helper on the host."""
+        if run is None or self.product is None:
+            raise RuntimeError('installing a plugin needs the packed CLI and a Run')
+        folder = Path(plugin['folder'])
+        steps = [['add', str(folder), '--grant', ','.join(plugin['grants']), '--json']]
+        if plugin.get('enabled') is False:
+            name = json.loads((folder / 'murmo.plugin.json').read_text())['name']
+            steps.append(['disable', name, '--json'])
+        for args in steps:
+            result = run.sandboxed(profile, plugin_argv(self.product, args), timeout=60)
+            if result.code != 0:
+                raise RuntimeError(f'murmo plugin {args[0]} failed: {(result.stdout + result.stderr)[-2000:]}')
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         # Stock Pi uses --no-extensions (no discovery). Explicit `-e` still

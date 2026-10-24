@@ -36,3 +36,4 @@ export {
   referenceCaps,
   type SentRequest,
 } from './reference-adapter.ts';
+export { sourceExecutor } from './source-executor.ts';

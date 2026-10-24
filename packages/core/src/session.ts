@@ -555,6 +555,12 @@ class CoreSession implements Session {
       if (plugin.hooks.has('activate')) this.#schedule(plugin, 'activate', null);
       else if (!plugin.disabled) plugin.activated = true;
     }
+    // An installed plugin that could not start says so; a built-in's load failure is in stats and doctor.
+    for (const plugin of loaded) {
+      if (plugin.loadError !== undefined && !plugin.builtin) {
+        presentation.notice(`Plugin ${plugin.descriptor.id} did not start: ${plugin.loadError}`);
+      }
+    }
     // Last, so the host's own startup lines are the newest: the first one given shows first.
     for (const text of [...(this.#options.notices ?? [])].reverse()) presentation.notice(text);
     presentation.render();

@@ -72,6 +72,16 @@ export {
   storageKeyProblem,
   storageSet,
 } from './plugin-namespace.ts';
+export type {
+  InstalledPlugin,
+  PluginDistribution,
+  PluginSelection,
+  PluginSource,
+  PluginsManifest,
+  SelectedPlugin,
+  SelectionRead,
+} from './plugins.ts';
+export { BUILTIN_IDS, EMPTY_SELECTION, PLUGINS_SCHEMA, parsePluginsManifest, readPluginSelection } from './plugins.ts';
 export type { StoreReply, StoreRequest } from './protocol.ts';
 export { parseStoreRequest } from './protocol.ts';
 export type {

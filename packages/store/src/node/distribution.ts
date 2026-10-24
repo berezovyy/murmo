@@ -4,7 +4,6 @@
 // or undo an interrupted multi-file update (round 14 did not prove this).
 
 import { rm } from 'node:fs/promises';
-import type { Permission } from '@murmo/api';
 import {
   distributionLedgerPath,
   extensionsDir,
@@ -17,9 +16,25 @@ import {
   type StoreRoots,
   updateJournalPath,
 } from '../layout.ts';
+import {
+  BUILTIN_IDS,
+  type InstalledPlugin,
+  type PluginSelection,
+  type PluginsManifest,
+  parsePluginsManifest,
+  readPluginSelection,
+} from '../plugins.ts';
 import { DIR_MODE, ensurePrivateDir, FILE_MODE, processAlive, readStoreFile, writeAtomic } from './files.ts';
 
-export const PLUGINS_SCHEMA = 1;
+export {
+  BUILTIN_IDS,
+  type InstalledPlugin,
+  PLUGINS_SCHEMA,
+  type PluginDistribution,
+  type PluginSource,
+  type PluginsManifest,
+} from '../plugins.ts';
+
 export const DISTRIBUTION_SCHEMA = 1;
 export const JOURNAL_SCHEMA = 1;
 export const SESSION_SCHEMA = 1;
@@ -30,41 +45,6 @@ export const MANIFEST_MAX_BYTES = 1_048_576;
 export type ActivationOutcome = 'loaded' | 'activated' | 'disabled' | 'error';
 export type JournalPhase = 'extract' | 'quiesce' | 'snapshot' | 'preflight' | 'select';
 export type JournalOp = 'add' | 'update';
-
-export interface PluginSource {
-  /** `folder`: a local plugin folder signed with the user's development key. */
-  readonly kind: 'tarball' | 'git' | 'npm' | 'folder';
-  readonly spec: string;
-  readonly path?: string;
-  readonly url?: string;
-  readonly commit?: string;
-  readonly registry?: string;
-  readonly integrity?: string;
-}
-
-export interface PluginDistribution {
-  readonly digest: string;
-  readonly publisher: string;
-  readonly manifest: Readonly<Record<string, unknown>>;
-  readonly source: PluginSource;
-}
-
-export interface InstalledPlugin {
-  readonly enabled: boolean;
-  readonly builtin?: boolean | undefined;
-  readonly grants: readonly Permission[];
-  readonly storageFile?: string | undefined;
-  readonly entry?: string | undefined;
-  readonly distribution?: PluginDistribution | undefined;
-  readonly previous?: InstalledPlugin | undefined;
-}
-
-export interface PluginsManifest {
-  readonly schema: typeof PLUGINS_SCHEMA;
-  readonly revision: number;
-  readonly order: readonly string[];
-  readonly plugins: Readonly<Record<string, InstalledPlugin>>;
-}
 
 export interface PublisherIdentity {
   readonly publisher: string;
@@ -137,7 +117,6 @@ export interface SessionAck {
 export const EMPTY_MANIFEST: PluginsManifest = { schema: 1, revision: 0, order: [], plugins: {} };
 export const EMPTY_LEDGER: DistributionLedger = { schema: 1, identities: {}, projects: {} };
 
-export const BUILTIN_IDS = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
 export const DEFAULT_PLUGIN_ORDER: readonly string[] = BUILTIN_IDS;
 
 export function defaultManifest(): PluginsManifest {
@@ -162,9 +141,21 @@ async function writeJson(roots: StoreRoots, path: string, value: unknown): Promi
 }
 
 export async function readPluginsManifest(roots: StoreRoots): Promise<PluginsManifest | undefined> {
-  const value = await readJson<PluginsManifest>(pluginsManifestPath(roots));
-  if (value?.schema !== 1 || !value.plugins || !Array.isArray(value.order)) return undefined;
-  return value;
+  const read = await readStoreFile(pluginsManifestPath(roots), MANIFEST_MAX_BYTES);
+  return read.status === 'ok' ? parsePluginsManifest(read.bytes) : undefined;
+}
+
+/** Largest plugin file a session reads (the archive rules cap the entry at 1 MiB). */
+const PLUGIN_FILE_MAX_BYTES = 1_048_576;
+
+/** The plugins a new Node or Bun session loads (Pi, OpenCode); Claude reads the same files through its host. */
+export function readInstalledPlugins(roots: StoreRoots): Promise<PluginSelection> {
+  return readPluginSelection(roots, async (path) => {
+    const read = await readStoreFile(path, PLUGIN_FILE_MAX_BYTES);
+    if (read.status === 'ok') return read.bytes;
+    if (read.status === 'missing') return undefined;
+    throw new Error(`${path} ${read.reason}`);
+  });
 }
 
 export async function writePluginsManifest(roots: StoreRoots, manifest: PluginsManifest): Promise<void> {

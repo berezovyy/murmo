@@ -115,6 +115,21 @@ test('a projectTrust case without host.project-config fails loading', () => {
   );
 });
 
+test('an installed-plugin case without host.installed-plugins fails loading', () => {
+  // A subject that never runs `murmo plugin add` would pass the disabled case
+  // (the send goes through) for the wrong reason.
+  const src = edited('hosts/installed-plugin.json', (d) => {
+    if (d.defaults) delete d.defaults.requires;
+  });
+  const { problems } = loadFixtures(src);
+  assert.ok(
+    problems.includes(
+      'hosts/installed-plugin.json disabled-plugin-stops: "installed" needs "requires": ["host.installed-plugins"]',
+    ),
+    problems.join('\n'),
+  );
+});
+
 test('a hostConfig case without host.config-files fails loading', () => {
   // A subject that never writes the user's own host settings would pass the
   // OpenCode theme case for the wrong reason.

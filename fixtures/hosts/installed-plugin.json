@@ -1,0 +1,31 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. A plugin installed with `murmo plugin add` never ran on any host: Pi showed it `on` in `murmo plugin list` while a TODO send guard and a status counter did nothing, because every adapter loaded only its built-ins. `installed` is applied by the harness with `murmo plugin add` (and `disable`) before the host starts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "requires": ["host.installed-plugins"]
+  },
+  "cases": [
+    {
+      "id": "installed-plugin-holds-send",
+      "tags": ["plugins", "third-party"],
+      "installed": [{ "folder": "hosts/plugins/send-hold", "grants": ["draft:read", "submit"] }],
+      "note": "The installed plugin runs in the isolated helper with the grants the user reviewed and blocks a send that says zzhold, on every host: no request reaches the model and the draft stays.",
+      "steps": [{ "type": "fix zzhold" }, { "waitMs": 300 }, { "submit": "send" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": "fix zzhold" }, "requests": [] }
+    },
+    {
+      "id": "disabled-plugin-stops",
+      "tags": ["plugins", "third-party"],
+      "installed": [{ "folder": "hosts/plugins/send-hold", "grants": ["draft:read", "submit"], "enabled": false }],
+      "note": "After `murmo plugin disable send-hold`, a new session sends the same prompt. Beside installed-plugin-holds-send this proves the block came from the plugin, not from Murmo or the host.",
+      "steps": [{ "type": "fix zzhold" }, { "waitMs": 300 }, { "submit": "send" }],
+      "expect": { "requests": ["fix zzhold"] }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 // Claude plugin entry. `hooks/hooks.json` points here. No Node, no reload timer.
 
-import { textOf } from './decode.ts';
+import { readPluginSelection } from '@murmo/store';
+import { bytesOf, textOf } from './decode.ts';
 import { CLAUDE_EVENT_TIMEOUT_MS, ingestClaudeHook } from './events.ts';
 import { HELPER_PATHS, packageFromPluginRoot } from './payload.ts';
 import { type ClaudeHost, createClaudeHost } from './session.ts';
@@ -105,6 +106,10 @@ export function register(on: ClaudeRegister): void {
       let userToml: string | undefined;
       const tomlPath = joinPath(configRoot, 'murmo.toml');
       if (await $.fs.exists(tomlPath)) userToml = asText(await $.fs.read(tomlPath));
+      // What `murmo plugin add` installed; checked against its signed file hashes.
+      const installed = await readPluginSelection({ data: dataRoot }, async (path) =>
+        (await $.fs.exists(path)) ? bytesOf(await $.fs.read(path, { as: 'bytes' })) : undefined,
+      );
       await host.bootPacked({
         payloadRoot,
         integrityJson,
@@ -115,6 +120,7 @@ export function register(on: ClaudeRegister): void {
         services,
         helperBinaries,
         tmpdir: (await $.env.get('TMPDIR')) ?? '',
+        installed,
       });
     } catch (error) {
       host.adapter.notices.push(`startup failed: ${error instanceof Error ? error.message : String(error)}`);

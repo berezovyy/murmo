@@ -192,6 +192,8 @@ class HostSubject:
             return 'loads plugins: needs a Murmo integration (phases 21–24)'
         if case.get('projectTrust') and 'host.project-config' not in features:
             return 'approves a project file: needs an integration with murmo trust'
+        if case.get('installed') and 'host.installed-plugins' not in features:
+            return 'installs a plugin: needs an integration with murmo plugin add'
         if self.integration.name == 'packed' and case.get('plugins'):
             names = {
                 (plugin.get('plugin') if isinstance(plugin, dict) else plugin)
@@ -279,6 +281,9 @@ class HostSubject:
                 project=paths.FIXTURES / case['project'] if case.get('project') else None,
                 project_trust=case.get('projectTrust'),
                 host_config=paths.FIXTURES / case['hostConfig'] if case.get('hostConfig') else None,
+                installed=[
+                    {**plugin, 'folder': paths.FIXTURES / plugin['folder']} for plugin in case.get('installed', [])
+                ],
             )
             if self.ready_screen is None:
                 self.ready_screen = session.ready_screen

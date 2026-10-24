@@ -21,6 +21,9 @@ What an integration can do:
 - `approve_project`: approve the profile project's `.murmo.toml` the way a
   user does (`murmo trust`), for cases with `projectTrust: approved`. Only
   an integration with the `host.project-config` feature can.
+- `install_plugin`: install a fixture plugin folder with `murmo plugin add`
+  (and `disable` it when the case says so), for cases with `installed`.
+  Only an integration with the `host.installed-plugins` feature can.
 """
 
 from __future__ import annotations
@@ -92,6 +95,9 @@ class Integration:
 
     def approve_project(self, host, profile, run=None) -> None:
         raise NotImplementedError(f'integration {self.name!r} cannot approve a project file')
+
+    def install_plugin(self, host, profile, plugin: dict, run=None) -> None:
+        raise NotImplementedError(f'integration {self.name!r} cannot install a plugin')
 
 
 STOCK = Integration()

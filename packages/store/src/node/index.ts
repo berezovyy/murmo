@@ -36,6 +36,7 @@ export {
   listLiveSessions,
   PLUGINS_SCHEMA,
   QUIESCE_MS,
+  readInstalledPlugins,
   readJournal,
   readLastRollback,
   readLedger,

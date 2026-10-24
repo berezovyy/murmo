@@ -92,6 +92,9 @@ function pluginName(ref: PluginRef): string {
 /** The host loads `project`'s `.murmo.toml` through its trust check (phase 14), and the runner can approve it. */
 const PROJECT_CONFIG = 'host.project-config';
 
+/** The runner installs `installed` plugins with `murmo plugin add` before the host starts. */
+const INSTALLED_PLUGINS = 'host.installed-plugins';
+
 /** The runner writes `hostConfig`'s files into the real host's config folder before setup. */
 const HOST_CONFIG_FILES = 'host.config-files';
 
@@ -120,6 +123,15 @@ function checkEditorCases(path: string, cases: EditorCase[], plugins: PluginRegi
     if (c.hostConfig && !(c.requires ?? []).includes(HOST_CONFIG_FILES)) {
       // A subject without the host's own config would pass the case for the wrong reason.
       problems.push(`${at}: "hostConfig" needs "requires": ["${HOST_CONFIG_FILES}"]`);
+    }
+    for (const plugin of c.installed ?? []) {
+      if (!src.exists(`${plugin.folder}/murmo.plugin.json`)) {
+        problems.push(`${at}: installed plugin folder "${plugin.folder}" has no murmo.plugin.json`);
+      }
+    }
+    if (c.installed && !(c.requires ?? []).includes(INSTALLED_PLUGINS)) {
+      // A subject that never installs the plugin would pass a "disabled" case for the wrong reason.
+      problems.push(`${at}: "installed" needs "requires": ["${INSTALLED_PLUGINS}"]`);
     }
     if (c.timing?.baseline && !cases.some((other) => other.id === c.timing?.baseline?.case)) {
       problems.push(`${at}: timing baseline "${c.timing.baseline.case}" is not a case in this file`);
@@ -243,6 +255,7 @@ export function loadFixtures(src: FixtureSource): Loaded {
       const cases = withDefaults(data as EditorOpsFile);
       problems.push(...checkEditorCases(path, cases, plugins, src));
       for (const c of cases) if (c.hostConfig) hostConfigs.add(`${c.hostConfig}/`);
+      for (const c of cases) for (const plugin of c.installed ?? []) hostConfigs.add(`${plugin.folder}/`);
       const variants = cases.reduce((n, c) => n + variantsOf(c).length, 0);
       if (entry.cases !== cases.length) problems.push(`${path}: declares ${entry.cases} cases, loaded ${cases.length}`);
       if (entry.variants !== variants)
@@ -269,7 +282,7 @@ export function loadFixtures(src: FixtureSource): Loaded {
 
   for (const [path, text] of Object.entries(src.json)) {
     if (path.startsWith('schema/') || path === indexFile || path === pluginsFile || moved.has(path)) continue;
-    // A host's own settings file (OpenCode's cli.json) is data a case copies, not a suite.
+    // A host's own settings file (OpenCode's cli.json) or an installed plugin's manifest is data a case copies, not a suite.
     const hostFile = [...hostConfigs].some((folder) => path.startsWith(folder));
     if (!indexed.has(path) && !hostFile) problems.push(`${path}: not listed in ${indexFile}, so it would never run`);
     const match = invisible.exec(text);

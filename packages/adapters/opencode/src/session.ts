@@ -1,11 +1,20 @@
-// Wire createSession + in-process built-ins. Third-party plugins take the
-// isolated executor seam (phase 10); v1 only loads built-ins here.
+// Wire createSession: built-ins in-process, the plugins `murmo plugin add`
+// installed in the isolated helper with their reviewed grants.
 
+import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
 import type { EffectiveConfig, LoadedSession } from '@murmo/config';
 import { loadedSession, loadSessionConfig } from '@murmo/config/node';
-import { createMemoryStorage, createPluginHost, createSession, type HostPluginSpec, type Session } from '@murmo/core';
-import { createInProcessExecutor } from '@murmo/executor';
+import {
+  createMemoryStorage,
+  createPluginHost,
+  createSession,
+  type HostPluginSpec,
+  type Session,
+  withInstalled,
+} from '@murmo/core';
+import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
+import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
 import { historyPlugin } from '@murmo/plugin-history';
@@ -19,15 +28,19 @@ import {
   sessionNotices,
   shortcutsPlugin,
 } from '@murmo/plugin-shortcuts';
-import { createMemoryDrafts, newDraftSession } from '@murmo/store';
-import { openStore, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
+import { createMemoryDrafts, EMPTY_SELECTION, newDraftSession } from '@murmo/store';
+import { openStore, projectIdOfCwd, readInstalledPlugins, storeRootsFromEnv } from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
 
 export interface SessionStartOptions {
   readonly adapter: OpenCodeAdapter;
+  /** Tests: these specs instead of the built-ins and the installed plugins. */
   readonly plugins?: readonly HostPluginSpec[];
   readonly order?: readonly string[];
   readonly executor?: Executor;
+  /** Where installed third-party plugins run; default the isolated helper. Tests pass a stand-in. */
+  readonly thirdParty?: (clock: Clock) => Executor;
+  readonly env?: NodeJS.ProcessEnv;
   readonly config?: EffectiveConfig;
   /** The load `config` came from: project trust and summary for the startup notices. */
   readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
@@ -173,20 +186,35 @@ export async function prepareRescue(
   };
 }
 
+function sessionExecutor(thirdParty: SessionStartOptions['thirdParty']): Executor {
+  const trusted = createInProcessExecutor();
+  return createRoutedExecutor({
+    trusted,
+    isolated: () => thirdParty?.(trusted.clock) ?? createNodeIsolatedExecutor({ clock: trusted.clock }),
+  });
+}
+
 export async function startSession(options: SessionStartOptions): Promise<StartedSession> {
-  const executor = options.executor ?? createInProcessExecutor();
   const builtins = builtinPlugins(options);
+  const loaded = withInstalled(
+    { specs: builtins.specs, order: options.order ?? builtins.specs.map((spec) => spec.id), grants: {} },
+    options.plugins ? EMPTY_SELECTION : await readInstalledPlugins(storeRootsFromEnv(options.env)),
+    options.config?.plugins,
+  );
+  const executor = options.executor ?? sessionExecutor(options.thirdParty);
   const host = createPluginHost({
-    specs: builtins.specs,
+    specs: loaded.specs,
     executor,
+    grants: loaded.grants,
+    // Third-party storage lasts the session here; Pi and the CLI keep it on disk.
     storage: createMemoryStorage(),
   });
   const session = createSession({
     adapter: options.adapter,
     runner: host,
     keyBursts: true,
-    notices: [...(options.notices ?? []), ...builtins.notices],
-    ...(options.order ? { order: options.order } : {}),
+    notices: [...(options.notices ?? []), ...builtins.notices, ...loaded.notices],
+    order: loaded.order,
     ...(options.notify ? { notify: options.notify } : {}),
   });
   await session.ready;
