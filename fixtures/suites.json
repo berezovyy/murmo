@@ -139,8 +139,8 @@
     {
       "file": "hosts/project-shortcuts.json",
       "owner": "14, 20, 24",
-      "cases": 4,
-      "variants": 4
+      "cases": 5,
+      "variants": 5
     },
     {
       "file": "hosts/r14-followup.json",

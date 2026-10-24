@@ -18,32 +18,103 @@
       "tags": ["project-config"],
       "projectTrust": "approved",
       "note": "A shortcut from an approved project .murmo.toml expands on Space on every host (phase 14 trust, phase 15 installed-artifact check).",
-      "steps": [{ "type": ";hp " }],
-      "expect": { "draft": { "text": "harness project shortcut " }, "requests": [] }
+      "steps": [
+        {
+          "type": ";hp "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "harness project shortcut "
+        },
+        "requests": []
+      }
     },
     {
       "id": "unreviewed-project-shortcut-stays-literal",
       "tags": ["project-config"],
       "projectTrust": "unreviewed",
       "note": "A cloned repository's shortcuts never expand before the user reviewed them, on any host (phase 14 trust). A host that never loads project config also leaves the draft literal, so this case means something only beside trusted-project-shortcut-expands in the same run; the review notice itself is checked by packages/adapters/claude/test/project-config.gate.ts.",
-      "steps": [{ "type": ";hp " }],
-      "expect": { "draft": { "text": ";hp " }, "requests": [] }
+      "steps": [
+        {
+          "type": ";hp "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": ";hp "
+        },
+        "requests": []
+      }
     },
     {
       "id": "template-field-default",
       "tags": ["project-config", "templates"],
       "projectTrust": "approved",
       "note": "A [replace] table's field default is inserted, not its placeholder. Every host once inserted `Review <change> for correctness.`: the adapters copied only shortcut, text and origin into the compiler.",
-      "steps": [{ "type": ";hr " }],
-      "expect": { "draft": { "text": "Review this change for correctness. " }, "requests": [] }
+      "steps": [
+        {
+          "type": ";hr "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "Review this change for correctness. "
+        },
+        "requests": []
+      }
     },
     {
       "id": "non-ascii-shortcut-name",
       "tags": ["project-config"],
       "projectTrust": "approved",
       "note": "A shortcut whose name is not ASCII expands like any other. OpenCode left `;привіт` literal: it counted only ASCII keys as typed, so the name was never a fully typed span.",
-      "steps": [{ "type": ";привіт " }],
-      "expect": { "draft": { "text": "harness greeting " }, "requests": [] }
+      "steps": [
+        {
+          "type": ";привіт "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "harness greeting "
+        },
+        "requests": []
+      }
+    },
+    {
+      "id": "pi-send-with-collapsed-paste-is-confirmed",
+      "tags": ["project-config", "submit"],
+      "requires": ["host=pi", "host.project-config"],
+      "projectTrust": "approved",
+      "note": "Pi folds a long paste into a [paste #1 +11 lines] label and sends it in full. Murmo matched Pi's confirmation against the folded draft, so a prompt holding a long paste was never confirmed: notices about the sent draft (here the first-expansion hint) stayed on the status line, and history and phrases missed the prompt.",
+      "steps": [
+        {
+          "type": ";hp "
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "paste": "pasted line 1\npasted line 2\npasted line 3\npasted line 4\npasted line 5\npasted line 6\npasted line 7\npasted line 8\npasted line 9\npasted line 10\npasted line 11\npasted line 12"
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "submit": "send"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": [
+          "harness project shortcut pasted line 1\npasted line 2\npasted line 3\npasted line 4\npasted line 5\npasted line 6\npasted line 7\npasted line 8\npasted line 9\npasted line 10\npasted line 11\npasted line 12"
+        ],
+        "never": {
+          "status": ["Shortcut expanded"]
+        }
+      }
     }
   ]
 }

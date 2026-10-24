@@ -132,8 +132,8 @@ export class FakePiEditor implements PiEditor {
     }
     if (data === '\r') {
       this.submitCount++;
-      // Pi's editor trims what it sends (pi-tui Editor.submitValue).
-      this.onSubmit?.(this.getText().trim());
+      // Pi's editor sends its pastes in full, trimmed (pi-tui Editor.submitValue).
+      this.onSubmit?.(this.getExpandedText().trim());
       this.setText('');
       return;
     }

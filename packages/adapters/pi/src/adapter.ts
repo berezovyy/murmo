@@ -137,7 +137,13 @@ export class PiAdapter implements Adapter {
    * The send handed to Pi, kept until Pi's `input` event confirms it. Its typed
    * spans are taken now: Pi has cleared the editor by the time `input` fires.
    */
-  #forwarded: { text: string; gesture: SubmitGesture; id: string; typedSpans: Draft['typedSpans'] } | null = null;
+  #forwarded: {
+    text: string;
+    piText: string;
+    gesture: SubmitGesture;
+    id: string;
+    typedSpans: Draft['typedSpans'];
+  } | null = null;
   #submissions = 0;
   #ready: Promise<HostCapabilities> | undefined;
   #ownershipLost = false;
@@ -789,6 +795,8 @@ export class PiAdapter implements Adapter {
       const sent = decision.action === 'replace' ? decision.text : current.text;
       this.#forwarded = {
         text: sent,
+        // What Pi's editor will send: collapsed pastes in full, trimmed (Editor.submitValue).
+        piText: this.backend.getEditor().getExpandedText().trim(),
         gesture,
         id: `pi-submit:${++this.#submissions}`,
         typedSpans: copy(this.#draft).typedSpans,
@@ -807,8 +815,8 @@ export class PiAdapter implements Adapter {
 
   #onPiInput(event: { source?: string; text?: string }): void {
     const forwarded = this.#forwarded;
-    // Pi's editor trims what it sends; the input event carries that text.
-    if (!forwarded || event.source !== 'interactive' || event.text !== forwarded.text.trim()) return;
+    // The input event carries the text Pi's editor sent, not Murmo's draft.
+    if (!forwarded || event.source !== 'interactive' || event.text !== forwarded.piText) return;
     const accepted: HostSubmitAccepted = {
       text: forwarded.text,
       gesture: forwarded.gesture,

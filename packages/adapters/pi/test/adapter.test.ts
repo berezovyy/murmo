@@ -236,3 +236,34 @@ test('Enter writes the last-word fix into the box, then sends it (round 4)', asy
     await live.dispose();
   }
 });
+
+test('a send holding a collapsed paste is confirmed (real-host bug)', async () => {
+  // Pi sends a collapsed paste in full, and its input event carries that
+  // text; the adapter matched it against the draft with the [paste #1 ...]
+  // label, so the send was never confirmed and committed hooks never ran
+  // (history, phrases, the end of a template's field session).
+  const live = await startLive();
+  try {
+    const sent: string[] = [];
+    const original = live.env.editor.onSubmit;
+    live.env.editor.onSubmit = (text) => {
+      sent.push(text);
+      original?.(text);
+    };
+    const committed: string[] = [];
+    live.adapter.onSubmitCommitted((event) => committed.push(event.text));
+    const big = Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n');
+    live.type('look at this ');
+    live.key(`\x1b[200~${big}\x1b[201~`);
+    await live.session.settle();
+    assert.match(live.env.editor.getText(), /\[paste #1 \+11 lines\]/);
+    live.key('\r');
+    await until(() => sent.length > 0);
+    assert.equal(sent[0], `look at this ${big}`);
+    live.env.host.emit('input', { source: 'interactive', text: sent[0] });
+    await until(() => committed.length > 0);
+    assert.equal(committed.length, 1);
+  } finally {
+    await live.dispose();
+  }
+});
