@@ -236,11 +236,13 @@ function createPlugin(state: NamesState): Plugin {
       start = semi.start;
       shownVersion = draft.version;
       typed = draft.text.slice(semi.start, draft.cursor);
-      if (awaitingAliases) {
-        const before = proseSpan(draft.text.slice(0, semi.start).replace(/\s+$/, ''), semi.start);
-        if (before)
-          return openAliases(draft, caps, { ...before, end: draft.cursor }, caps.inline.nativeCompletion, true);
+      const before = proseSpan(draft.text.slice(0, semi.start).replace(/\s+$/, ''), semi.start);
+      if (awaitingAliases && before) {
+        return openAliases(draft, caps, { ...before, end: draft.cursor }, caps.inline.nativeCompletion, true);
       }
+      // The row lists names for the prose before `;`; with none to insert (no
+      // prose, an empty index) it would be a dead row, so it stays hidden.
+      if (!before || lookupProse(before, state.backend, false).length === 0) return close(draft.version);
       const row: MenuItem = { id: PROJECT_REF_ID, label: 'Insert project reference', detail: 'project name' };
       return [{ type: 'menu', items: [row], baseVersion: draft.version }];
     }

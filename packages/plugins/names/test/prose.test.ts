@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHarness } from '@murmo/core/testing';
 import { PROJECT_REF_ID } from '../src/index.ts';
-import { pluginOf } from './helpers.ts';
+import { FIXTURE, pluginOf } from './helpers.ts';
 
 test('outbox worker on the names key offers OutboxWorker with file', async () => {
   const h = await createHarness({ plugins: [pluginOf(undefined, { key: 'Ctrl+n' })] });
@@ -57,6 +57,24 @@ test('semicolon menu row Insert project reference then lists aliases', async () 
   const row = h.adapter.menu?.find((r) => r.id === PROJECT_REF_ID);
   assert.ok(row);
   await h.session?.dispose();
+});
+
+test('no Insert project reference row when it has nothing to insert', async () => {
+  // Pi showed a dead row on every `;` with an empty name index.
+  for (const [entries, typed] of [
+    [[], 'outbox worker ;'],
+    [FIXTURE, ';'],
+  ] as const) {
+    const h = await createHarness({ plugins: [pluginOf([...entries])] });
+    await h.driver.type(typed);
+    await h.driver.settle();
+    assert.equal(
+      h.adapter.menu?.find((r) => r.id === PROJECT_REF_ID),
+      undefined,
+      `${entries.length} names, ${typed}`,
+    );
+    await h.session?.dispose();
+  }
 });
 
 test('accept replaces matched words on all four host profiles with Backspace revert', async () => {
