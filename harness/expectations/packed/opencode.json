@@ -1,0 +1,14 @@
+{
+  "kind": "host-expectations/v1",
+  "host": "opencode",
+  "suites": {
+    "rescue/harness.json": {
+      "sigkill-restore": {
+        "note": "OpenCode's own prompt moves a combining mark typed as its own key to the end of the text (stock OpenCode 2.1.1 sends 'e\\n\\n你好\\u0301' for typed 'e\\u0301\\n\\n你好', without Murmo). Murmo saves and restores what the prompt held, byte for byte.",
+        "expect": {
+          "requests": ["👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\n\n你好\u0301"]
+        }
+      }
+    }
+  }
+}

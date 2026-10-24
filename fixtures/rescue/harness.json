@@ -37,6 +37,9 @@
           "key": "Tab"
         },
         {
+          "settle": true
+        },
+        {
           "submit": "send"
         }
       ],
