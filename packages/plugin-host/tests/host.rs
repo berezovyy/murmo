@@ -518,6 +518,52 @@ fn config_load_merges_the_personal_file_and_never_an_unreviewed_project() {
 }
 
 #[test]
+fn config_load_since_answers_unchanged_until_a_file_changes() {
+    // Catches a Claude session that never saw a murmo.toml edit: its idle
+    // re-check sends the last reply's stamps, and the helper must reload once
+    // the personal file changed (or a project file appeared), not before.
+    let t = ConfigHome::new("since");
+    let user = t.0.join("home/.config/murmo/murmo.toml");
+    std::fs::write(&user, "version = 1\n[replace]\n\";me\" = 'personal'\n").unwrap();
+    let cwd = t.0.join("repo");
+    let mut host = t.host();
+    let first = host.rpc(json!({"op": "config.load", "cwd": cwd.to_str().unwrap()}));
+    let stamps = first["stamps"].clone();
+    assert!(stamps.as_array().is_some_and(|s| !s.is_empty()), "{first}");
+    let same =
+        host.rpc(json!({"op": "config.load", "cwd": cwd.to_str().unwrap(), "since": stamps}));
+    assert_eq!(
+        (&same["status"], &same["unchanged"]),
+        (&json!("ok"), &json!(true)),
+        "{same}"
+    );
+    assert!(same.get("session").is_none(), "{same}");
+    std::fs::write(
+        &user,
+        "version = 1\n[replace]\n\";me\" = 'personal'\n\";new\" = 'added'\n",
+    )
+    .unwrap();
+    let edited =
+        host.rpc(json!({"op": "config.load", "cwd": cwd.to_str().unwrap(), "since": stamps}));
+    assert_eq!(
+        edited["session"]["effective"]["replacements"]
+            .as_array()
+            .map(Vec::len),
+        Some(2),
+        "{edited}"
+    );
+    let stamps = edited["stamps"].clone();
+    std::fs::write(
+        cwd.join(".murmo.toml"),
+        "version = 1\n[replace]\n\";hp\" = 'project'\n",
+    )
+    .unwrap();
+    let created =
+        host.rpc(json!({"op": "config.load", "cwd": cwd.to_str().unwrap(), "since": stamps}));
+    assert_eq!(created["session"]["trust"], "review", "{created}");
+}
+
+#[test]
 fn config_load_refuses_a_relative_cwd() {
     // A relative cwd would resolve against the helper's own working directory,
     // a different repository than the session's.
