@@ -544,7 +544,7 @@ export class ClaudeAdapter implements Adapter {
     ) {
       let text = owned.before.text;
       let cursor = owned.before.cursor;
-      if (owned.before.rejectSeparator && cursor > 0 && text[cursor - 1] === ' ') {
+      if (owned.before.rejectSeparator && cursor > 0 && ' \r\n'.includes(text[cursor - 1] as string)) {
         text = text.slice(0, cursor - 1) + text.slice(cursor);
         cursor--;
       }

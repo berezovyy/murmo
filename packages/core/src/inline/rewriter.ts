@@ -2,10 +2,18 @@
 // arm undo/pending-dot only on a matching applied commit, queue oversized
 // shortcuts as deferred versioned edits.
 
-import type { Change, KeyId, Range } from '@murmo/api';
+import type { Change, Draft, KeyId, Range } from '@murmo/api';
 import type { InlineAnswer, InlineCommit, InlineReplay, InlineSnapshot } from '@murmo/api/adapter';
 import { commitArms } from './commit.ts';
-import { cloneState, type DeferredEdit, planWalk, replaceAnswer, type WalkState } from './interpreter.ts';
+import {
+  cloneState,
+  type DeferredEdit,
+  finalWordFix,
+  type Proposal,
+  planWalk,
+  replaceAnswer,
+  type WalkState,
+} from './interpreter.ts';
 import type { RegisteredInline } from './registry.ts';
 
 export interface ShortcutCounts {
@@ -18,6 +26,8 @@ export interface InlineRewriter {
   readonly owner: string;
   readonly priority: number;
   plan(snapshot: InlineSnapshot): InlineAnswer;
+  /** The typo fix Enter applies to the last word, honoring this draft's rejected words. */
+  finish(draft: Pick<Draft, 'text' | 'cursor' | 'typedSpans'>): Proposal | null;
   commit(commit: InlineCommit): boolean;
   observe(change: Change): void;
   noteKey(key: KeyId): void;
@@ -91,6 +101,10 @@ export function createInlineRewriter(
       };
       if (!corrections.length) return { action: 'native', replay };
       return replaceAnswer(rule.owner, rule.id, state, replay);
+    },
+
+    finish(draft) {
+      return rule.enabled ? finalWordFix(rule, draft, rejected) : null;
     },
 
     commit(c) {

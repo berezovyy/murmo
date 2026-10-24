@@ -445,7 +445,9 @@ export class PiAdapter implements Adapter {
     const beforeText = editor.getText();
     const beforeCursor = this.backend.cursor();
     let origin: Origin =
-      isPrintableRaw(data) || ['Newline', 'Backspace', 'Left', 'Right', 'Up', 'Down'].includes(decoded.id)
+      isPrintableRaw(data) ||
+      decoded.kind === 'newline' ||
+      ['Backspace', 'Left', 'Right', 'Up', 'Down'].includes(decoded.id)
         ? 'typed'
         : 'unknown';
     if (isBracketedPaste(data)) origin = 'paste';
@@ -477,7 +479,7 @@ export class PiAdapter implements Adapter {
     }
     if (consume === 'consume') return;
 
-    if (this.#inlineInput(data, decoded.id, origin, editor)) return;
+    if (this.#inlineInput(data, decoded.kind === 'newline' ? 'Newline' : decoded.id, origin, editor)) return;
 
     if (
       !this.#probing &&
@@ -498,13 +500,18 @@ export class PiAdapter implements Adapter {
 
   #inlineInput(data: string, key: KeyId, origin: Origin, editor: PiEditor): boolean {
     if (this.#probing || this.#disposed || !this.#inline.size) return false;
-    if ((!data || (!isPrintableRaw(data) && !INLINE_KEYS.has(key))) && !isBracketedPaste(data)) return false;
+    // Newline types a line break whatever its raw sequence; `\`+Enter (a Backspace, then a line break) stays native.
+    const newline = key === 'Newline';
+    if (newline && this.#draft.text[this.#draft.cursor - 1] === '\\') return false;
+    if ((!data || (!isPrintableRaw(data) && !INLINE_KEYS.has(key) && !newline)) && !isBracketedPaste(data))
+      return false;
     if (this.#draft.certainty !== 'authoritative') return false;
     const d = copy(this.#draft);
     const s = this.#state();
     const action = INLINE_KEYS.has(key);
     let from = d.cursor;
     if (key === 'Backspace' && from > 0) from = graphemeBefore(d.text, from);
+    const insert = newline ? '\n' : isBracketedPaste(data) ? stripPasteMarkers(data) : data;
     const deltas: DraftDelta[] =
       key === 'Undo' || key === 'F6'
         ? []
@@ -513,7 +520,7 @@ export class PiAdapter implements Adapter {
               origin: origin === 'typed' || origin === 'paste' ? origin : 'unknown',
               from,
               to: d.cursor,
-              insert: key === 'Backspace' ? '' : isBracketedPaste(data) ? stripPasteMarkers(data) : data,
+              insert: key === 'Backspace' ? '' : insert,
             },
           ];
     const snapshot: InlineSnapshot = {
@@ -527,7 +534,7 @@ export class PiAdapter implements Adapter {
       origin: action ? 'typed' : origin === 'typed' || origin === 'paste' ? origin : 'unknown',
       key: {
         id: key,
-        inputText: origin === 'typed' && data.length === 1 && isPrintableRaw(data) ? data : '',
+        inputText: newline ? insert : origin === 'typed' && data.length === 1 && isPrintableRaw(data) ? data : '',
         from: d.cursor,
         to: d.cursor,
       },
@@ -545,7 +552,7 @@ export class PiAdapter implements Adapter {
     }
     if (answer.action === 'replace') {
       const isRevert = INLINE_KEYS.has(key);
-      const rawText = isRevert ? d.text : d.text.slice(0, d.cursor) + data + d.text.slice(d.cursor);
+      const rawText = isRevert ? d.text : d.text.slice(0, d.cursor) + insert + d.text.slice(d.cursor);
       let status: InlineCommit['status'] = 'applied';
       try {
         this.backend.syncChange(() => {
@@ -624,12 +631,7 @@ export class PiAdapter implements Adapter {
     let splice: DraftDelta | undefined;
     const input = this.#input;
     if ((origin === 'typed' || origin === 'paste') && input) {
-      const insert =
-        input.key === 'Enter' && input.data === '\n'
-          ? '\n'
-          : origin === 'paste'
-            ? stripPasteMarkers(input.data)
-            : input.data;
+      const insert = input.key === 'Enter' ? '\n' : origin === 'paste' ? stripPasteMarkers(input.data) : input.data;
       if (
         input.before.text.slice(0, input.before.cursor) + insert + input.before.text.slice(input.before.cursor) ===
         text

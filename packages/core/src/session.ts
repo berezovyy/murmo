@@ -407,6 +407,7 @@ class CoreSession implements Session {
         const effects = this.#effects;
         return effects ? applyEffects(plugin, value, ticket, effects) : Promise.resolve();
       },
+      finishWord: (draft) => this.#inline?.finish(draft, view.state()) ?? null,
     });
     this.#submit = submit;
     // Phase 09: permission, rate and attribution gates next to 08's submit-in-progress.

@@ -40,7 +40,8 @@ test('teh.🙂 confirms the pending dot; char.length === 1 would have skipped it
   assert.equal(h.adapter.getDraft().text, 'the.🙂');
 });
 
-test('Enter after teh. sends teh. and never flushes the pending dot (E8, lesson 42)', async () => {
+test('at a final boundary Enter after teh. sends teh.: the box cannot change first (E8, lesson 42)', async () => {
+  // Catches a final-boundary send that differs from the text the host shows and sends.
   const h = await createHarness({ plugins: [testInlinePlugin('ac')] });
   await h.driver.type('teh.');
   const outcome = await h.driver.submit('send');

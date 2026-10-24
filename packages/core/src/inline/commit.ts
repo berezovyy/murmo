@@ -1,6 +1,7 @@
 // Acknowledgement and next-key ledger checks. Only an `applied` receipt whose
 // text and cursor match the planned state arms undo and pending-dot (E21).
-// Submit never flushes a pending dot (lesson 42; phase 08 hand-off).
+// Submit resolves a pending dot only through the managed last-word fix
+// (InlineStage.finish), which writes into the box before the send.
 
 import type { Draft, DraftDelta } from '@murmo/api';
 import type { InlineCommit, InlineReplay } from '@murmo/api/adapter';

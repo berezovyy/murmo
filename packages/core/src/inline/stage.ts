@@ -2,9 +2,10 @@
 // expansions. The adapter calls `plan` inside the native transaction; no
 // executor, timer or host read runs here.
 
-import type { Change, Edit, KeyId, Range } from '@murmo/api';
+import type { Change, Draft, Edit, HostState, KeyId, Range } from '@murmo/api';
 import type { HostCapabilities, InlineAnswer, InlineCommit, InlineSnapshot } from '@murmo/api/adapter';
 import { unsafeText } from '@murmo/text';
+import type { Proposal } from './interpreter.ts';
 import type { RegisteredInline } from './registry.ts';
 import { createInlineRewriter, type InlineRewriter, type ShortcutCounts } from './rewriter.ts';
 
@@ -16,6 +17,11 @@ export interface DeferredRequest {
 
 export interface InlineStage {
   plan(snapshot: InlineSnapshot): InlineAnswer;
+  /**
+   * The typo fix Enter applies to the prompt's last word before the send, or
+   * null: same rules, data and host-state checks as a fix on a space.
+   */
+  finish(draft: Draft, state: HostState): Proposal | null;
   commit(commit: InlineCommit): {
     corrections: number;
     deferred: DeferredRequest[];
@@ -71,16 +77,20 @@ export function createInlineStage(
     caps.inline.commitReceipt !== 'none' &&
     ordered.length > 0;
 
-  const safe = (s: InlineSnapshot) =>
-    s.state.mode === 'prose' &&
-    s.state.editorMode === 'insert' &&
-    !s.state.busy &&
-    !s.state.dialog &&
-    s.state.popup === null &&
-    !s.state.history &&
-    s.certainty !== 'unknown' &&
-    (!s.selection || s.selection[0] === s.selection[1]) &&
-    (caps.inline.middle || s.cursor === s.text.length);
+  const safeAt = (
+    state: HostState,
+    draft: Pick<InlineSnapshot, 'certainty' | 'selection' | 'cursor' | 'text'>,
+  ): boolean =>
+    state.mode === 'prose' &&
+    state.editorMode === 'insert' &&
+    !state.busy &&
+    !state.dialog &&
+    state.popup === null &&
+    !state.history &&
+    draft.certainty !== 'unknown' &&
+    (!draft.selection || draft.selection[0] === draft.selection[1]) &&
+    (caps.inline.middle || draft.cursor === draft.text.length);
+  const safe = (s: InlineSnapshot) => safeAt(s.state, s);
 
   return {
     plan(snapshot) {
@@ -104,6 +114,15 @@ export function createInlineStage(
         }
       }
       return native;
+    },
+
+    finish(draft, state) {
+      if (!live() || !safeAt(state, draft)) return null;
+      for (const interpreter of ordered) {
+        const fix = interpreter.finish(draft);
+        if (fix) return fix;
+      }
+      return null;
     },
 
     commit(c) {

@@ -13,6 +13,7 @@ import type {
   SubmitTransaction,
 } from '@murmo/api';
 import type { HostCapabilities, HostSubmitAccepted, SubmitOutcome } from '@murmo/api/adapter';
+import { splice } from '@murmo/provenance';
 import type { CommitGate, CommitRequest } from '../edits.ts';
 import { faultOf, type HookCall, type HookRunner, type PluginEntry } from '../hooks.ts';
 import { issueTicket, type SessionView, type Ticket } from '../stale.ts';
@@ -54,6 +55,8 @@ export interface SubmitControllerDeps {
   readonly seq: () => number;
   readonly setLatest: (pluginId: string, hook: PluginHook, seq: number) => void;
   readonly applyEffects: (plugin: PluginEntry, value: unknown, ticket: Ticket) => Promise<void>;
+  /** The inline typo fix for the prompt's last word (Enter ends it like a space), or null. */
+  readonly finishWord?: (draft: Draft) => { from: number; to: number; insert: string } | null;
 }
 
 export class SubmitController implements CommitGate {
@@ -104,9 +107,11 @@ export class SubmitController implements CommitGate {
     const counters = this.#deps.counters;
     counters.submits++;
     this.#inFlight = true;
+    const fixed = this.#finishWord(tx);
+    const sent = fixed ?? tx;
     let outcome: SubmitOutcome;
     try {
-      outcome = await runPipeline(tx, this.#hooks(), { guardsOnly: false });
+      outcome = await runPipeline(sent, this.#hooks(), { guardsOnly: false });
     } catch (error) {
       this.#inFlight = false;
       throw error;
@@ -117,16 +122,37 @@ export class SubmitController implements CommitGate {
       this.#inFlight = false;
       return outcome;
     }
-    const text = outcome.action === 'replace' ? outcome.text : tx.draft.text;
+    if (fixed) {
+      counters.inlineCorrections++;
+      if (outcome.action === 'send')
+        outcome = { action: 'replace', text: fixed.draft.text, coverage: outcome.coverage };
+    }
+    const text = outcome.action === 'replace' ? outcome.text : sent.draft.text;
     this.#delivery.arm({
       submissionId: this.#delivery.nextInferredId(),
       gesture: tx.gesture,
       text,
       position: tx.position,
-      typedSpans: text === tx.draft.text ? tx.draft.typedSpans : [],
+      typedSpans: text === sent.draft.text ? sent.draft.typedSpans : [],
       forwardedAt: this.#deps.clock.now(),
     });
     return outcome;
+  }
+
+  /**
+   * Enter ends the last word like a space, so its typo fix rides this submit
+   * as a transform: the host puts it in the box (Pi, OpenCode, Codex) or the
+   * sent text (Claude) before sending. A final-boundary call can only pass or
+   * block, and a host without transforms sends the word as typed.
+   */
+  #finishWord(tx: SubmitTransaction): SubmitTransaction | null {
+    if (tx.position !== 'managed' || !this.#deps.adapterCaps().submit.transform) return null;
+    const fix = this.#deps.finishWord?.(tx.draft);
+    if (!fix) return null;
+    const { draft } = tx;
+    const text = draft.text.slice(0, fix.from) + fix.insert + draft.text.slice(fix.to);
+    const typedSpans = splice(draft.typedSpans, fix.from, fix.to, fix.insert.length, false);
+    return { ...tx, draft: { ...draft, text, cursor: text.length, typedSpans } };
   }
 
   /** Guards-only pass at the host's final boundary; no transforms, no commit window. */

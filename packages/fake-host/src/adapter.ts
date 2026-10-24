@@ -655,14 +655,17 @@ export class FakeAdapter implements Adapter {
   }
 
   /**
-   * A submit gesture. `newline` inserts a typed newline. Otherwise Murmo's
+   * A submit gesture. `newline` types a line break. Otherwise Murmo's
    * submit callbacks decide, the host rechecks the version, the native peer
    * runs where the guard position puts it, and the fake model records the
    * request before the host clears the draft.
    */
   async submit(gesture: Gesture): Promise<SubmitOutcome> {
     if (gesture === 'newline') {
-      this.#insert('\n', 'typed');
+      // A typed line break, inside the host's edit transaction like any typed key.
+      const d = this.#value;
+      const [from, to] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];
+      this.#inlineTransaction('Newline', [{ origin: 'typed', from, to, insert: '\n' }], 'typed');
       return { action: 'send', coverage: this.caps.submit.guardPosition };
     }
     const initial = this.#value;
@@ -795,12 +798,6 @@ export class FakeAdapter implements Adapter {
     // Undoing the newest of several edits brings back the previous edit's result, which is undoable in turn.
     const prev = entry.prev === null ? undefined : this.#undoable.get(entry.prev);
     if (prev && entry.prev !== null && want === entry.before) this.#undoable.set(restored.version, prev);
-  }
-
-  #insert(text: string, origin: Origin): void {
-    const d = this.#value;
-    const [from, to] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];
-    this.#splice([{ origin, from, to, insert: text }]);
   }
 
   async #native(id: KeyId): Promise<void> {

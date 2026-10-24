@@ -227,7 +227,7 @@ export class FakePiEditor implements PiEditor {
   async #tab(): Promise<void> {
     const provider = this.ui?.provider();
     if (!provider) return;
-    this.showingAutocomplete = true;
+    // pi-tui applies a lone forced Tab suggestion without ever showing the list.
     const suggestions = await provider.getSuggestions(this.getLines(), this.cursor.line, this.cursor.col, {
       force: true,
     });

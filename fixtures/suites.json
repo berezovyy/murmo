@@ -84,8 +84,8 @@
     {
       "file": "core/inline/cases.json",
       "owner": "07",
-      "cases": 13,
-      "variants": 13
+      "cases": 22,
+      "variants": 22
     },
     {
       "file": "core/conformance/budgets.json",

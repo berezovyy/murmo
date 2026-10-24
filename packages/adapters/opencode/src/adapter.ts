@@ -695,10 +695,11 @@ export class OpenCodeAdapter implements Adapter {
   #tryInline(parsed: ParsedKey, key: KeyId, state: HostState): boolean {
     const evaluate = this.#evaluateInline;
     if (!evaluate || this.caps.inlineRewrite !== 'same-transaction' || !this.#editable()) return false;
-    const typed = isPrintableTyped(parsed);
+    // Newline types a line break, so it ends a word like a space.
+    const typed = isPrintableTyped(parsed) || key === 'Newline';
     if (!(key === 'Backspace' || key === 'Undo' || typed) || this.#draft.selection) return false;
     const before = clone(this.#draft);
-    const char = key === 'Backspace' || key === 'Undo' ? '' : parsed.sequence;
+    const char = key === 'Backspace' || key === 'Undo' ? '' : key === 'Newline' ? '\n' : parsed.sequence;
     const id = String(++this.#inlineId);
     const at = before.cursor;
     const from = key === 'Backspace' ? Math.max(0, at - 1) : at;

@@ -65,12 +65,73 @@
     },
     {
       "id": "dot-enter",
-      "note": "Enter never flushes a pending `.`; the send is what the user saw (E8, lesson 21, 42).",
+      "note": "Enter ends the word, so a pending `.` resolves as a space would: teh. sends the. (round 4: the last word was never fixed).",
+      "host": { "guardPosition": "managed" },
       "steps": [{ "type": "teh." }, { "submit": "send" }],
       "expect": {
         "draft": { "text": "" },
-        "requests": ["teh."]
+        "requests": ["the."],
+        "stats": { "corrections": 1 }
       }
+    },
+    {
+      "id": "enter-last-word",
+      "note": "Enter fixes the prompt's last word before the send, as a space would (round 4 r4e4c-1: please recieve was sent).",
+      "host": { "guardPosition": "managed" },
+      "steps": [{ "type": "please recieve" }, { "submit": "send" }],
+      "expect": { "requests": ["please receive"], "stats": { "corrections": 1 } }
+    },
+    {
+      "id": "enter-rejected-word",
+      "note": "A word the user restored with Backspace stays as typed on Enter too.",
+      "host": { "guardPosition": "managed" },
+      "steps": [{ "type": "teh " }, { "key": "Backspace" }, { "submit": "send" }],
+      "expect": { "requests": ["teh"] }
+    },
+    {
+      "id": "enter-pasted-word",
+      "note": "A pasted word is not typed coverage, so Enter leaves it (lesson 52).",
+      "host": { "guardPosition": "managed" },
+      "steps": [{ "type": "please " }, { "paste": "recieve" }, { "submit": "send" }],
+      "expect": { "requests": ["please recieve"], "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "enter-final-boundary",
+      "note": "A final-boundary submit can only pass or block, so the word is sent as typed.",
+      "host": { "guardPosition": "final-boundary" },
+      "steps": [{ "type": "please recieve" }, { "submit": "send" }],
+      "expect": { "requests": ["please recieve"], "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "enter-no-transform",
+      "note": "A host that cannot change the text before the send sends the word as typed.",
+      "host": { "guardPosition": "managed", "submitTransform": false },
+      "steps": [{ "type": "please recieve" }, { "submit": "send" }],
+      "expect": { "requests": ["please recieve"], "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "newline-boundary",
+      "note": "Newline ends a word like a space (round 4 r4e4c-1: Newline left recieve).",
+      "steps": [{ "type": "please recieve\nthanks" }],
+      "expect": { "draft": { "text": "please receive\nthanks" }, "stats": { "corrections": 1 } }
+    },
+    {
+      "id": "newline-backspace",
+      "note": "Immediate Backspace after a Newline fix restores the word and drops the line break, as after a space.",
+      "steps": [{ "type": "please recieve\n" }, { "key": "Backspace" }],
+      "expect": { "draft": { "text": "please recieve", "cursor": 14 } }
+    },
+    {
+      "id": "newline-undo",
+      "note": "F6 after a Newline fix restores the word and keeps the line break.",
+      "steps": [{ "type": "please recieve\n" }, { "key": "F6" }],
+      "expect": { "draft": { "text": "please recieve\n", "cursor": 15 } }
+    },
+    {
+      "id": "newline-pending-dot",
+      "note": "A line break after `.` confirms the pending fix like a space.",
+      "steps": [{ "type": "teh.\nok" }],
+      "expect": { "draft": { "text": "the.\nok" }, "stats": { "corrections": 1 } }
     },
     {
       "id": "paste-splits-word",

@@ -534,16 +534,6 @@ test('duplicate submissionId among the last 256 is dropped (E8)', async () => {
   assert.equal(events.length, 1);
 });
 
-test('pending dot: teh. then Enter sends teh. (lesson 42, E14)', async () => {
-  const h = await createHarness({ plugins: [guard] });
-  await h.driver.type('teh.');
-  await h.driver.submit('send');
-  assert.deepEqual(
-    h.adapter.requests.map((r) => r.text),
-    ['teh.'],
-  );
-});
-
 test('native UI owning the gesture blocks without sending (defensive step 1)', async () => {
   const h = await createHarness({ draft: { text: 'hi' } });
   await h.driver.state({ popup: { owner: 'completion' }, dialog: false });

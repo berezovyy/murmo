@@ -196,3 +196,43 @@ test('status is hidden while an overlay is shown (E20, dialogSafe)', async () =>
   assert.ok(!rows.some((row) => row.includes('murmo-status')) || live.adapter.caps.ui.dialogSafe);
   await live.dispose();
 });
+
+/** Pi's submit runs the pipeline off the key callback; give it turns to finish. */
+async function until(done: () => boolean): Promise<void> {
+  for (let i = 0; i < 200 && !done(); i++) await new Promise((resolve) => setImmediate(resolve));
+}
+
+test('Newline fixes the word before it; Backspace restores the word and the line break (round 4)', async () => {
+  // Catches Newline not being a word boundary: `please recieve` + Shift+Enter kept the typo.
+  const live = await startLive();
+  try {
+    live.type('please recieve');
+    live.key('\n');
+    await live.session.settle();
+    assert.equal(live.adapter.getDraft().text, 'please receive\n');
+    live.key('\x7f');
+    await live.session.settle();
+    assert.equal(live.adapter.getDraft().text, 'please recieve');
+  } finally {
+    await live.dispose();
+  }
+});
+
+test('Enter writes the last-word fix into the box, then sends it (round 4)', async () => {
+  // Catches the last word of a prompt never being corrected, and a send that differs from the box.
+  const live = await startLive();
+  try {
+    const sent: string[] = [];
+    const original = live.env.editor.onSubmit;
+    live.env.editor.onSubmit = (text) => {
+      sent.push(text);
+      original?.(text);
+    };
+    live.type('please recieve');
+    live.key('\r');
+    await until(() => sent.length > 0);
+    assert.deepEqual(sent, ['please receive']);
+  } finally {
+    await live.dispose();
+  }
+});

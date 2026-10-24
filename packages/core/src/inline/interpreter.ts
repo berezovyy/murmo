@@ -44,6 +44,14 @@ export interface WalkResult {
 
 const letterOrDigit = /^[\p{L}\p{N}]$/u;
 
+/**
+ * A typed line break ends a word as a space does (Newline, Shift+Enter); the
+ * declared `boundaries` stay the in-line set every rule registers.
+ */
+const LINE_BREAKS = '\r\n';
+
+const isBoundary = (char: string): boolean => POLICY_BOUNDARIES.includes(char) || LINE_BREAKS.includes(char);
+
 export function emptyState(snapshot: InlineSnapshot): WalkState {
   return {
     text: snapshot.text,
@@ -201,7 +209,8 @@ export function planWalk(
       spliceText(from, to, w.text.slice(from, to), 'typed');
       w.cursor = cursorAfterUndo(cursor, r.from, r.insert, r.original);
     }
-    if (backspace && r.reject && w.cursor > 0 && w.text[w.cursor - 1] === ' ') {
+    // Backspace takes back the separator that triggered the fix: a space or a line break.
+    if (backspace && r.reject && w.cursor > 0 && ` ${LINE_BREAKS}`.includes(w.text[w.cursor - 1] as string)) {
       const at = w.cursor;
       spliceText(at - 1, at, '', 'undo');
     }
@@ -263,7 +272,7 @@ export function planWalk(
       let proposal: Proposal | null = null;
       if (priorPending && priorPending.text === w.text && priorPending.cursor === at && !letterOrDigit.test(char)) {
         proposal = priorPending;
-      } else if (POLICY_BOUNDARIES.includes(char)) {
+      } else if (isBoundary(char)) {
         proposal = lookupAtBoundary(rule, w, at, char, rejected, skipShortcut);
       }
       spliceText(at, at, char, 'typed');
@@ -358,6 +367,34 @@ function lookupAtBoundary(
     return { from: p.from, to: p.to, insert: p.insert, original: w.text.slice(p.from, p.to), word: true };
   }
   return null;
+}
+
+/**
+ * Enter ends the prompt's last word as a space would: the typo fix a space
+ * would apply there, or null. Never a shortcut (an expansion is text the user
+ * never saw, lesson 21). A `.` still waiting for the next key resolves as if a
+ * space followed, since nothing can extend the word after Enter.
+ */
+export function finalWordFix(
+  rule: RegisteredInline,
+  draft: Pick<Draft, 'text' | 'cursor' | 'typedSpans'>,
+  rejected: ReadonlySet<string>,
+): Proposal | null {
+  const { text, cursor } = draft;
+  if (cursor !== text.length) return null;
+  const dot = text.endsWith('.');
+  const at = dot ? cursor - 1 : cursor;
+  const p = rule.policy.propose({
+    text: text.slice(0, at),
+    cursor: at,
+    typed: dot ? '.' : '\n',
+    rejected,
+    vocabulary: rule.vocabulary,
+    lookup: (word) => lookupWord(rule.table, word),
+  });
+  if (!p || !typedCovers(draft.typedSpans, p.from, p.to)) return null;
+  if (unsafeText(p.insert) !== null || utf8Length(p.insert) > rule.maxInsertBytes) return null;
+  return { from: p.from, to: p.to, insert: p.insert, original: text.slice(p.from, p.to), word: true };
 }
 
 export function replaceAnswer(
