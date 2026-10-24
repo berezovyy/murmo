@@ -1,9 +1,10 @@
 // What add, update and remove leave behind, publisher key changes, and
 // taking back one grant.
 import assert from 'node:assert/strict';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { pluginsManifestPath } from '@murmo/store';
 import { readLedger, readPluginsManifest } from '@murmo/store/node';
 import { describeError } from '../src/plugin/errors.ts';
 import { generatePublisher, packPlugin, preparedHome, runPlugin, writeKey } from './helpers.ts';
@@ -128,6 +129,29 @@ test('one grant can be taken back and given again without removing the plugin', 
       'draft:read',
       'draft:write',
     ]);
+  } finally {
+    home.remove();
+  }
+});
+
+test('a plugin list written before a built-in existed still lists it and can turn it off', async () => {
+  // Stores set up before `names` shipped have no entry for it, so it was
+  // missing from `plugin list` and `plugin disable names` had nothing to change.
+  const home = await preparedHome();
+  try {
+    const path = pluginsManifestPath(home.roots);
+    const old = JSON.parse(readFileSync(path, 'utf8'));
+    delete old.plugins.names;
+    old.order = old.order.filter((id: string) => id !== 'names');
+    writeFileSync(path, JSON.stringify(old));
+    const list = await run(home, ['list']);
+    assert.equal(list.code, 0, list.err);
+    assert.match(list.out, /names/);
+    const off = await run(home, ['disable', 'names']);
+    assert.equal(off.code, 0, off.err);
+    const after = await readPluginsManifest(home.roots);
+    assert.equal(after?.plugins.names?.enabled, false);
+    assert.equal(after?.order.at(-1), 'names');
   } finally {
     home.remove();
   }

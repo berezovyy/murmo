@@ -85,10 +85,30 @@ export function parsePluginsManifest(raw: Uint8Array | string | undefined): Plug
   try {
     const value = JSON.parse(textOf(raw)) as PluginsManifest;
     if (value?.schema !== PLUGINS_SCHEMA || !value.plugins || !Array.isArray(value.order)) return undefined;
-    return value;
+    return withShippedBuiltins(value);
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A list written before a built-in shipped (`names`, for one) has no entry
+ * for it: it is on, after the built-ins the list has, as a new list would
+ * have it. The next write keeps it.
+ */
+function withShippedBuiltins(manifest: PluginsManifest): PluginsManifest {
+  const missing = BUILTIN_IDS.filter((id) => !Object.hasOwn(manifest.plugins, id));
+  if (!missing.length) return manifest;
+  const plugins = { ...manifest.plugins };
+  const order = [...manifest.order];
+  for (const id of missing) {
+    plugins[id] = { enabled: true, builtin: true, grants: [] };
+    if (order.includes(id)) continue;
+    const builtins = new Set<string>(BUILTIN_IDS);
+    const last = order.reduce((at, name, index) => (builtins.has(name) ? index : at), -1);
+    order.splice(last + 1, 0, id);
+  }
+  return { ...manifest, plugins, order };
 }
 
 async function loadInstalled(
