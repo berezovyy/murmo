@@ -18,7 +18,7 @@ export async function createTuiPlugin(
   core: OpenTuiCore,
   options: TuiSetupOptions = {},
 ): Promise<TuiHandle> {
-  const status = createStatusSurface(api);
+  const status = createStatusSurface(api, core);
   const adapter = new OpenCodeAdapter({
     api,
     core,

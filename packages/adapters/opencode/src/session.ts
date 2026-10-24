@@ -120,7 +120,8 @@ export async function loadHostSession(
 /** The startup notice for a config that failed to load: built-ins still run, but without the user's shortcuts. */
 export function configLoadNotice(error: unknown): string {
   const why = error instanceof Error ? error.message : String(error);
-  return `Murmo could not load murmo.toml (${why}); shortcuts are off this session.`;
+  // The cause goes last: the footer cuts long rows, and the action must stay.
+  return `Murmo could not load murmo.toml; shortcuts are off this session: ${why}`;
 }
 
 /**

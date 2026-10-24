@@ -165,7 +165,7 @@ export class OpenCodeAdapter implements Adapter {
     this.host = { name: 'opencode', version: options.hostVersion ?? '2.1.1' };
     this.#overlay = new Overlay(options.api.renderer, options.core);
     this.#ownsStatus = !options.status;
-    this.#status = options.status ?? createStatusSurface(options.api);
+    this.#status = options.status ?? createStatusSurface(options.api, options.core);
     this.caps = capabilitiesFromProbes(
       {
         readDraft: false,

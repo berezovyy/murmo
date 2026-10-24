@@ -14,6 +14,7 @@ import type {
   PasteEvent,
   PasteHandler,
   Selection,
+  SlotInput,
   SyntaxStyle,
   TextareaEditor,
   TextareaOptions,
@@ -318,10 +319,45 @@ export class FakeOpenCode {
   dispatched: string[] = [];
   sessionStatus = 'idle';
   slotClaims: { append?: string; prepend?: string }[] = [];
+  /** What each claim's render returned, as the host's slot would mount it. */
+  slotMounts: { slot: string; render: (input?: SlotInput) => unknown; node: unknown }[] = [];
+  /** Which screen the host shows: the home screen or a session. */
+  route: 'home' | 'session' = 'session';
   inbox: ((event: { inboxID: string; item: { payload: { text: string } } }) => void)[] = [];
   layers: { id: string; run: () => void }[] = [];
   readonly children: unknown[] = [];
   readonly api: OpenCodeApi;
+
+  /** The text Murmo draws in the host's footer slots, as the screen shows it. */
+  footerText(): string {
+    return this.slotMounts
+      .map((m) => m.node)
+      .filter((node): node is FakeOverlay => node instanceof FakeOverlay && node.visible && !node.destroyed)
+      .map((node) => node.content)
+      .join('\n');
+  }
+
+  /**
+   * Switch screens the way OpenCode does: every slot unmounts, then the new
+   * screen mounts its own. Home has `home.footer` and a prompt without a
+   * session; a session has only its prompt's `prompt.footer`.
+   */
+  showRoute(route: 'home' | 'session'): void {
+    this.route = route;
+    for (const mount of this.slotMounts) this.#mount(mount);
+  }
+
+  #mount(mount: { slot: string; render: (input?: SlotInput) => unknown; node: unknown }): void {
+    (mount.node as FakeOverlay | undefined)?.destroy?.();
+    mount.node = undefined;
+    if (mount.slot === 'home.footer' && this.route !== 'home') return;
+    const input =
+      mount.slot === 'prompt.footer'
+        ? { ...(this.route === 'session' ? { sessionID: 's1' } : {}), mode: 'normal', showDetails: false }
+        : undefined;
+    mount.node = mount.render(input);
+  }
+
   readonly core: OpenTuiCore;
   #keypress: KeypressHandler[] = [];
   #paste: PasteHandler[] = [];
@@ -416,13 +452,14 @@ export class FakeOpenCode {
             ...(claim.append ? { append: claim.append } : {}),
             ...(claim.prepend ? { prepend: claim.prepend } : {}),
           });
-          try {
-            claim.render();
-          } catch {
-            // Host Solid JSX is not required for the claim itself.
-          }
+          // The real slot inserts whatever render returns into the host's
+          // tree: only a renderable from the host's @opentui/core draws.
+          const mount = { slot: claim.append ?? claim.prepend ?? '', render: claim.render, node: undefined as unknown };
+          host.slotMounts.push(mount);
+          host.#mount(mount);
           return () => {
             host.slotClaims = host.slotClaims.filter((c) => c.append !== claim.append);
+            host.slotMounts = host.slotMounts.filter((m) => m !== mount);
           };
         },
         router: { current: () => ({ type: 'session', sessionID: 's1' }) },

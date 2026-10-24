@@ -245,7 +245,7 @@ function homeEnv(dir: string): NodeJS.ProcessEnv {
 
 async function footerOf(options: Omit<Parameters<typeof startSession>[0], 'adapter'>) {
   const host = new FakeOpenCode();
-  const status = createStatusSurface(host.api);
+  const status = createStatusSurface(host.api, host.core);
   const adapter = new OpenCodeAdapter({ api: host.api, core: host.core, status });
   const started = await startSession({ adapter, loadLanguagePack: false, executor: executor(), ...options });
   return { host, status, started };
@@ -266,10 +266,10 @@ test('the footer says murmo is on and that an unreviewed project file needs murm
     const cwd = join(dir, 'proj');
     mkdirSync(join(cwd, '.git'), { recursive: true });
     writeFileSync(join(cwd, '.murmo.toml'), 'version = 1\n[replace]\n";team" = \'Team text\'\n');
-    const { status, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    const { host, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
     assert.equal(
-      status.get(),
-      '.murmo.toml has 1 shortcut. Run "murmo trust" to review. | murmo on · 1 shortcut · autocorrect off',
+      host.footerText(),
+      '.murmo.toml has 1 shortcut. Run "murmo trust" to review.\nmurmo on · 1 shortcut · autocorrect off',
     );
     await started.close();
   } finally {
@@ -289,10 +289,10 @@ test('a broken personal murmo.toml is named with its line in the footer (real-ho
     );
     const cwd = join(dir, 'proj');
     mkdirSync(cwd);
-    const { status, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    const { host, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
     assert.equal(
-      status.get(),
-      'murmo.toml:2: unknown key "shortcuts" ignored | murmo on · no shortcuts · autocorrect off',
+      host.footerText(),
+      'murmo.toml:2: unknown key "shortcuts" ignored\nmurmo on · no shortcuts · autocorrect off',
     );
     await started.close();
   } finally {
@@ -303,25 +303,25 @@ test('a broken personal murmo.toml is named with its line in the footer (real-ho
 test('a config that fails to load says so in the footer instead of failing silently (real-host bug)', async () => {
   // On OpenCode 2.0.32 the load threw inside setup, the error was swallowed,
   // and shortcuts stayed literal while doctor said all was fine.
-  const { status, started } = await footerOf(
+  const { host, started } = await footerOf(
     await hostSessionOptions(() => Promise.reject(new Error('lstat is not a function'))),
   );
   assert.match(
-    status.get(),
-    /^Murmo could not load murmo\.toml \(lstat is not a function\); shortcuts are off this session\./,
+    host.footerText(),
+    /^Murmo could not load murmo\.toml; shortcuts are off this session: lstat is not a function$/m,
   );
   await started.close();
 });
 
 test('a project shortcut that overrides a personal one is said in the footer', async () => {
   // OpenCode never said a project ;rvw replaced the personal one.
-  const { status, started } = await footerOf({
+  const { host, started } = await footerOf({
     config: {
       ...cfg(false),
       replacements: [{ shortcut: ';rvw', text: 'Project review.', origin: 'project' }],
       overrides: [';rvw'],
     },
   });
-  assert.match(status.get(), /Project shortcut ;rvw overrides your personal one\./);
+  assert.match(host.footerText(), /Project shortcut ;rvw overrides your personal one\./);
   await started.close();
 });

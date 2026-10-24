@@ -148,10 +148,16 @@ export interface OpenCodeKeymap {
   commands(): readonly { readonly id: string; readonly title?: string; readonly group?: string }[];
 }
 
+/** What the host passes a slot's render; `prompt.footer` has a session ID only in a session. */
+export interface SlotInput {
+  readonly sessionID?: string;
+  readonly mode?: string;
+}
+
 export interface SlotClaim {
   readonly append?: string;
   readonly prepend?: string;
-  readonly render: () => unknown;
+  readonly render: (input?: SlotInput) => unknown;
 }
 
 export interface OpenCodeUi {
@@ -212,6 +218,9 @@ export interface OverlayOptions {
   readonly bg?: string;
   readonly fg?: string;
   readonly content?: string;
+  readonly wrapMode?: 'none' | 'char' | 'word';
+  readonly truncate?: boolean;
+  readonly flexShrink?: number;
 }
 
 export type TextRenderableConstructor = new (renderer: OpenCodeRenderer, options: OverlayOptions) => TextOverlay;
