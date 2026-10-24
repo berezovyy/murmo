@@ -10,6 +10,7 @@ export {
   type IsolatedExecutor,
   type IsolatedExecutorOptions,
   type IsolatedStats,
+  SANDBOX_UNAVAILABLE,
 } from './helper.ts';
 export { createRoutedExecutor, type RoutedExecutorOptions, type RoutedStats } from './routed.ts';
 export { createSocketTransport, type HelperFetch, type SocketTransportOptions } from './socket.ts';

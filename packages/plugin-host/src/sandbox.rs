@@ -4,6 +4,40 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// Exit status of a worker whose OS sandbox could not be applied: what
+/// `sandbox-exec` returns when the system refuses its profile (EX_OSERR, for
+/// one when it is nested in another sandbox) and what `--worker --sandbox`
+/// exits with on Linux when landlock or seccomp is refused.
+pub const SANDBOX_REFUSED_EXIT: i32 = 71;
+
+/// What a third-party load says when its sandbox could not start. Shown to
+/// the user as the reason the plugin did not start; tools match it exactly.
+pub const SANDBOX_UNAVAILABLE: &str = "the OS sandbox for third-party plugins could not start";
+
+/// Why a worker closed its output before its first reply: a sandbox the
+/// system refused, or a worker that died on its own.
+pub fn start_failure(child: &mut Child, sandboxed: bool) -> String {
+    let deadline = Instant::now() + Duration::from_millis(1_000);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(5)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let refused = status.and_then(|s| s.code()) == Some(SANDBOX_REFUSED_EXIT);
+    if sandboxed && refused {
+        SANDBOX_UNAVAILABLE.into()
+    } else {
+        "guest worker exited".into()
+    }
+}
 
 pub fn spawn_worker(exe: &Path, sandboxed: bool) -> Result<Child, String> {
     if !sandboxed {

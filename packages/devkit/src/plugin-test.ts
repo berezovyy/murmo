@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Permission } from '@murmo/api';
 import { ManifestError } from '@murmo/api';
+import { SANDBOX_UNAVAILABLE } from '@murmo/executor';
 import { makeAdapter } from '@murmo/fake-host';
 import { capabilityCases, cloneCaps, missingValue, setPath } from './capabilities.ts';
 import { runAuthorConformance } from './conformance.ts';
@@ -230,11 +231,9 @@ export async function pluginTest(directory: string, options: PluginTestOptions =
       ran.push(name);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (
-        name === 'helper' &&
-        process.env.MURMO_OFFLINE === '1' &&
-        /plugin disabled|sandbox|Operation not permitted|sandbox-exec/.test(message)
-      ) {
+      // Only a sandbox the system refused is a skip, and only inside the
+      // offline harness's own sandbox; a worker that crashed still fails.
+      if (name === 'helper' && process.env.MURMO_OFFLINE === '1' && message.includes(SANDBOX_UNAVAILABLE)) {
         skipped.push({
           executor: 'helper',
           reason:

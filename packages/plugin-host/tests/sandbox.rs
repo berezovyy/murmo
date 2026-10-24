@@ -5,7 +5,8 @@
 //! `env_clear`, which production workers always apply.
 
 use murmo_plugin_host::sandbox::{
-    policy_denies_network, run_sandboxed_probes, spawn_worker, write_probe_home,
+    policy_denies_network, run_sandboxed_probes, spawn_worker, start_failure, write_probe_home,
+    SANDBOX_REFUSED_EXIT, SANDBOX_UNAVAILABLE,
 };
 use serde_json::Value;
 use std::io::{BufRead, Write};
@@ -123,13 +124,38 @@ fn sandboxed_worker_blocks_tcp_file_spawn_and_env() {
     .ok();
     let mut reply = String::new();
     output.read_line(&mut reply).ok();
+    // A refused sandbox used to come back as "guest worker exited", which reads
+    // like a plugin crash; the user and `murmo plugin test` must see the cause.
+    let row: Value = serde_json::from_str(&reply).unwrap_or_default();
     assert!(
-        reply.contains("\"ok\"") || reply.contains("sandbox") || reply.contains("error"),
-        "third-party load is ok or fails closed, never silent: {reply:?}"
+        row["status"] == "ok" || row["error"] == SANDBOX_UNAVAILABLE,
+        "third-party load is ok or names the refused sandbox: {reply:?}"
     );
     let _ = writeln!(input, r#"{{"op":"shutdown"}}"#);
     let _ = helper.wait();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn only_a_refused_sandbox_is_reported_as_one() {
+    // A worker that dies on its own must still read as a crash, never as a
+    // sandbox the system refused, and a refusal must never read as a crash.
+    let exit = |code: i32| {
+        Command::new("/bin/sh")
+            .arg("-c")
+            .arg(format!("exit {code}"))
+            .spawn()
+            .expect("sh")
+    };
+    assert_eq!(
+        start_failure(&mut exit(SANDBOX_REFUSED_EXIT), true),
+        SANDBOX_UNAVAILABLE
+    );
+    assert_eq!(start_failure(&mut exit(1), true), "guest worker exited");
+    assert_eq!(
+        start_failure(&mut exit(SANDBOX_REFUSED_EXIT), false),
+        "guest worker exited"
+    );
 }
 
 fn thread_accept(listener: TcpListener) {

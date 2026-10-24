@@ -46,7 +46,7 @@ pub fn run() {
         if args.iter().any(|a| a == "--sandbox") {
             if let Err(e) = sandbox::apply_linux() {
                 eprintln!("{e}");
-                std::process::exit(2);
+                std::process::exit(sandbox::SANDBOX_REFUSED_EXIT);
             }
         }
         worker::run();

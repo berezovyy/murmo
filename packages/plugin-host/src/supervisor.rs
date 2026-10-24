@@ -46,7 +46,17 @@ impl Worker {
         let mut output = BufReader::new(child.stdout.take().ok_or("worker stdout")?);
         writeln!(input, "{cfg}").map_err(|e| e.to_string())?;
         input.flush().map_err(|e| e.to_string())?;
-        let reply = read_line(&mut output, INIT_WAIT_MS)?;
+        let reply = match read_line(&mut output, INIT_WAIT_MS) {
+            Ok(reply) => reply,
+            Err(e) if e == "guest worker exited" => {
+                return Err(crate::sandbox::start_failure(&mut child, sandboxed))
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(e);
+            }
+        };
         if reply.get("status").and_then(Value::as_str) != Some("ok") {
             let _ = child.kill();
             let _ = child.wait();

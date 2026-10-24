@@ -12,6 +12,13 @@ const PROTOCOL = 1;
 const API_VERSION = '2.0.0';
 const FIRST_PARTY_SLOT = 'first-party';
 
+/**
+ * The helper's load error when the system refused a third-party worker's OS
+ * sandbox (`SANDBOX_UNAVAILABLE` in `plugin-host/src/sandbox.rs`). The plugin
+ * stays off; this is its reason, not a crash.
+ */
+export const SANDBOX_UNAVAILABLE = 'the OS sandbox for third-party plugins could not start';
+
 export interface HelperTransport {
   request(message: Record<string, unknown>): Promise<Record<string, unknown>>;
   close(): Promise<void>;
