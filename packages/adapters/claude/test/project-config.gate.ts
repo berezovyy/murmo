@@ -132,7 +132,7 @@ test('an approved project shortcut expands in Claude, with the personal ones', a
   assert.equal((await approveProject(store, root, snapshot?.fingerprint ?? '')).status, 'ok');
   const project = await typed(root, ';hp ');
   assert.equal(project.draft, 'harness project shortcut ');
-  assert.deepEqual(project.notices, []);
+  assert.deepEqual(project.notices, ['murmo on · 2 shortcuts · autocorrect off'], 'no trust notice once approved');
   assert.equal(project.spawned.length, 1);
   const socket = project.spawned[0]?.[3] ?? '';
   assert.ok(socket.length < 104, 'socket path under the macOS sun_path limit (E11)');
@@ -148,7 +148,11 @@ test('an unreviewed project shortcut stays literal and the hint says how to revi
   const root = repo('unreviewed');
   const result = await typed(root, ';hp ');
   assert.equal(result.draft, ';hp ');
-  assert.deepEqual(result.notices, ['.murmo.toml: 1 shortcut stays off until you review this file: run "murmo trust"']);
+  // The short form fits Claude's tail beside its own hint, command included.
+  assert.deepEqual(result.notices, [
+    '.murmo.toml has 1 shortcut. Run "murmo trust" to review.',
+    'murmo on · 1 shortcut · autocorrect off',
+  ]);
   assert.equal((await typed(root, ';me ')).draft, 'personal shortcut ');
 });
 
@@ -175,6 +179,7 @@ test('without a helper the personal file still loads and project shortcuts are o
     assert.equal(fake.draft.text, ';hp personal shortcut ');
     assert.deepEqual(host.notices, [
       'project shortcuts off: the Murmo helper is missing from this install (murmo doctor)',
+      'murmo on · 1 shortcut · autocorrect off',
     ]);
   } finally {
     await host.dispose();

@@ -2,6 +2,7 @@
 // list, sources, and one-line notices. No matching happens here: the core
 // interpreter expands from the registered data (docs/plan/15).
 
+import { baseName, SHORTCUT_ENTRY_CODES } from '@murmo/config';
 import { displayText, utf8Length } from '@murmo/text';
 import { type CollisionKind, type CollisionLexicon, collisionKind, collisionNotice } from './collisions.ts';
 import { defaultsOf, type ParsedTemplate, parseTemplate } from './fields.ts';
@@ -41,6 +42,8 @@ export interface CompiledShortcuts {
   readonly templates: Readonly<Record<string, CompiledTemplate>>;
   readonly descriptions: Readonly<Record<string, string>>;
   readonly aliasesOf: Readonly<Record<string, readonly string[]>>;
+  /** Shortcuts where a project entry replaced a personal one; the menu tags them `project`. */
+  readonly overrides: readonly string[];
   readonly fingerprint: string | null;
   readonly notices: readonly ShortcutNotice[];
 }
@@ -77,15 +80,8 @@ export interface CompileInput {
   readonly lexicon?: CollisionLexicon;
 }
 
-const SKIP_CODES = new Set(['invalid-shortcut', 'expansion-too-large', 'unsafe-text', 'invalid-reference']);
-
 function put<T>(target: Record<string, T>, key: string, value: T): void {
   Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true });
-}
-
-function basename(file: string): string {
-  const parts = file.replace(/\\/g, '/').split('/');
-  return parts[parts.length - 1] || file;
 }
 
 function skipReason(message: string): string {
@@ -118,15 +114,21 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
   const taken = new Set<string>();
   const notices: ShortcutNotice[] = [];
 
+  // Short enough for Claude's one-line status next to its own hint, command included.
   const projectCount = input.projectShortcutCount ?? 0;
   const trust = input.trust ?? 'none';
+  const projectFile = baseName(input.projectFile ?? '.murmo.toml');
   if ((trust === 'review' || trust === 'changed') && projectCount > 0) {
-    const file = basename(input.projectFile ?? '.murmo.toml');
     notices.push({
       kind: 'trust',
       text: displayText(
-        `${file} has ${projectCount} shortcut${projectCount === 1 ? '' : 's'}. Run "murmo trust" to review.`,
+        `${projectFile} has ${projectCount} shortcut${projectCount === 1 ? '' : 's'}. Run "murmo trust" to review.`,
       ),
+    });
+  } else if (trust === 'not-approvable' && projectCount > 0) {
+    notices.push({
+      kind: 'trust',
+      text: displayText(`${projectFile} can't be approved yet. Run "murmo trust" to see why.`),
     });
   }
 
@@ -137,11 +139,11 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
     });
   }
 
-  const skipped = (input.diagnostics ?? []).filter((d) => SKIP_CODES.has(d.code));
+  const skipped = (input.diagnostics ?? []).filter((d) => SHORTCUT_ENTRY_CODES.has(d.code));
   if (skipped.length > 0) {
     const byFile = new Map<string, CompileDiagnostic[]>();
     for (const d of skipped) {
-      const file = basename(d.file);
+      const file = baseName(d.file);
       const list = byFile.get(file) ?? [];
       list.push(d);
       byFile.set(file, list);
@@ -227,6 +229,7 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
     templates,
     descriptions,
     aliasesOf,
+    overrides: [...(input.overrides ?? [])],
     fingerprint: input.fingerprint ?? null,
     notices,
   };

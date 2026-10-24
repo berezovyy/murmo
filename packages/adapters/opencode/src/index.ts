@@ -11,7 +11,14 @@ export { hasOpaqueParts, rangeTouchesPart, virtualMarks } from './parts.ts';
 export { createTuiPlugin, type TuiHandle, type TuiSetupOptions } from './plugin.ts';
 export { registerPrioritize } from './prioritize.ts';
 export { type ProbeResult, probeCheckpoints, runProbes } from './probes.ts';
-export { loadHostSessionConfig, type SessionStartOptions, type StartedSession, startSession } from './session.ts';
+export {
+  configLoadNotice,
+  hostSessionOptions,
+  loadHostSession,
+  type SessionStartOptions,
+  type StartedSession,
+  startSession,
+} from './session.ts';
 export { createStatusSurface, footerRows, type StatusSurface } from './status.ts';
 export {
   FOCUSED_EDITOR,

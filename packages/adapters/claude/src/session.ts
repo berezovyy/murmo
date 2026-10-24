@@ -8,7 +8,7 @@
 
 import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
-import { type EffectiveConfig, mergeConfig, resolveShortcuts, sessionFromJson } from '@murmo/config';
+import { type LoadedSession, mergeConfig, resolveShortcuts, sessionFromJson } from '@murmo/config';
 import {
   createMemoryProjectFiles,
   createMemoryStorage,
@@ -30,7 +30,7 @@ import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
-import { compileConfigShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import { compileConfigShortcuts, menuPlugin, sessionNotices, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
@@ -67,6 +67,7 @@ export interface ClaudeHost {
   readonly helper: HelperHandle | undefined;
   readonly events: EventBroker | undefined;
   readonly alive: boolean;
+  /** What this session said: its startup notices (shown until the first send), then the adapter's own. */
   readonly notices: readonly string[];
   start(rt: ClaudeRuntime): Promise<void>;
   bootPacked(input: PackedBoot): Promise<void>;
@@ -114,10 +115,10 @@ function clockOf(services: HostServices | undefined, injected?: Clock): Clock {
 }
 
 /** The personal file alone: what a session has when the helper can't load config. */
-function personalOnly(userText: string | undefined): EffectiveConfig {
+function personalOnly(userText: string | undefined): LoadedSession {
   const parsed = parseUserConfig(userText, 'murmo.toml');
   const user = parsed ? resolveShortcuts(parsed, new Map()) : undefined;
-  return mergeConfig({ ...(user ? { user } : {}), projectTrusted: false });
+  return { trust: 'none', effective: mergeConfig({ ...(user ? { user } : {}), projectTrusted: false }) };
 }
 
 function within<T>(clock: Clock, ms: number, what: string, work: Promise<T>): Promise<T> {
@@ -156,10 +157,10 @@ function helperWatch(adapter: ClaudeAdapter, services: HostServices | undefined)
  * leaves the personal file in charge with one notice: project shortcuts are
  * off, never loaded unchecked.
  */
-async function loadConfig(boot: ConfigBoot): Promise<{ effective: EffectiveConfig; helper?: HelperHandle }> {
+async function loadConfig(boot: ConfigBoot): Promise<{ session: LoadedSession; helper?: HelperHandle }> {
   const fallback = (why: string) => {
     boot.notices.push(`project shortcuts off: ${why}`);
-    return { effective: personalOnly(boot.userText) };
+    return { session: personalOnly(boot.userText) };
   };
   if (!boot.services) return fallback('this Claude build gives plugins no process API');
   if (boot.binaries.length === 0) return fallback('the Murmo helper is missing from this install (murmo doctor)');
@@ -188,10 +189,7 @@ async function loadConfig(boot: ConfigBoot): Promise<{ effective: EffectiveConfi
       const why = typeof reply.error === 'string' ? reply.error : 'unreadable reply';
       return { ...fallback(`the Murmo helper could not load config (${why})`), helper };
     }
-    for (const d of session.effective.diagnostics) {
-      if (d.code === 'untrusted') boot.notices.push(`.murmo.toml: ${d.message}`);
-    }
-    return { effective: session.effective, helper };
+    return { session, helper };
   } catch (error) {
     return {
       ...fallback(`the Murmo helper could not load config (${error instanceof Error ? error.message : String(error)})`),
@@ -201,16 +199,16 @@ async function loadConfig(boot: ConfigBoot): Promise<{ effective: EffectiveConfi
 }
 
 function builtinsFromConfig(
-  adapter: ClaudeAdapter,
-  config: EffectiveConfig,
+  session: LoadedSession,
   cwd: string,
   table: PayloadTable | undefined,
 ): {
   specs: HostPluginSpec[];
   order: string[];
+  notices: string[];
 } {
-  const compiled = compileConfigShortcuts(config, { asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES });
-  for (const notice of compiled.notices) adapter.notices.push(notice.text);
+  const config = session.effective;
+  const compiled = compileConfigShortcuts(config, { session, asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES });
 
   if (table) {
     provideEnglishPack({
@@ -283,7 +281,7 @@ function builtinsFromConfig(
   const enabled = specs.filter((spec) => !disabled.has(spec.id));
   const wanted = config.pluginOrder ?? [...DEFAULT_ORDER];
   const order = wanted.filter((id) => enabled.some((spec) => spec.id === id));
-  return { specs: enabled, order };
+  return { specs: enabled, order, notices: sessionNotices(session, compiled) };
 }
 
 export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost {
@@ -292,6 +290,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
   let helper: HelperHandle | undefined;
   let events: EventBroker | undefined;
   let alive = false;
+  let startup: readonly string[] = [];
 
   return {
     get adapter() {
@@ -310,7 +309,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       return alive;
     },
     get notices() {
-      return adapter.notices;
+      return [...startup, ...adapter.notices];
     },
     async start(rt: ClaudeRuntime) {
       adapter = new ClaudeAdapter(options, rt);
@@ -318,11 +317,11 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const clock = clockOf(services, options.clock);
       await adapter.ready();
       const payload = await locatePayload(rt, options.payloadRoot);
-      if (payload?.notice) adapter.notices.push(payload.notice);
+      const notices: string[] = payload?.notice ? [payload.notice] : [];
       const cwd = await rt.session.cwd();
       const userText = await readUserConfig(rt);
       const booted = options.plugins
-        ? { effective: personalOnly(userText) }
+        ? { session: personalOnly(userText) }
         : await loadConfig({
             services,
             binaries: payload && !payload.notice ? await helperPaths(rt, payload) : [],
@@ -330,17 +329,18 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
             userText,
             cwd,
             clock,
-            notices: adapter.notices,
+            notices,
             watch: helperWatch(adapter, services),
           });
       helper = booted.helper;
       adapter.noteHelper(helper !== undefined);
-      const config = booted.effective;
+      const config = booted.session.effective;
       // Built-ins (inline teh→the) run in-process; the helper serves config and third-party plugins.
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
-        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
-        : builtinsFromConfig(adapter, config, cwd, payload ? await loadTable(rt, payload) : undefined);
+        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
+        : builtinsFromConfig(booted.session, cwd, payload ? await loadTable(rt, payload) : undefined);
+      startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,
@@ -354,6 +354,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         clock,
         keyBursts: false,
         guardPolicy: 'managed',
+        notices: startup,
         notify: (message) => {
           adapter.notices.push(message);
         },
@@ -407,17 +408,18 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
     async bootPacked(input: PackedBoot) {
       adapter = new ClaudeAdapter({ ...options, skipProbes: true });
       const clock = clockOf(input.services, options.clock);
+      const notices: string[] = [];
       let payload: LocatedPayload | undefined;
       try {
         const integrity = JSON.parse(input.integrityJson) as IntegrityFile;
         if (integrity?.version === PLUGIN_VERSION) payload = { root: input.payloadRoot, integrity };
         else if (integrity?.version)
-          adapter.notices.push(`payload version ${integrity.version} does not match plugin ${PLUGIN_VERSION}`);
+          notices.push(`payload version ${integrity.version} does not match plugin ${PLUGIN_VERSION}`);
       } catch {
         payload = undefined;
       }
       const booted = options.plugins
-        ? { effective: personalOnly(input.userToml) }
+        ? { session: personalOnly(input.userToml) }
         : await loadConfig({
             services: input.services,
             binaries: payload ? (input.helperBinaries ?? []) : [],
@@ -425,7 +427,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
             userText: input.userToml,
             cwd: input.cwd,
             clock,
-            notices: adapter.notices,
+            notices,
             watch: helperWatch(adapter, input.services),
           });
       helper = booted.helper;
@@ -448,8 +450,9 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       }
       const executor: Executor = createInProcessExecutor({ clock });
       const loaded = options.plugins
-        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id) }
-        : builtinsFromConfig(adapter, booted.effective, input.cwd, table);
+        ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
+        : builtinsFromConfig(booted.session, input.cwd, table);
+      startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
         executor,
@@ -463,6 +466,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         clock,
         keyBursts: false,
         guardPolicy: 'managed',
+        notices: startup,
         notify: (message) => {
           adapter.notices.push(message);
         },

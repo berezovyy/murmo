@@ -29,7 +29,7 @@ export interface MenuOptions {
   readonly width?: number;
   /** Reserved `;?` history row for phase 35; hidden unless true. */
   readonly history?: boolean;
-  /** Names a project entry overrode; shown with a `project` tag. */
+  /** Names a project entry overrode; shown with a `project` tag. Default: the compiled shortcuts' own. */
   readonly overrides?: readonly string[];
 }
 
@@ -220,11 +220,11 @@ function createPlugin(state: MenuState): Plugin {
 
 export function createMenuState(compiled: CompiledShortcuts, options: MenuOptions = {}): MenuState {
   const box: MenuState = {
-    table: packNames(compiled, options.overrides ?? []),
+    table: packNames(compiled, options.overrides ?? compiled.overrides),
     options,
     swap(next, nextOptions) {
       if (nextOptions) box.options = nextOptions;
-      box.table = packNames(next, box.options.overrides ?? []);
+      box.table = packNames(next, box.options.overrides ?? next.overrides);
     },
   };
   return box;

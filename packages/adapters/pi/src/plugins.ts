@@ -2,7 +2,7 @@
 // inline rules here (r14 H1 left `;r14␠` literal because the installer never
 // did this). Autocorrect stays opt-in from merged config.
 
-import type { EffectiveConfig } from '@murmo/config';
+import type { EffectiveConfig, LoadedSession } from '@murmo/config';
 import type { HostPluginSpec } from '@murmo/core';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
 import { findShippedEnglishDir, loadBuiltPack } from '@murmo/plugin-autocorrect/node/from-dir';
@@ -16,6 +16,7 @@ import {
   compileConfigShortcuts,
   menuPlugin,
   SAMPLE_SHORTCUTS,
+  sessionNotices,
   shortcutRecords,
   shortcutsPlugin,
 } from '@murmo/plugin-shortcuts';
@@ -27,11 +28,14 @@ export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phr
 export interface BuiltinLoad {
   readonly specs: HostPluginSpec[];
   readonly order: readonly string[];
+  /** The session's startup notices, most important first (core `SessionOptions.notices`). */
   readonly notices: readonly string[];
 }
 
 export interface BuiltinOptions {
   readonly config?: EffectiveConfig;
+  /** Project trust and summary of the load `config` came from. */
+  readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
   readonly drafts?: Drafts;
   readonly identity?: DraftIdentity;
   readonly store?: Store;
@@ -46,11 +50,10 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
   const compiled = compileConfigShortcuts(
     config ?? { replacements: shortcutRecords(SAMPLE_SHORTCUTS), overrides: [] },
     {
-      trust: 'none',
+      ...(options.session ? { session: options.session } : {}),
       asyncEdits: true,
     },
   );
-  for (const notice of compiled.notices) notices.push(notice.text);
 
   const ids = new Set(options.ids ?? DEFAULT_ORDER);
   const specs: HostPluginSpec[] = [];
@@ -136,5 +139,11 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
     configured && configured.length === specIds.length && specIds.every((id) => configured.includes(id))
       ? configured
       : specIds;
-  return { specs, order, notices };
+  const startup = config
+    ? sessionNotices(
+        { effective: config, ...(options.session?.project ? { project: options.session.project } : {}) },
+        compiled,
+      )
+    : compiled.notices.map((notice) => notice.text);
+  return { specs, order, notices: [...notices, ...startup] };
 }

@@ -9,6 +9,7 @@ export type {
 export {
   approveProject,
   configChanged,
+  loadedSession,
   loadSessionConfig,
   loadUserConfig,
   PROJECT_FILE,

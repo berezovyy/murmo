@@ -34,10 +34,10 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
-import { BoundaryBook } from '@murmo/core';
+import { BoundaryBook, fitRows, STATUS_SEPARATOR } from '@murmo/core';
 import { applyChange, type TypingRules } from '@murmo/provenance';
 import { displayText, isSingleCodePoint } from '@murmo/text';
-import { claudeCaps, disableInline } from './caps.ts';
+import { claudeCaps, disableInline, HINT_ROW_COLUMNS } from './caps.ts';
 import { canonicalKey, isKeyedSingle } from './keys.ts';
 import type {
   AutocompleteInput,
@@ -324,10 +324,14 @@ export class ClaudeAdapter implements Adapter {
     return (this.#menu ?? []).filter((item) => item.inlineEdit);
   }
 
+  /**
+   * The PromptHint tail: the adapter's own notices, then the core's status
+   * rows, as many whole rows as fit beside Claude's hint (`measureHint`). A
+   * cut row once hid the command it named (`run "murmo tr…"`).
+   */
   statusLine(): string {
-    const parts = [...this.notices];
-    if (this.#status) parts.push(displayText(this.#status));
-    return parts.join(HINT_SEPARATOR);
+    const rows = [...this.notices, ...(this.#status ? displayText(this.#status).split(STATUS_SEPARATOR) : [])];
+    return fitRows(rows, this.caps.ui.statusMaxLength);
   }
 
   decorations(): PromptDecoration[] {
@@ -369,11 +373,10 @@ export class ClaudeAdapter implements Adapter {
     }
   }
 
+  /** What the host's own hint (`auto mode on (shift+tab to cycle)`, `! for shell mode`) leaves of the row for the tail. */
   measureHint(hint: string): void {
-    const width = hint.length + (this.statusLine() ? this.statusLine().length + HINT_SEPARATOR.length : 0);
-    if (width > 0) {
-      this.caps = { ...this.caps, ui: { ...this.caps.ui, statusMaxLength: Math.max(24, 120 - hint.length) } };
-    }
+    const room = Math.max(24, HINT_ROW_COLUMNS - hint.length - HINT_SEPARATOR.length);
+    this.caps = { ...this.caps, ui: { ...this.caps.ui, statusMaxLength: room } };
   }
 
   confirmIncoming(box: { readonly text: string; readonly cursor: number }, definitive = true): void {

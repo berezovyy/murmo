@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { openStore, type Store } from '@murmo/store/node';
 import { sessionFromJson } from '../src/index.ts';
-import { approveProject, loadSessionConfig, scanProject } from '../src/node/index.ts';
+import { approveProject, loadedSession, loadSessionConfig, scanProject } from '../src/node/index.ts';
 import { trustCases, type Workspace, workspace } from './repos.ts';
 
 let ws: Workspace;
@@ -61,4 +61,18 @@ test('a reply of another shape is no config', async () => {
   ];
   for (const reply of broken) assert.equal(sessionFromJson(reply), undefined, JSON.stringify(reply));
   assert.ok(sessionFromJson(good));
+});
+
+test('a full reply gives Claude the project summary Node hosts read from the load', async () => {
+  // Catches Claude's session and Pi's or OpenCode's disagreeing about the
+  // project file: its shortcut count in the trust notice, or the file that
+  // turned autocorrect off.
+  const fresh = ws.repo('summary', trustCases.base);
+  for (const root of [fresh, ws.repo('summary-bare')]) {
+    const session = await loadSessionConfig({ cwd: root, store, env: ws.env });
+    const { stamps: _stamps, ...reply } = session;
+    assert.deepEqual(sessionFromJson(JSON.parse(JSON.stringify(reply))), loadedSession(session), root);
+  }
+  const summary = loadedSession(await loadSessionConfig({ cwd: fresh, store, env: ws.env })).project;
+  assert.equal(summary?.shortcuts, (await scanProject(fresh))?.config.replacements.length);
 });

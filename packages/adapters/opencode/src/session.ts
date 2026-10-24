@@ -2,8 +2,8 @@
 // isolated executor seam (phase 10); v1 only loads built-ins here.
 
 import type { Executor } from '@murmo/api/adapter';
-import type { EffectiveConfig } from '@murmo/config';
-import { loadSessionConfig } from '@murmo/config/node';
+import type { EffectiveConfig, LoadedSession } from '@murmo/config';
+import { loadedSession, loadSessionConfig } from '@murmo/config/node';
 import { createMemoryStorage, createPluginHost, createSession, type HostPluginSpec, type Session } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
 import { autocorrectSpec } from '@murmo/plugin-autocorrect';
@@ -12,7 +12,13 @@ import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
-import { type CompileShortcut, compileConfigShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import {
+  type CompileShortcut,
+  compileConfigShortcuts,
+  menuPlugin,
+  sessionNotices,
+  shortcutsPlugin,
+} from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
@@ -23,6 +29,10 @@ export interface SessionStartOptions {
   readonly order?: readonly string[];
   readonly executor?: Executor;
   readonly config?: EffectiveConfig;
+  /** The load `config` came from: project trust and summary for the startup notices. */
+  readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
+  /** Startup notices ahead of the session's own (a config that failed to load). */
+  readonly notices?: readonly string[];
   readonly replacements?: readonly CompileShortcut[];
   readonly loadLanguagePack?: boolean;
   readonly notify?: (message: string) => void;
@@ -33,8 +43,8 @@ export interface StartedSession {
   close(): Promise<void>;
 }
 
-function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
-  if (options.plugins) return [...options.plugins];
+function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]; notices: string[] } {
+  if (options.plugins) return { specs: [...options.plugins], notices: [] };
   if (options.loadLanguagePack !== false) {
     try {
       const dir = findShippedEnglishDir();
@@ -45,9 +55,17 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
   }
   const replacements = options.replacements ?? options.config?.replacements ?? [];
   const compiled = compileConfigShortcuts(
-    { replacements, overrides: options.config?.overrides ?? [] },
-    { trust: 'none', asyncEdits: true },
+    {
+      replacements,
+      overrides: options.config?.overrides ?? [],
+      ...(options.config ? { diagnostics: options.config.diagnostics } : {}),
+    },
+    { ...(options.session ? { session: options.session } : {}), asyncEdits: true },
   );
+  const project = options.session?.project;
+  const notices = options.config
+    ? sessionNotices({ effective: options.config, ...(project ? { project } : {}) }, compiled)
+    : compiled.notices.map((notice) => notice.text);
   const autocorrect = autocorrectSpec('autocorrect', {
     enabled: options.config?.autocorrect === true,
     allow: (options.config?.protect ?? []).join(' '),
@@ -87,23 +105,46 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
       return { id: names.id, builtin: true as const, factory: names.factory, settings };
     })(),
   ];
-  return specs;
+  return { specs, notices };
 }
 
-/** User `murmo.toml` plus project file. Missing files leave autocorrect off (opt-in). */
-export async function loadHostSessionConfig(
+/** User `murmo.toml` plus project file, with project trust. Missing files leave autocorrect off (opt-in). */
+export async function loadHostSession(
   cwd = process.cwd(),
   env: NodeJS.ProcessEnv = process.env,
-): Promise<EffectiveConfig> {
+): Promise<LoadedSession> {
   const store = await openStore({ roots: storeRootsFromEnv(env) });
-  const loaded = await loadSessionConfig({ cwd, store, env });
-  return loaded.effective;
+  return loadedSession(await loadSessionConfig({ cwd, store, env }));
+}
+
+/** The startup notice for a config that failed to load: built-ins still run, but without the user's shortcuts. */
+export function configLoadNotice(error: unknown): string {
+  const why = error instanceof Error ? error.message : String(error);
+  return `Murmo could not load murmo.toml (${why}); shortcuts are off this session.`;
+}
+
+/**
+ * The session's config and trust, or the notice that says why there is none.
+ * OpenCode 2.0.32 once failed this load and the error was swallowed, so
+ * shortcuts stayed literal while setup and doctor said all was fine. Built-ins
+ * still load without it.
+ */
+export async function hostSessionOptions(
+  load: () => Promise<LoadedSession>,
+): Promise<Pick<SessionStartOptions, 'config' | 'session' | 'notices'>> {
+  try {
+    const session = await load();
+    return { config: session.effective, session };
+  } catch (error) {
+    return { notices: [configLoadNotice(error)] };
+  }
 }
 
 export async function startSession(options: SessionStartOptions): Promise<StartedSession> {
   const executor = options.executor ?? createInProcessExecutor();
+  const builtins = builtinPlugins(options);
   const host = createPluginHost({
-    specs: builtinPlugins(options),
+    specs: builtins.specs,
     executor,
     storage: createMemoryStorage(),
   });
@@ -111,6 +152,7 @@ export async function startSession(options: SessionStartOptions): Promise<Starte
     adapter: options.adapter,
     runner: host,
     keyBursts: true,
+    notices: [...(options.notices ?? []), ...builtins.notices],
     ...(options.order ? { order: options.order } : {}),
     ...(options.notify ? { notify: options.notify } : {}),
   });

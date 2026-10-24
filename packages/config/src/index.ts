@@ -6,6 +6,7 @@ export { formatDiagnostic, makeDiagnostic } from './diagnostics.ts';
 export { CONFIG_LIMITS, FIELD_NAME } from './limits.ts';
 export type { EffectiveConfig, EffectivePlugin, MergeInput } from './merge.ts';
 export { mergeConfig } from './merge.ts';
+export { baseName, configProblemNotices, SHORTCUT_ENTRY_CODES, sessionHint } from './notices.ts';
 export type { PluginSettingsResult } from './plugins.ts';
 export { HOST_OWNED_PLUGIN_KEYS, pluginSettings } from './plugins.ts';
 export type { LoadedConfig, ReferenceProblem, ReferenceRead, Shortcut } from './references.ts';
@@ -31,8 +32,8 @@ export {
   referencePathProblem,
   shortcutProblem,
 } from './schema.ts';
-export type { LoadedSession, TrustState } from './session.ts';
-export { sessionFromJson } from './session.ts';
+export type { LoadedSession, ProjectSummary, TrustState } from './session.ts';
+export { projectSummary, sessionFromJson } from './session.ts';
 export type { Locator, SourceScan } from './source.ts';
 export { codePointLength, normalizeToml, scanSource, utf8Length } from './source.ts';
 export { displayText, unsafeText } from './text-policy.ts';

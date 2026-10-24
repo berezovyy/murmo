@@ -4,17 +4,60 @@
 // every host: per-host copies of `{ shortcut, text, origin }` once dropped
 // them, and `;review` inserted `Review <change>` instead of its default.
 
-import type { EffectiveConfig } from '@murmo/config';
-import { type CompiledShortcuts, type CompileInput, type CompileShortcut, compileShortcuts } from './compile.ts';
+import { configProblemNotices, type EffectiveConfig, type LoadedSession, sessionHint } from '@murmo/config';
+import {
+  type CompiledShortcuts,
+  type CompileInput,
+  type CompileShortcut,
+  compileShortcuts,
+  type NoticeKind,
+} from './compile.ts';
 
-export type ConfigShortcuts = Pick<EffectiveConfig, 'replacements' | 'overrides'>;
+export type ConfigShortcuts = Pick<EffectiveConfig, 'replacements' | 'overrides'> &
+  Partial<Pick<EffectiveConfig, 'diagnostics'>>;
 
-/** Compile a host session's merged shortcuts. Every adapter builds its shortcuts and menu from this. */
-export function compileConfigShortcuts(
-  config: ConfigShortcuts,
-  options: Omit<CompileInput, 'replacements' | 'overrides'> = {},
-): CompiledShortcuts {
-  return compileShortcuts({ ...options, replacements: config.replacements, overrides: config.overrides });
+export interface ConfigCompileOptions
+  extends Omit<CompileInput, 'replacements' | 'overrides' | 'trust' | 'projectFile' | 'projectShortcutCount'> {
+  /** The session's project trust: an unreviewed project file gets the "murmo trust" notice. */
+  readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
+}
+
+/**
+ * Compile a host session's merged shortcuts. Every adapter builds its
+ * shortcuts, menu and shortcut notices from this, with the session's real
+ * trust state: Pi and OpenCode once passed none, so an unreviewed project file
+ * just left its shortcuts literal and nothing said why.
+ */
+export function compileConfigShortcuts(config: ConfigShortcuts, options: ConfigCompileOptions = {}): CompiledShortcuts {
+  const { session, ...rest } = options;
+  const project = session?.project;
+  return compileShortcuts({
+    ...rest,
+    replacements: config.replacements,
+    overrides: config.overrides,
+    ...(config.diagnostics && rest.diagnostics === undefined ? { diagnostics: config.diagnostics } : {}),
+    ...(session ? { trust: session.trust } : {}),
+    ...(project ? { projectFile: project.file, projectShortcutCount: project.shortcuts } : {}),
+  });
+}
+
+/**
+ * Everything a host says when a session starts, most important first, for
+ * the core's startup notices: project trust, config problems with file and
+ * line, skipped shortcuts and overrides, and last the line that says Murmo is
+ * on and what it loaded. One list for every host, so each says the same.
+ */
+export function sessionNotices(
+  session: Pick<LoadedSession, 'effective' | 'project'>,
+  compiled: CompiledShortcuts,
+): string[] {
+  const shortcut = (kind: NoticeKind) => compiled.notices.filter((n) => n.kind === kind).map((n) => n.text);
+  return [
+    ...shortcut('trust'),
+    ...configProblemNotices(session.effective.diagnostics),
+    ...(['skipped', 'alias', 'claude-size', 'collision', 'override'] as const).flatMap(shortcut),
+    sessionHint(session),
+  ];
 }
 
 type Fields = NonNullable<CompileShortcut['fields']>;

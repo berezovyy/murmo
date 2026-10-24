@@ -20,9 +20,11 @@ import {
   type EffectiveConfig,
   ignoredFile,
   type LoadedConfig,
+  type LoadedSession,
   mergeConfig,
   type PinnedFile,
   parseConfig,
+  projectSummary,
   REFERENCE_PROBLEMS,
   type ReferenceRead,
   referencedPaths,
@@ -304,6 +306,15 @@ export async function loadSessionConfig(options: SessionConfigOptions): Promise<
     trust,
     effective,
     stamps,
+  };
+}
+
+/** What a host session acts on: the same shape a Claude session gets from the helper's `config.load`. */
+export function loadedSession(config: SessionConfig): LoadedSession {
+  return {
+    trust: config.trust,
+    effective: config.effective,
+    ...(config.project ? { project: projectSummary(config.project.config) } : {}),
   };
 }
 

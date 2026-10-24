@@ -5,7 +5,14 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { HostState } from '@murmo/api';
 import { createHarness } from '@murmo/core/testing';
-import { compileShortcuts, filterNames, menuPlugin, r9MenuShortcuts, SAMPLE_SHORTCUTS } from '../src/index.ts';
+import {
+  compileConfigShortcuts,
+  compileShortcuts,
+  filterNames,
+  menuPlugin,
+  r9MenuShortcuts,
+  SAMPLE_SHORTCUTS,
+} from '../src/index.ts';
 import { expectedPath, HOST_CAPS, menuOf, pluginOf, seeds } from './helpers.ts';
 
 const expected = JSON.parse(readFileSync(expectedPath, 'utf8')) as Record<string, string>;
@@ -180,5 +187,19 @@ test('a drawn row shows its first line once: no detail that repeats the label', 
   assert.equal(row?.id, 'tst');
   assert.ok(row?.label.includes('Run the project test suite only.'));
   assert.equal(row?.detail, undefined);
+  await h.session?.dispose();
+});
+
+test('a project shortcut that overrides a personal one carries the project tag from config alone', async () => {
+  // Pi's ; menu showed the project text with no `project` tag: hosts built
+  // the menu from compiled config and never handed it the overrides.
+  const compiled = compileConfigShortcuts({
+    replacements: [{ shortcut: 'rvw', text: 'Project review.', origin: 'project' }],
+    overrides: ['rvw'],
+  });
+  const h = await createHarness({ plugins: [menuPlugin(compiled)] });
+  await h.driver.type(';rv');
+  const label = h.adapter.menu?.[0]?.label ?? '';
+  assert.ok(label.startsWith(';rvw  project'), label);
   await h.session?.dispose();
 });

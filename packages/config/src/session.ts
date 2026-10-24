@@ -16,9 +16,34 @@ import type { EffectiveConfig } from './merge.ts';
  */
 export type TrustState = 'approved' | 'review' | 'changed' | 'not-approvable';
 
+/** What a host says about the project file at session start. */
+export interface ProjectSummary {
+  /** The project file as the loader named it, escaped. */
+  readonly file: string;
+  /** Its usable `[replace]` shortcuts, approved or not. */
+  readonly shortcuts: number;
+  /** Its `[autocorrect] enabled`, when it sets one (a project may only turn it off). */
+  readonly autocorrect?: boolean;
+}
+
 export interface LoadedSession {
   readonly trust: TrustState | 'none';
   readonly effective: EffectiveConfig;
+  /** Absent when there is no project file. */
+  readonly project?: ProjectSummary;
+}
+
+/** The summary of a loaded project file (`SessionConfig.project.config`). */
+export function projectSummary(config: {
+  readonly file: string;
+  readonly replacements: readonly unknown[];
+  readonly autocorrect?: boolean;
+}): ProjectSummary {
+  return {
+    file: config.file,
+    shortcuts: config.replacements.length,
+    ...(config.autocorrect === undefined ? {} : { autocorrect: config.autocorrect }),
+  };
 }
 
 const TRUST: readonly string[] = ['none', 'approved', 'review', 'changed', 'not-approvable'];
@@ -78,9 +103,28 @@ function isEffective(v: unknown): v is EffectiveConfig {
   );
 }
 
+/** The reply's `project.config`, summarized; a malformed one is no summary, never a refused session. */
+function projectFromJson(value: unknown): ProjectSummary | undefined {
+  if (!isRecord(value) || !isRecord(value.config)) return undefined;
+  const { file, replacements, autocorrect } = value.config;
+  if (
+    typeof file !== 'string' ||
+    !Array.isArray(replacements) ||
+    !optional(autocorrect, (a) => typeof a === 'boolean')
+  ) {
+    return undefined;
+  }
+  return projectSummary({
+    file,
+    replacements,
+    ...(autocorrect === undefined ? {} : { autocorrect: autocorrect as boolean }),
+  });
+}
+
 /** The session in a `config.load` reply's `session`, or undefined when it isn't a well-formed one. */
 export function sessionFromJson(value: unknown): LoadedSession | undefined {
   if (!isRecord(value) || typeof value.trust !== 'string' || !TRUST.includes(value.trust)) return undefined;
   if (!isEffective(value.effective)) return undefined;
-  return { trust: value.trust as LoadedSession['trust'], effective: value.effective };
+  const project = projectFromJson(value.project);
+  return { trust: value.trust as LoadedSession['trust'], effective: value.effective, ...(project ? { project } : {}) };
 }

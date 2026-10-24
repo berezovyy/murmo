@@ -180,3 +180,18 @@ test('a template shortcut inserts its field defaults, not the bare placeholder (
   const entries = loaded.specs.find((spec) => spec.id === 'shortcuts')?.inline?.[0]?.replacements?.entries ?? {};
   assert.equal(entries[';review'], 'Review this change for correctness.');
 });
+
+test('startup notices carry the real trust state and the file that turned autocorrect off (real-host bug)', () => {
+  // Pi passed no trust state, so an unreviewed .murmo.toml never got its
+  // "murmo trust" notice; and after a project turned autocorrect off, Pi told
+  // a user whose personal file already turns it on to "opt in".
+  const loaded = loadBuiltins({
+    ids: ['shortcuts'],
+    config: cfg(false),
+    session: { trust: 'review', project: { file: '/repo/.murmo.toml', shortcuts: 2, autocorrect: false } },
+  });
+  assert.deepEqual(loaded.notices, [
+    '.murmo.toml has 2 shortcuts. Run "murmo trust" to review.',
+    'murmo on · no shortcuts · autocorrect off in .murmo.toml',
+  ]);
+});

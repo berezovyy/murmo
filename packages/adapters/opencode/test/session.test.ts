@@ -12,7 +12,8 @@ import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
 import { compileShortcuts, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { OpenCodeAdapter } from '../src/adapter.ts';
-import { loadHostSessionConfig, startSession } from '../src/session.ts';
+import { hostSessionOptions, loadHostSession, startSession } from '../src/session.ts';
+import { createStatusSurface } from '../src/status.ts';
 import { FakeOpenCode } from './fake-opencode.ts';
 
 function cfg(autocorrect: boolean): EffectiveConfig {
@@ -109,7 +110,7 @@ test('user autocorrect on plus shipped english.bin corrects typed teh, not paste
   }
 });
 
-test('loadHostSessionConfig turns autocorrect on from the user file', async () => {
+test('loadHostSession turns autocorrect on from the user file', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-cfg-'));
   try {
     const home = join(dir, 'home');
@@ -124,7 +125,7 @@ test('loadHostSessionConfig turns autocorrect on from the user file', async () =
     writeFileSync(join(env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'), '[autocorrect]\nenabled = true\n');
     const cwd = join(dir, 'proj');
     mkdirSync(cwd);
-    const effective = await loadHostSessionConfig(cwd, env);
+    const { effective } = await loadHostSession(cwd, env);
     assert.equal(effective.autocorrect, true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -189,7 +190,7 @@ test('a word added with murmo words is left alone in the next session', async ()
     const started = await startSession({
       adapter,
       executor: executor(),
-      config: await loadHostSessionConfig(cwd, env),
+      config: (await loadHostSession(cwd, env)).effective,
     });
     host.type('teh');
     host.press({ name: 'space', sequence: ' ' });
@@ -228,5 +229,99 @@ test('a shortcut with a non-ASCII name expands when typed (real-host bug)', asyn
   await Promise.resolve();
   await Promise.resolve();
   assert.equal(adapter.getDraft().text, 'Hello! Привіт! 👋 ');
+  await started.close();
+});
+
+function homeEnv(dir: string): NodeJS.ProcessEnv {
+  const home = join(dir, 'home');
+  return {
+    HOME: home,
+    XDG_CONFIG_HOME: join(home, '.config'),
+    XDG_DATA_HOME: join(home, '.local', 'share'),
+    XDG_STATE_HOME: join(home, '.local', 'state'),
+    XDG_CACHE_HOME: join(home, '.cache'),
+  };
+}
+
+async function footerOf(options: Omit<Parameters<typeof startSession>[0], 'adapter'>) {
+  const host = new FakeOpenCode();
+  const status = createStatusSurface(host.api);
+  const adapter = new OpenCodeAdapter({ api: host.api, core: host.core, status });
+  const started = await startSession({ adapter, loadLanguagePack: false, executor: executor(), ...options });
+  return { host, status, started };
+}
+
+test('the footer says murmo is on and that an unreviewed project file needs murmo trust (real-host bug)', async () => {
+  // OpenCode never showed a Murmo line: every status waited for dialog
+  // safety, and the session passed no trust state, so an unreviewed
+  // .murmo.toml left ;team literal with nothing saying why.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-trust-'));
+  try {
+    const env = homeEnv(dir);
+    mkdirSync(join(env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
+    writeFileSync(
+      join(env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'),
+      'version = 1\n[replace]\n";hi" = \'Hello\'\n',
+    );
+    const cwd = join(dir, 'proj');
+    mkdirSync(join(cwd, '.git'), { recursive: true });
+    writeFileSync(join(cwd, '.murmo.toml'), 'version = 1\n[replace]\n";team" = \'Team text\'\n');
+    const { status, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    assert.equal(
+      status.get(),
+      '.murmo.toml has 1 shortcut. Run "murmo trust" to review. | murmo on · 1 shortcut · autocorrect off',
+    );
+    await started.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a broken personal murmo.toml is named with its line in the footer (real-host bug)', async () => {
+  // `[shortcuts] hi = "hello"` loaded nothing and said nothing on any host.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-broken-'));
+  try {
+    const env = homeEnv(dir);
+    mkdirSync(join(env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
+    writeFileSync(
+      join(env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'),
+      'version = 1\n[shortcuts]\nhi = "hello"\n',
+    );
+    const cwd = join(dir, 'proj');
+    mkdirSync(cwd);
+    const { status, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    assert.equal(
+      status.get(),
+      'murmo.toml:2: unknown key "shortcuts" ignored | murmo on · no shortcuts · autocorrect off',
+    );
+    await started.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a config that fails to load says so in the footer instead of failing silently (real-host bug)', async () => {
+  // On OpenCode 2.0.32 the load threw inside setup, the error was swallowed,
+  // and shortcuts stayed literal while doctor said all was fine.
+  const { status, started } = await footerOf(
+    await hostSessionOptions(() => Promise.reject(new Error('lstat is not a function'))),
+  );
+  assert.match(
+    status.get(),
+    /^Murmo could not load murmo\.toml \(lstat is not a function\); shortcuts are off this session\./,
+  );
+  await started.close();
+});
+
+test('a project shortcut that overrides a personal one is said in the footer', async () => {
+  // OpenCode never said a project ;rvw replaced the personal one.
+  const { status, started } = await footerOf({
+    config: {
+      ...cfg(false),
+      replacements: [{ shortcut: ';rvw', text: 'Project review.', origin: 'project' }],
+      overrides: [';rvw'],
+    },
+  });
+  assert.match(status.get(), /Project shortcut ;rvw overrides your personal one\./);
   await started.close();
 });

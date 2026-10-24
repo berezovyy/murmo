@@ -3,7 +3,7 @@
 // path. Async isolated hooks run after the native input frame (setImmediate).
 
 import type { Executor } from '@murmo/api/adapter';
-import { loadSessionConfig } from '@murmo/config/node';
+import { loadedSession, loadSessionConfig } from '@murmo/config/node';
 import { createPluginHost, createSession, type HostPluginSpec, type PluginHost, type Session } from '@murmo/core';
 import { createFileStorage, createProjectFileBroker } from '@murmo/core/node';
 import { createInProcessExecutor } from '@murmo/executor';
@@ -93,12 +93,12 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
       }
     : loadBuiltins({
         config: config.effective,
+        session: loadedSession(config),
         drafts: store.drafts,
         identity,
         store,
         cwd,
       });
-  for (const notice of loaded.notices) options.ctx.ui.notify(notice, 'warning');
 
   const trusted = createInProcessExecutor();
   const executor: Executor = options.isolated ? frameExecutor(createNodeIsolatedExecutor()) : trusted;
@@ -127,6 +127,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     runner,
     keyBursts: true,
     order: loaded.order,
+    notices: loaded.notices,
     notify: options.notify ?? ((message) => options.ctx.ui.notify(message, 'warning')),
   });
   await session.ready;
