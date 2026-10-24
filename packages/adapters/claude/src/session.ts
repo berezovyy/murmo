@@ -305,7 +305,7 @@ function followConfig(follow: ConfigFollow): () => void {
       const previous = current;
       current = next;
       stamps = reply.stamps;
-      const rebuilt = builtinsFromConfig(next, follow.cwd, follow.table, follow.rescue);
+      const rebuilt = builtinsFromConfig(next, follow.table, follow.rescue);
       const changed = new Set(changedBuiltins(previous.effective, next.effective));
       await reloadPlugins(
         follow.session,
@@ -319,7 +319,6 @@ function followConfig(follow: ConfigFollow): () => void {
 
 function builtinsFromConfig(
   session: LoadedSession,
-  cwd: string,
   table: PayloadTable | undefined,
   rescue: RescueOptions,
 ): {
@@ -367,20 +366,14 @@ function builtinsFromConfig(
       })()
     : { id: 'autocorrect', builtin: true, factory: autocorrectFactory, settings: { enabled: false } };
 
-  const project = `${cwd.replace(/[^a-zA-Z0-9]/g, '')}0000000000000000`.slice(0, 16);
   const specs: HostPluginSpec[] = [
     autocorrect,
     shortcutsPlugin(compiled, { asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES }),
     menuPlugin(compiled, { history: config.historyEnabled === true }),
     rescuePlugin(rescue),
-    phrasesPlugin(
-      { identity: { project, host: 'claude', session: PLUGIN_VERSION } },
-      { learn: config.phrasesLearn === true },
-    ),
-    historyPlugin(
-      { identity: { project, host: 'claude', session: PLUGIN_VERSION } },
-      { enabled: config.historyEnabled === true },
-    ),
+    // One identity for every built-in: this project and session (`rescueOptions`).
+    phrasesPlugin({ identity: rescue.identity }, { learn: config.phrasesLearn === true }),
+    historyPlugin({ identity: rescue.identity }, { enabled: config.historyEnabled === true }),
     (() => {
       const settings = {
         enabled: config.names?.enabled !== false,
@@ -485,7 +478,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const rescue = await rescueOptions(helper, cwd, clock);
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(booted.session, cwd, table, rescue);
+        : builtinsFromConfig(booted.session, table, rescue);
       startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
@@ -609,7 +602,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const rescue = await rescueOptions(helper, input.cwd, clock);
       const builtins = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(booted.session, input.cwd, table, rescue);
+        : builtinsFromConfig(booted.session, table, rescue);
       const loaded = withInstalled(
         { specs: builtins.specs, order: builtins.order, grants: {} },
         options.plugins ? EMPTY_SELECTION : (input.installed ?? EMPTY_SELECTION),

@@ -120,6 +120,11 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
   const shortcuts = shortcutsPlugin(compiled);
   const historyOn = options.config?.historyEnabled === true;
   const menu = menuPlugin(compiled, { history: historyOn });
+  // One identity for every built-in: this project and session (`prepareRescue`).
+  const rescue = options.rescue ?? {
+    drafts: createMemoryDrafts(),
+    identity: { host: 'opencode' as const, project: '0'.repeat(64), session: newDraftSession('opencode') },
+  };
   const specs: HostPluginSpec[] = [
     {
       id: autocorrect.id,
@@ -131,20 +136,9 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
     },
     { id: shortcuts.id, builtin: true, factory: shortcuts.factory, inline: [...shortcuts.inline] },
     { id: menu.id, builtin: true, factory: menu.factory },
-    rescuePlugin(
-      options.rescue ?? {
-        drafts: createMemoryDrafts(),
-        identity: { host: 'opencode', project: '0'.repeat(64), session: newDraftSession('opencode') },
-      },
-    ),
-    phrasesPlugin(
-      { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
-      { learn: options.config?.phrasesLearn === true },
-    ),
-    historyPlugin(
-      { identity: { project: '0'.repeat(64), host: 'opencode', session: 'opencode-session' } },
-      { enabled: historyOn },
-    ),
+    rescuePlugin(rescue),
+    phrasesPlugin({ identity: rescue.identity }, { learn: options.config?.phrasesLearn === true }),
+    historyPlugin({ identity: rescue.identity }, { enabled: historyOn }),
     (() => {
       const settings = {
         enabled: options.config?.names?.enabled !== false,

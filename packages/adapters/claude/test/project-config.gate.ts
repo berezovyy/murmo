@@ -205,6 +205,10 @@ test('an unsent Claude draft reaches the drafts store through the helper, and a 
   const folder = join(storeRootsFromEnv(env, env.HOME).state, 'drafts', 'v1', await projectIdOfCwd(root), 'claude');
   const files = () => (existsSync(folder) ? readdirSync(folder) : []);
   try {
+    // The packed build once gave rescue a 16-character placeholder project, so
+    // it failed to load ("project id must be 64 lowercase hex digits").
+    const failed = (host.session?.stats().plugins ?? []).filter((plugin) => !plugin.loaded || plugin.disabled);
+    assert.deepEqual(failed, [], 'every built-in loads on the packed boot');
     await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'an unsent claude draft');
     await host.session?.settle();
     const deadline = Date.now() + 3000;

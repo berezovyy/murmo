@@ -70,10 +70,12 @@ test('a crashed session draft is offered on the empty prompt at startup, and Tab
   }
 });
 
-test('a sent typed prompt is recorded in history', async () => {
+test('a sent typed prompt is recorded in history, filed under its folder outside a repository', async () => {
   // Pi clears the editor before its `input` event confirms the send, and the
   // confirmation took the typed spans from the now-empty draft, so history
-  // and phrases never learned a prompt.
+  // and phrases never learned a prompt. Outside a repository every folder's
+  // prompts were filed under one all-zero project, which
+  // `murmo history list/wipe --project <dir>` never matches.
   const folder = join(root, 'loose-folder');
   mkdirSync(folder, { recursive: true });
   mkdirSync(join(process.env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
@@ -106,5 +108,9 @@ test('a sent typed prompt is recorded in history', async () => {
   assert.deepEqual(
     records.map((record) => record.text),
     ['remember this prompt'],
+  );
+  assert.deepEqual(
+    records.flatMap((record) => record.events.map((event) => event.project)),
+    [await projectIdOfCwd(folder)],
   );
 });

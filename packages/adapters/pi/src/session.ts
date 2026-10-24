@@ -21,14 +21,7 @@ import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { findOffer } from '@murmo/plugin-rescue';
 import { EMPTY_SELECTION, newDraftSession } from '@murmo/store';
-import {
-  findRepositoryRoot,
-  openStore,
-  projectIdentity,
-  projectIdOfCwd,
-  readInstalledPlugins,
-  storeRootsFromEnv,
-} from '@murmo/store/node';
+import { openStore, projectIdOfCwd, readInstalledPlugins, storeRootsFromEnv } from '@murmo/store/node';
 import { createPiAdapter, type PiAdapter, type PiAdapterOptions } from './adapter.ts';
 import { attachPiEvents, type PiEventsHandle } from './events.ts';
 import { loadBuiltins } from './plugins.ts';
@@ -122,25 +115,19 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   const configOptions = { cwd, store };
   const started = await loadSessionConfig(configOptions);
   let config: SessionConfig = started;
-  const repo = await findRepositoryRoot(cwd);
-  const project = repo ? await projectIdentity(repo) : undefined;
-  const sessionId = newDraftSession('pi');
-  const identity = { project: project?.projectId ?? '0'.repeat(64), host: 'pi' as const, session: sessionId };
+  // One identity for every built-in: the repository root, or the folder
+  // itself outside a repository, and a session id of this process.
+  const identity = { project: await projectIdOfCwd(cwd), host: 'pi' as const, session: newDraftSession('pi') };
   // Looked up before the session starts, so the offer is on the empty prompt
   // at once: a hook can't wait on the file system.
-  const rescue = {
-    project: await projectIdOfCwd(cwd).catch(() => identity.project),
-    host: 'pi' as const,
-    session: sessionId,
-  };
-  const offer = options.specs ? undefined : await findOffer(store.drafts, rescue);
+  const offer = options.specs ? undefined : await findOffer(store.drafts, identity);
   const builtinsOf = (from: SessionConfig, loadLanguagePack: boolean) =>
     loadBuiltins({
       config: from.effective,
       session: loadedSession(from),
       drafts: store.drafts,
       identity,
-      rescue: { identity: rescue, ...(offer ? { offer } : {}) },
+      ...(offer ? { offer } : {}),
       // Rescue outlives config reloads, so it reads the current flag.
       isPrivate: () => config.effective.private,
       store,

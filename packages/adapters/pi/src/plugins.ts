@@ -38,8 +38,8 @@ export interface BuiltinOptions {
   readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
   readonly drafts?: Drafts;
   readonly identity?: DraftIdentity;
-  /** Draft rescue: its own identity (per project folder, even outside a repository) and the offer found at start. */
-  readonly rescue?: { readonly identity: DraftIdentity; readonly offer?: DraftDocument };
+  /** The crashed draft found at start, offered on the empty prompt. */
+  readonly offer?: DraftDocument;
   readonly store?: Store;
   readonly cwd?: string;
   /** Tests pass a subset; the extension loads every built-in. */
@@ -91,13 +91,12 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
     specs.push({ id: menu.id, builtin: true, factory: menu.factory });
   }
 
-  const rescueIdentity = options.rescue?.identity ?? options.identity;
-  if (ids.has('rescue') && options.drafts && rescueIdentity) {
-    const offer = options.rescue?.offer;
+  if (ids.has('rescue') && options.drafts && options.identity) {
+    const offer = options.offer;
     specs.push(
       rescuePlugin({
         drafts: options.drafts,
-        identity: rescueIdentity,
+        identity: options.identity,
         isPrivate: async () => (options.isPrivate ? options.isPrivate() : config?.private === true),
         ...(offer ? { offer } : {}),
       }),
