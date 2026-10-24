@@ -78,12 +78,13 @@ export class FakeTextarea implements TextareaEditor {
   traits: { owner: string; role: string } = { owner: 'opencode', role: 'prompt' };
   isDestroyed = false;
   syntaxStyle: SyntaxStyle = new FakeStyle();
-  x = 0;
+  x = 2;
   y = 20;
-  width = 80;
+  width = 76;
   height = 3;
   visible = true;
-  parent = { id: 'prompt' };
+  /** OpenCode's prompt box: a padded box the full width of a 120×40 screen, near the bottom. */
+  parent: FakeBox | null = new FakeBox('prompt', { x: 0, y: 19, width: 80, height: 5 });
   measureHidden = hideMeasureText;
   readonly marks: Extmark[] = [];
   readonly highlights: Highlight[] = [];
@@ -276,11 +277,37 @@ export class FakeTextarea implements TextareaEditor {
   }
 }
 
-class FakeOverlay implements TextOverlay {
+/** A host box (OpenTUI `BoxRenderable`): screen position, size and children. */
+export class FakeBox {
+  readonly id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isDestroyed = false;
+  readonly children: unknown[] = [];
+  constructor(id: string, rect: { x: number; y: number; width: number; height: number }) {
+    this.id = id;
+    this.x = rect.x;
+    this.y = rect.y;
+    this.width = rect.width;
+    this.height = rect.height;
+  }
+  add(node: unknown): number {
+    this.children.push(node);
+    return this.children.length - 1;
+  }
+  /** OpenTUI destroys a box's children with it (a route change drops the prompt). */
+  destroy(): void {
+    this.isDestroyed = true;
+    for (const child of this.children) (child as { destroy?: () => void }).destroy?.();
+  }
+}
+
+export class FakeOverlay implements TextOverlay {
   id: string;
   visible = true;
-  content: string;
-  plainText: string;
+  #content = '';
   left = 0;
   top = 0;
   width: number;
@@ -293,12 +320,26 @@ class FakeOverlay implements TextOverlay {
     const options = maybeOptions ?? (rendererOrOptions as OverlayOptions) ?? {};
     this.id = options.id ?? 'overlay';
     this.content = options.content ?? '';
-    this.plainText = this.content;
     this.width = options.width ?? 88;
     this.height = options.height ?? 1;
     this.zIndex = options.zIndex ?? 0;
     if (options.fg !== undefined) this.fg = options.fg;
     if (options.bg !== undefined) this.bg = options.bg;
+  }
+  get content(): string {
+    return this.#content;
+  }
+  /** Writing to a destroyed native renderable kills OpenCode's renderer (round 1). */
+  set content(value: string) {
+    if (this.destroyed) throw new Error(`write to destroyed renderable ${this.id}`);
+    this.#content = value;
+  }
+  /** Getter only, as on OpenTUI's TextRenderable: assigning it throws in strict code. */
+  get plainText(): string {
+    return this.content;
+  }
+  get isDestroyed(): boolean {
+    return this.destroyed;
   }
   destroy(): void {
     this.destroyed = true;
@@ -325,6 +366,9 @@ export class FakeOpenCode {
   route: 'home' | 'session' = 'session';
   inbox: ((event: { inboxID: string; item: { payload: { text: string } } }) => void)[] = [];
   layers: { id: string; run: () => void }[] = [];
+  panelOpen = false;
+  /** Keys Murmo let through to OpenCode, by name. */
+  hostKeys: string[] = [];
   readonly children: unknown[] = [];
   readonly api: OpenCodeApi;
 
@@ -362,6 +406,7 @@ export class FakeOpenCode {
   #keypress: KeypressHandler[] = [];
   #paste: PasteHandler[] = [];
   #focus: Array<(...args: unknown[]) => void> = [];
+  #resize: Array<(...args: unknown[]) => void> = [];
   #applyKeys = true;
 
   constructor() {
@@ -370,7 +415,7 @@ export class FakeOpenCode {
     this.api = {
       renderer: {
         get currentFocusedEditor() {
-          return host.prompt.isDestroyed ? null : host.prompt;
+          return host.prompt.isDestroyed || host.panelOpen ? null : host.prompt;
         },
         set currentFocusedEditor(value) {
           void value;
@@ -419,9 +464,11 @@ export class FakeOpenCode {
         requestRender() {},
         on(event, fn) {
           if (event === FOCUSED_EDITOR) host.#focus.push(fn);
+          if (event === 'resize') host.#resize.push(fn);
         },
         removeListener(event, fn) {
           if (event === FOCUSED_EDITOR) host.#focus = host.#focus.filter((h) => h !== fn);
+          if (event === 'resize') host.#resize = host.#resize.filter((h) => h !== fn);
         },
       },
       keymap: {
@@ -491,7 +538,32 @@ export class FakeOpenCode {
   }
 
   focusPrompt(): void {
+    this.panelOpen = false;
     for (const fn of this.#focus) fn(this.prompt, null);
+  }
+
+  /** An OpenCode panel (Subagents, command palette) takes focus from the prompt. */
+  openPanel(): void {
+    this.panelOpen = true;
+    for (const fn of this.#focus) fn(null, this.prompt);
+  }
+
+  /** The terminal resized: the host lays out again, then tells listeners. */
+  resize(width: number, height: number, box: { x: number; y: number; width: number; height: number }): void {
+    this.api.renderer.width = width;
+    this.api.renderer.height = height;
+    const parent = this.prompt.parent;
+    if (parent) Object.assign(parent, box);
+    Object.assign(this.prompt, { x: box.x + 2, y: box.y + 1, width: box.width - 4 });
+    for (const fn of this.#resize) fn(width, height);
+  }
+
+  /** Murmo's node named `murmo-<name>` wherever it was mounted (prompt box or root). */
+  overlayNode(name: 'ghost' | 'menu'): FakeOverlay | undefined {
+    const all = [...this.children, ...(this.prompt.parent?.children ?? [])];
+    return all.find(
+      (node): node is FakeOverlay => node instanceof FakeOverlay && node.id === `murmo-${name}` && !node.destroyed,
+    );
   }
 
   type(text: string): void {
@@ -533,6 +605,7 @@ export class FakeOpenCode {
   }
 
   #apply(key: ParsedKey): void {
+    this.hostKeys.push(key.name);
     if (key.ctrl || key.meta || key.super || key.option) return;
     const seq = key.sequence;
     if (typeof seq === 'string' && seq.length === 1) this.prompt.insertText(seq);

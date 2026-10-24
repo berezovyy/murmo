@@ -232,7 +232,12 @@ class PackedMurmo(Integration):
             status = 'helper unavailable'
         ghost = None
         name = host.name if hasattr(host, 'name') else str(host)
-        menu = claude_menu_rows(text) if name == 'claude' else []
+        if name == 'claude':
+            menu = claude_menu_rows(text)
+        elif name == 'opencode':
+            menu = opencode_menu_rows(screen)
+        else:
+            menu = []
         return {'ghost': ghost, 'menu': menu, 'status': status, 'screen': text[-2000:]}
 
 
@@ -267,3 +272,41 @@ def claude_menu_rows(text: str) -> list[str] | None:
         below.append(row.group(1))
     rows = above or below
     return rows or None
+
+
+_OPENCODE_ROW = re.compile(r'^(?:> | {2})(;\S+)(?: {2}.*)?$')
+
+
+def opencode_menu_rows(screen) -> list[str] | None:
+    """Shortcut ids in Murmo's `;` menu on OpenCode, or None when none shows.
+
+    The menu is drawn right above OpenCode's prompt box (below it only when
+    there is more room there), starting in the column after the box's `┃`
+    edge, one `> ;name  description` or `  ;name  description` row each. Rows
+    elsewhere on the screen (the transcript, the top-left corner where a
+    crashed draw left them) do not count.
+    """
+    from ..hosts import HOSTS
+
+    box = HOSTS['opencode']._box(screen)
+    if box is None:
+        return None
+    left, first, agent = box
+
+    def row(y: int):
+        match = _OPENCODE_ROW.match(screen.row(y)[left + 1:].rstrip())
+        return match.group(1) if match else None
+
+    above: list[str] = []
+    for y in range(first - 1, -1, -1):
+        name = row(y)
+        if name is None:
+            break
+        above.insert(0, name)
+    below: list[str] = []
+    for y in range(agent + 2, len(screen.lines)):
+        name = row(y)
+        if name is None:
+            break
+        below.append(name)
+    return above or below or None

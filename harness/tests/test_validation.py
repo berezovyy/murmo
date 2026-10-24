@@ -334,6 +334,40 @@ class PackedLaunchArgv(unittest.TestCase):
             self.assertEqual(argv[-2:], ['-e', str(entry)])
 
 
+class OpenCodeMenuRows(unittest.TestCase):
+    """The OpenCode `;` menu fixtures read Murmo's rows next to the prompt box.
+    The broken draw left them in the screen's top-left corner, so a parser that
+    took any `> ;name` line would have passed the menu that was in the wrong place."""
+
+    def screen(self, *above: str, corner: str = ''):
+        from murmo_harness.screen import ScreenView
+
+        lines = [
+            corner,
+            '',
+            '  Synthetic local reply.',
+            *above,
+            '  ┃',
+            '  ┃  ;hp',
+            '  ┃',
+            '  ┃  Build · Murmo fake murmo-fake',
+            '  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀',
+            '  /project:master  shift+tab agents  ctrl+p commands',
+        ]
+        return ScreenView(tuple(lines), (0, 0))
+
+    def test_rows_right_above_the_box(self):
+        from murmo_harness.validation.integration import opencode_menu_rows
+
+        screen = self.screen('   > ;hp  harness project shortcut', '     ;hr  Harness review template')
+        self.assertEqual(opencode_menu_rows(screen), [';hp', ';hr'])
+
+    def test_rows_in_the_corner_are_not_the_menu(self):
+        from murmo_harness.validation.integration import opencode_menu_rows
+
+        self.assertIsNone(opencode_menu_rows(self.screen(corner='> ;hp  harness project shortcut   [menu]')))
+
+
 class ClaudeMenuRows(unittest.TestCase):
     """The `;` menu fixtures read Claude's native list off the screen; a parser
     that saw rows in the transcript, or none at all, would pass or fail them

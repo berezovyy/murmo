@@ -137,6 +137,12 @@
       "variants": 17
     },
     {
+      "file": "hosts/opencode-menu.json",
+      "owner": "16, 22",
+      "cases": 5,
+      "variants": 5
+    },
+    {
       "file": "hosts/semicolon-menu.json",
       "owner": "16, 24",
       "cases": 6,

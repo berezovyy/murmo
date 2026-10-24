@@ -85,7 +85,8 @@ export interface TextareaEditor {
   width: number;
   height: number;
   visible: boolean;
-  parent?: { readonly id?: string };
+  /** The prompt box the textarea sits in (OpenTUI `parent`): screen position and size. */
+  readonly parent?: PromptBox | null;
   setSelection(start: number, end: number): void;
   clearSelection(): void;
   getSelection(): Selection | null;
@@ -99,11 +100,27 @@ export interface TextareaEditor {
   destroy(): void;
 }
 
+/**
+ * A host layout node Murmo may draw into: the prompt's box. Absolute children
+ * are placed relative to it and move with it when the host lays it out again.
+ */
+export interface PromptBox {
+  readonly id?: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
+  readonly isDestroyed?: boolean;
+  add?(node: TextOverlay): unknown;
+}
+
 export interface TextOverlay {
   id: string;
   visible: boolean;
   content: string;
-  plainText: string;
+  /** Read-only on OpenTUI's TextRenderable: assigning it throws. */
+  readonly plainText: string;
+  readonly isDestroyed?: boolean;
   left: number;
   top: number;
   width: number;
@@ -212,6 +229,8 @@ export type TextareaConstructor = new (renderer: OpenCodeRenderer, options: Text
 export interface OverlayOptions {
   readonly id?: string;
   readonly position?: string;
+  readonly top?: number;
+  readonly left?: number;
   readonly width?: number;
   readonly height?: number;
   readonly zIndex?: number;

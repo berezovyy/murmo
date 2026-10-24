@@ -261,9 +261,8 @@ export class OpenCodeAdapter implements Adapter {
 
   showGhost(text: string | null, baseVersion: number): ActionResult {
     return this.#present(baseVersion, this.caps.ghost !== 'none', () => {
-      const editor = this.#editor;
-      const measure = editor ? (s: string) => editor.editBuffer.measureText(s) : (s: string) => s.length;
-      this.#overlay.showGhost(text, editor, measure);
+      this.#syncBlocked();
+      this.#overlay.showGhost(text, this.#editor, this.#measure());
     });
   }
 
@@ -273,7 +272,10 @@ export class OpenCodeAdapter implements Adapter {
   }
 
   showMenu(items: readonly PresentedMenuItem[] | null, selected: number, baseVersion: number): ActionResult {
-    return this.#present(baseVersion, this.caps.menu, () => this.#overlay.showMenu(items, selected, this.#editor));
+    return this.#present(baseVersion, this.caps.menu, () => {
+      this.#syncBlocked();
+      this.#overlay.showMenu(items, selected, this.#editor, this.#measure());
+    });
   }
 
   showHighlight(ranges: readonly Range[] | null, baseVersion: number): ActionResult {
@@ -549,6 +551,7 @@ export class OpenCodeAdapter implements Adapter {
     this.#unsub.length = 0;
     const renderer = this.#api.renderer;
     renderer.removeListener(FOCUSED_EDITOR, this.#onFocus);
+    renderer.removeListener('resize', this.#onResize);
     renderer.keyInput.removeListener('keypress', this.#onKeypress);
     renderer.keyInput.removeListener('paste', this.#onPaste);
     this.#detachBuffer();
@@ -577,6 +580,7 @@ export class OpenCodeAdapter implements Adapter {
   #listen(): void {
     const renderer = this.#api.renderer;
     renderer.on(FOCUSED_EDITOR, this.#onFocus);
+    renderer.on('resize', this.#onResize);
     renderer.keyInput.prependListener('keypress', this.#onKeypress);
     renderer.keyInput.prependListener('paste', this.#onPaste);
     const offPrioritize = registerPrioritize(this.#api, () => {
@@ -592,7 +596,29 @@ export class OpenCodeAdapter implements Adapter {
   readonly #onFocus = (): void => {
     this.attach();
     this.#detectListeners('focus');
+    this.#syncBlocked();
   };
+
+  readonly #onResize = (): void => {
+    this.#overlay.refresh(this.#editor);
+  };
+
+  /** Cells as the prompt measures them; columns where this OpenTUI has no `measureText`. */
+  #measure(): (text: string) => number {
+    const buffer = this.#editor?.editBuffer;
+    return typeof buffer?.measureText === 'function' ? (text) => buffer.measureText(text) : (text) => text.length;
+  }
+
+  /**
+   * Murmo's menu and ghost stay off while an OpenCode panel, dialog or its own
+   * list has the prompt: they were drawn over the Subagents panel and the
+   * command palette. A key that opens a panel lands after this listener, so
+   * keys check again once the host has handled them.
+   */
+  #syncBlocked(): void {
+    const state = this.#state();
+    this.#overlay.setBlocked(state.dialog || state.popup !== null, this.#editor);
+  }
 
   readonly #changed = (): void => {
     if (this.#queued) return;
@@ -641,6 +667,7 @@ export class OpenCodeAdapter implements Adapter {
     const key = canonicalKey(parsed, this.#api.keymap);
     const state = this.#state();
     this.#pendingNative = null;
+    queueMicrotask(this.#afterKey);
     try {
       if (this.#onKey(key) === 'consume') {
         consume(parsed);
@@ -690,6 +717,10 @@ export class OpenCodeAdapter implements Adapter {
     } catch (error) {
       this.#log('adapter-key-error', { error: String(error) });
     }
+  };
+
+  readonly #afterKey = (): void => {
+    if (!this.#disposed) this.#syncBlocked();
   };
 
   #tryInline(parsed: ParsedKey, key: KeyId, state: HostState): boolean {

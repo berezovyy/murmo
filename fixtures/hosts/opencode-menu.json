@@ -1,0 +1,74 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. OpenCode 2.1.x drew the ; menu over the conversation in the top rows, a fixed 88 cells wide, and Tab, Down, Enter and Escape all went to OpenCode: Enter sent the raw ;t to the model. Rows are read off the screen next to OpenCode's prompt box (harness/murmo_harness/validation/integration.py opencode_menu_rows)",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["menu", "shortcuts"],
+    "requires": ["host=opencode", "host.project-config"],
+    "project": "hosts/projects/shortcuts"
+  },
+  "cases": [
+    {
+      "id": "opencode-semicolon-shows-rows",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Typing ; at a word start opens the menu next to the prompt box and the query filters it. Setup's starter murmo.toml adds its own shortcuts, so the query names the project one.",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": ";hp" }, "requests": [], "ui": { "menu": [";hp"] } }
+    },
+    {
+      "id": "opencode-down-tab-picks-row",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Down moves the selection inside the menu (it used to open OpenCode's subagent picker) and Tab inserts the row's expansion in place of the typed ;query.",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Down" }, { "key": "Tab" }],
+      "expect": { "draft": { "text": "harness project shortcut" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "opencode-enter-picks-never-sends",
+      "tags": ["menu", "menu-enter"],
+      "projectTrust": "approved",
+      "note": "Enter in the menu picks the selected row like Tab and never sends: OpenCode used to submit the raw ;t (fixtures/menu/enter.json).",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Enter" }],
+      "expect": {
+        "draft": { "text": "harness project shortcut" },
+        "requests": [],
+        "ui": { "menu": null },
+        "never": { "request": [";hp"] }
+      }
+    },
+    {
+      "id": "opencode-session-menu-above-prompt",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "In a session the prompt sits at the bottom under the transcript; the menu still opens next to it and Tab inserts.",
+      "steps": [
+        { "type": "murmo harness line" },
+        { "submit": "send" },
+        { "waitMs": 1500 },
+        { "type": ";hp" },
+        { "waitMs": 500 },
+        { "check": { "ui": { "menu": [";hp"] } } },
+        { "key": "Tab" }
+      ],
+      "expect": {
+        "draft": { "text": "harness project shortcut" },
+        "requests": ["murmo harness line"],
+        "ui": { "menu": null }
+      }
+    },
+    {
+      "id": "opencode-escape-closes",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Escape closes the menu and leaves the typed ;hp; it used to go to OpenCode and leave the overlay up.",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Escape" }],
+      "expect": { "draft": { "text": ";hp" }, "requests": [], "ui": { "menu": null } }
+    }
+  ]
+}

@@ -33,9 +33,7 @@ test('OSC 52 in a ghost renders as escaped literal text, never as a host command
   adapter.attach();
   const payload = `\x1b]52;c;AAAA\x07`;
   adapter.showGhost(payload, adapter.getDraft().version);
-  const node = host.children.find((c) => (c as { id?: string }).id === 'murmo-ghost') as
-    | { content?: string }
-    | undefined;
+  const node = host.overlayNode('ghost');
   assert.ok(node?.content?.includes('\\u001b') || node?.content?.includes(']52'));
   assert.equal(node?.content?.includes('\x1b'), false);
   adapter.dispose();
