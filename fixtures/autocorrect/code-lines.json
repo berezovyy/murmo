@@ -1,0 +1,117 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "real-host test rounds 2 and 4 (r2hxc-13, r2hcc HCC-8, R2HCG-9, r4e4c-2, r4e4g-1): code, JSON, YAML and shell lines rewritten on every host",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "requires": ["plugin.autocorrect=release"],
+    "trust": "builtin",
+    "settings": {
+      "autocorrect": {
+        "enabled": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "const-declaration",
+      "note": "The name after `const` is an identifier; the value after `=` is code (all four hosts gave `const the = 1`).",
+      "steps": [{ "type": "const teh = recieve " }],
+      "expect": { "draft": { "text": "const teh = recieve " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "let-var-declarations",
+      "note": "`let` and `var` declare a name too (Pi gave `let the`, `var the`).",
+      "steps": [{ "type": "let teh = 2\nvar teh = 3 " }],
+      "expect": { "draft": { "text": "let teh = 2\nvar teh = 3 " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "def-name",
+      "note": "The word after `def` is the declared name even when prose follows (all four hosts gave `def the is a name`).",
+      "steps": [{ "type": "def teh is a name " }],
+      "expect": { "draft": { "text": "def teh is a name " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "json-object",
+      "note": "A JSON key and string value stay (all four hosts gave `{\"the\": \"receive\"}`).",
+      "steps": [{ "type": "{\"teh\": \"recieve\"} " }],
+      "expect": { "draft": { "text": "{\"teh\": \"recieve\"} " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "json-key-line",
+      "note": "A quoted key followed by `:` starts a data line, braces or not.",
+      "steps": [{ "type": "\"teh\": \"recieve\" " }],
+      "expect": { "draft": { "text": "\"teh\": \"recieve\" " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "yaml-mapping",
+      "note": "A lowercase key and its value stay (Pi gave `the: receive`).",
+      "steps": [{ "type": "teh: recieve " }],
+      "expect": { "draft": { "text": "teh: recieve " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "echo-command",
+      "note": "`echo` prints its arguments literally (Pi and Claude gave `echo the`).",
+      "steps": [{ "type": "echo teh " }],
+      "expect": { "draft": { "text": "echo teh " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "dollar-prompt",
+      "note": "A `$ ` shell prompt line stays.",
+      "steps": [{ "type": "$ echo teh " }],
+      "expect": { "draft": { "text": "$ echo teh " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "bang-shell-mode",
+      "note": "The hosts' `!` shell mode: the command's words stay (r4e4g-9 `!echo recieve seperate`).",
+      "steps": [{ "type": "!echo recieve seperate " }],
+      "expect": { "draft": { "text": "!echo recieve seperate " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "shell-mode-text-without-bang",
+      "note": "Claude drops the `!` into its shell mode, so a burst leaves only the command in the box; `echo` alone still marks it.",
+      "steps": [{ "type": "echo recieve seperate " }],
+      "expect": { "draft": { "text": "echo recieve seperate " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "indented-code-line",
+      "note": "Four spaces start a Markdown code block (Pi gave `    receive the code`).",
+      "steps": [{ "type": "Run this:\n    recieve teh code " }],
+      "expect": { "draft": { "text": "Run this:\n    recieve teh code " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "prose-still-fixed",
+      "note": "Control: plain prose is still corrected.",
+      "steps": [{ "type": "please recieve teh code " }],
+      "expect": { "draft": { "text": "please receive the code " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "prose-starting-with-let",
+      "note": "Control: only the slot after `let` is a name; `let me recieve teh file` is prose.",
+      "steps": [{ "type": "let me recieve teh file " }],
+      "expect": { "draft": { "text": "let me receive the file " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "prose-label-and-list",
+      "note": "Control: a capitalized label and a two-space list item are prose.",
+      "steps": [{ "type": "Note: recieve it\n  - fix teh bug " }],
+      "expect": { "draft": { "text": "Note: receive it\n  - fix the bug " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "prose-after-code-line",
+      "note": "Control: a code line does not spill into the next line.",
+      "steps": [{ "type": "const x = 1\nplease recieve teh code " }],
+      "expect": { "draft": { "text": "const x = 1\nplease receive the code " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "prose-with-url-query",
+      "note": "Control: an `=` inside a URL is not an operator.",
+      "steps": [{ "type": "Open https://example.test/?q=1 adn recieve it " }],
+      "expect": { "draft": { "text": "Open https://example.test/?q=1 and receive it " }, "stats": { "corrections": 2 } }
+    }
+  ]
+}

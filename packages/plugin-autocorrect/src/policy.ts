@@ -5,7 +5,10 @@
 import { ENGLISH_POLICY, type WordPolicy, type WordPolicyQuery, type WordProposal } from '@murmo/core';
 import { normalizeKey } from '@murmo/lang';
 import { isGraphemeBoundary } from '@murmo/text';
+import { codeContext, inCode } from './code.ts';
 import { editRangeIsSafe, hasForeignLetters, leadingDecorations, trailingDecorations } from './unicode.ts';
+
+export { inCode };
 
 /** Keys that correct only when typed in exactly this lowercase form (r8 case-policy.json). */
 export const DEFAULT_LOWERCASE_ONLY: ReadonlySet<string> = new Set(['adn', 'teh', 'thier']);
@@ -19,40 +22,6 @@ const MAX_TOKEN = 64;
 export interface EnglishPolicyOptions {
   /** Override the pack's lowercase-only set. Defaults to teh/adn/thier. */
   readonly lowercaseOnly?: ReadonlySet<string>;
-}
-
-/**
- * Fences and inline code, matching engine-v2 `inCode`. A shortcut must not
- * expand inside these spans either (WordPolicy.inCode).
- */
-export function inCode(prefix: string): boolean {
-  // Fast path: a 1.1M-character draft with no ticks must not walk every unit (E8).
-  if (!prefix.includes('`') && !prefix.includes('~')) return false;
-  let fence = '';
-  let inline = 0;
-  for (const line of prefix.split('\n')) {
-    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (marker) {
-      const mark = marker[1] as string;
-      if (!fence) fence = mark;
-      else if (mark[0] === fence[0] && mark.length >= fence.length) fence = '';
-      continue;
-    }
-    if (fence) continue;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '\\') {
-        i++;
-        continue;
-      }
-      if (line[i] !== '`') continue;
-      let n = 1;
-      while (line[i + n] === '`') n++;
-      if (!inline) inline = n;
-      else if (inline === n) inline = 0;
-      i += n - 1;
-    }
-  }
-  return fence.length > 0 || inline > 0;
 }
 
 export function createEnglishPolicy(options: EnglishPolicyOptions = {}): WordPolicy {
@@ -70,7 +39,6 @@ function proposeEnglish(query: WordPolicyQuery, lowercaseOnly: ReadonlySet<strin
   if (!Number.isInteger(query.cursor) || query.cursor < 0 || query.cursor > query.text.length) return null;
   if (!isGraphemeBoundary(query.text, query.cursor)) return null;
   const prefix = query.text.slice(0, query.cursor);
-  if (inCode(prefix)) return null;
   const lineStart = prefix.lastIndexOf('\n') + 1;
   const nextNewline = query.text.indexOf('\n', query.cursor);
   const line = query.text.slice(lineStart, nextNewline < 0 ? query.text.length : nextNewline);
@@ -79,10 +47,9 @@ function proposeEnglish(query: WordPolicyQuery, lowercaseOnly: ReadonlySet<strin
   const window = prefix.length > 256 ? prefix.slice(-256) : prefix;
   const raw = /\S+$/.exec(window)?.[0];
   if (!raw) return null;
-  const left = leadingDecorations(raw);
-  const stripped = raw.slice(left);
-  const right = trailingDecorations(stripped);
-  const token = stripped.slice(0, stripped.length - right);
+  const body = raw.slice(0, raw.length - trailingDecorations(raw));
+  const left = leadingDecorations(body);
+  const token = body.slice(left);
   if (!token || token.length > MAX_TOKEN || SKIP_PREFIX.test(token) || SKIP_BODY.test(token)) return null;
   if (!CORRECTABLE.test(token)) return null;
   // `I` is a one-letter correctable; protection keys are [a-z]{2,64}.
@@ -96,6 +63,7 @@ function proposeEnglish(query: WordPolicyQuery, lowercaseOnly: ReadonlySet<strin
   if (!replacement || replacement === token) return null;
   const start = query.cursor - raw.length + left;
   const end = start + token.length;
+  if (codeContext(query.text, start, query.cursor, query.typed) !== null) return null;
   if (!editRangeIsSafe(query.text, start, end)) return null;
   return { from: start, to: end, insert: replacement };
 }

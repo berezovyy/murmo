@@ -2,6 +2,12 @@
   "kind": "suites/v1",
   "suites": [
     {
+      "file": "autocorrect/code-lines.json",
+      "owner": "13",
+      "cases": 16,
+      "variants": 16
+    },
+    {
       "file": "autocorrect/round4.json",
       "owner": "13",
       "cases": 50,
