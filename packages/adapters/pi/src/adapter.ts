@@ -113,7 +113,11 @@ export class PiAdapter implements Adapter {
   } | null = null;
   #submitMutation: { expected: number; origin: Origin; edit: { from: number; to: number; insert: string } } | null =
     null;
-  #forwarded: { text: string; gesture: SubmitGesture; id: string } | null = null;
+  /**
+   * The send handed to Pi, kept until Pi's `input` event confirms it. Its typed
+   * spans are taken now: Pi has cleared the editor by the time `input` fires.
+   */
+  #forwarded: { text: string; gesture: SubmitGesture; id: string; typedSpans: Draft['typedSpans'] } | null = null;
   #submissions = 0;
   #ready: Promise<HostCapabilities> | undefined;
   #ownershipLost = false;
@@ -759,7 +763,12 @@ export class PiAdapter implements Adapter {
         if (!ok || this.backend.getEditor().getText() !== decision.text) return;
       }
       const sent = decision.action === 'replace' ? decision.text : before.text;
-      this.#forwarded = { text: sent, gesture, id: `pi-submit:${++this.#submissions}` };
+      this.#forwarded = {
+        text: sent,
+        gesture,
+        id: `pi-submit:${++this.#submissions}`,
+        typedSpans: copy(this.#draft).typedSpans,
+      };
       this.backend.nativeKey(data);
     } catch (error) {
       this.backend.showStatus(`Submit blocked: ${String(error)}`);
@@ -780,7 +789,7 @@ export class PiAdapter implements Adapter {
       gesture: forwarded.gesture,
       submissionId: forwarded.id,
       position: 'managed',
-      typedSpans: this.#draft.typedSpans,
+      typedSpans: forwarded.typedSpans,
     };
     this.#forwarded = null;
     for (const cb of [...this.#committed]) cb(accepted);

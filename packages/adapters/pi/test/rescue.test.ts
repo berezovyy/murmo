@@ -1,10 +1,11 @@
-// Draft rescue through the real Pi wiring (startPiSession) on the fake Pi:
+// Draft rescue and the session identity through the real Pi wiring (startPiSession) on the fake Pi:
 // the store is the file store under a throwaway XDG state folder.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
+import { loadRecords } from '@murmo/plugin-history/node';
 import { openStore, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
 import { startPiSession } from '../src/session.ts';
 import { createFakePi, FakePiEditor, fakeTuiApi } from './fake-pi.ts';
@@ -67,4 +68,43 @@ test('a crashed session draft is offered on the empty prompt at startup, and Tab
   } finally {
     await started.dispose();
   }
+});
+
+test('a sent typed prompt is recorded in history', async () => {
+  // Pi clears the editor before its `input` event confirms the send, and the
+  // confirmation took the typed spans from the now-empty draft, so history
+  // and phrases never learned a prompt.
+  const folder = join(root, 'loose-folder');
+  mkdirSync(folder, { recursive: true });
+  mkdirSync(join(process.env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
+  writeFileSync(
+    join(process.env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml'),
+    'version = 1\n[history]\nenabled = true\n',
+  );
+  const env = createFakePi();
+  const started = await startPiSession({
+    Base: FakePiEditor,
+    tuiApi: fakeTuiApi,
+    ctx: env.ctx,
+    pi: env.host,
+    version: '1.3.0',
+    cwd: folder,
+  });
+  try {
+    for (const ch of 'remember this prompt') env.editor.handleInput(ch);
+    await started.session.settle();
+    env.editor.handleInput('\r');
+    for (let i = 0; i < 200 && env.editor.submitCount === 0; i++) await new Promise((r) => setImmediate(r));
+    // Pi's own `input` event confirms the send.
+    env.host.emit('input', { source: 'interactive', text: 'remember this prompt' });
+    await started.session.settle();
+  } finally {
+    await started.dispose();
+  }
+  const store = await openStore({ roots: storeRootsFromEnv() });
+  const records = await loadRecords(store);
+  assert.deepEqual(
+    records.map((record) => record.text),
+    ['remember this prompt'],
+  );
 });
