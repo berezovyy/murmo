@@ -190,6 +190,7 @@ export {
   COMMIT_WINDOW_MS,
   COMMITTED_DEDUP,
   declaredAccess,
+  MENU_DISMISSED,
   type MenuSurface,
   noMenu,
   OBSERVER_QUEUE,

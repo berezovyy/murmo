@@ -21,6 +21,8 @@ export type NoticeKind = 'trust' | 'override' | 'collision' | 'skipped' | 'claud
 export interface ShortcutNotice {
   readonly kind: NoticeKind;
   readonly text: string;
+  /** The same notice for a status row too narrow for `text`, when it has one. */
+  readonly short?: string;
 }
 
 export interface CompiledTemplate {
@@ -124,11 +126,13 @@ export function compileShortcuts(input: CompileInput): CompiledShortcuts {
       text: displayText(
         `${projectFile} has ${projectCount} shortcut${projectCount === 1 ? '' : 's'}. Run "murmo trust" to review.`,
       ),
+      short: displayText(`Review ${projectFile}: murmo trust`),
     });
   } else if (trust === 'not-approvable' && projectCount > 0) {
     notices.push({
       kind: 'trust',
       text: displayText(`${projectFile} can't be approved yet. Run "murmo trust" to see why.`),
+      short: displayText(`${projectFile} blocked: murmo trust`),
     });
   }
 

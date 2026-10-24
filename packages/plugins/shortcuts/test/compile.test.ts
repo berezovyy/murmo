@@ -28,6 +28,19 @@ test('an untrusted project file expands nothing of its own and shows one notice'
   );
 });
 
+test('trust notices have a short form that fits a narrow status row', () => {
+  // The full notice (57 columns) fits Claude Code's auto-mode row only without
+  // its effort pill; with it, the command was cut off. The short form keeps to 40.
+  for (const trust of ['review', 'changed', 'not-approvable'] as const) {
+    const notice = compileShortcuts({ replacements: [], trust, projectShortcutCount: 3 }).notices.find(
+      (n) => n.kind === 'trust',
+    );
+    assert.ok(notice?.short, trust);
+    assert.ok(notice.short.length <= 40, `${trust}: ${notice.short}`);
+    assert.match(notice.short, /murmo trust/);
+  }
+});
+
 test('a project override is listed once, with the phase-15 wording', () => {
   const compiled = compileShortcuts({
     replacements: seeds({ ';rvw': 'from project' }, 'project'),
