@@ -161,7 +161,8 @@ export interface OpenCodeKeymap {
   pending(): readonly KeymapPending[];
   readonly mode: { current(): string };
   dispatch(command: string): void;
-  layer(factory: () => { readonly commands?: readonly KeymapLayerCommand[] }): () => void;
+  /** OpenCode 2.1 returns nothing: the layer goes away with the plugin. */
+  layer(factory: () => { readonly commands?: readonly KeymapLayerCommand[] }): (() => void) | undefined;
   commands(): readonly { readonly id: string; readonly title?: string; readonly group?: string }[];
 }
 

@@ -589,7 +589,8 @@ export class OpenCodeAdapter implements Adapter {
     this.#unsub.push(offPrioritize);
     const dataOn = this.#api.data.on;
     if (typeof dataOn === 'function') {
-      this.#unsub.push(dataOn.call(this.#api.data, 'session.inbox.enqueued', this.#onEnqueued));
+      const off: unknown = dataOn.call(this.#api.data, 'session.inbox.enqueued', this.#onEnqueued);
+      if (typeof off === 'function') this.#unsub.push(off as () => void);
     }
   }
 

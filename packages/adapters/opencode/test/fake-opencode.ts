@@ -484,12 +484,11 @@ export class FakeOpenCode {
               fn({ inboxID: `inbox-${host.dispatched.length}`, item: { payload: { text } } });
           }
         },
+        // Like OpenCode 2.1: no return value; the layer lives as long as the plugin.
         layer(factory) {
           const spec = factory();
           for (const command of spec.commands ?? []) host.layers.push({ id: command.id, run: command.run });
-          return () => {
-            host.layers = [];
-          };
+          return undefined;
         },
         commands: () => host.layers.map((c) => ({ id: c.id, title: c.id })),
       },

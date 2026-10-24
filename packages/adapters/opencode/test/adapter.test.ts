@@ -161,3 +161,15 @@ test('murmo.prioritize is registered on a public keymap.layer (E11)', async () =
   assert.ok(host.layers.some((c) => c.id === 'murmo.prioritize'));
   adapter.dispose();
 });
+
+test('dispose finishes when OpenCode returns nothing from keymap.layer (quit-time warning)', async () => {
+  // Every OpenCode quit logged `plugin operation failed … off is not a
+  // function` for murmo: dispose called the layer's missing unsubscribe and
+  // stopped there, leaving its key listener behind.
+  const host = new FakeOpenCode();
+  const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+  await adapter.ready();
+  assert.ok(host.keypressHandlers().length > 0);
+  assert.doesNotThrow(() => adapter.dispose());
+  assert.equal(host.keypressHandlers().length, 0);
+});
