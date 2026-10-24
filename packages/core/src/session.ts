@@ -174,7 +174,12 @@ export type PluginChange =
   | { readonly action: 'disable'; readonly id: string }
   | { readonly action: 'enable'; readonly id: string }
   | { readonly action: 'remove'; readonly id: string }
-  | { readonly action: 'replace'; readonly plugin: LoadedPlugin };
+  | {
+      readonly action: 'replace';
+      readonly plugin: LoadedPlugin;
+      /** Where a plugin the session doesn't run yet goes: before the first one after it here. Default last. */
+      readonly order?: readonly string[];
+    };
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
@@ -1023,8 +1028,17 @@ class CoreSession implements Session {
     if (existing) {
       const index = this.#plugins.indexOf(existing);
       this.#plugins[index] = entry;
-    } else this.#plugins.push(entry);
+    } else {
+      const order = change.order ?? [];
+      const self = order.indexOf(entry.id);
+      const later = new Set(self < 0 ? [] : order.slice(self + 1));
+      const at = this.#plugins.findIndex((plugin) => later.has(plugin.id));
+      this.#plugins.splice(at < 0 ? this.#plugins.length : at, 0, entry);
+    }
     this.#byId.set(entry.id, entry);
+    if (loaded.loadError !== undefined && !loaded.builtin) {
+      this.#presentation?.notice(`Plugin ${entry.id} did not start: ${loaded.loadError}`);
+    }
     if (this.#hostCaps) {
       const { claims, notices } = validateClaims(entry, loaded.descriptor.keys, this.#hostCaps);
       entry.claims = claims;

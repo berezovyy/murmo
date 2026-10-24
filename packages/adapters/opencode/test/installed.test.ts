@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import type { PluginSpec } from '@murmo/api/adapter';
 import { sourceExecutor } from '@murmo/core/testing';
 import { pluginRecordPath, storeLayout } from '@murmo/store';
-import { storeRootsFromEnv } from '@murmo/store/node';
+import { listLiveSessions, storeRootsFromEnv, waitForRevision } from '@murmo/store/node';
 import { installForTest } from '@murmo/store/node/testing';
 import { OpenCodeAdapter } from '../src/adapter.ts';
 import { startSession } from '../src/session.ts';
@@ -55,4 +55,38 @@ test('an installed plugin runs in the next OpenCode session, and stops once disa
   const free = await sendInNewSession('fix zzhold');
   assert.deepEqual(free.loaded, []);
   assert.equal(free.sent, true);
+});
+
+test('plugin add and disable apply to an open OpenCode session, which acknowledges each revision', async () => {
+  // A running session never looked at plugins.json again: an added plugin
+  // did nothing and a disabled one kept running until OpenCode restarted.
+  const roots = storeRootsFromEnv(env);
+  rmSync(roots.data, { recursive: true, force: true });
+  const host = new FakeOpenCode();
+  const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+  const loaded: PluginSpec[] = [];
+  const started = await startSession({ adapter, env, loadLanguagePack: false, thirdParty: sourceExecutor(loaded) });
+  const send = async (text: string) => {
+    host.dispatched.length = 0;
+    host.type(text);
+    await started.session.settle();
+    host.press({ name: 'return', sequence: '\r' });
+    for (let i = 0; i < 200 && !host.dispatched.length; i++) await new Promise((resolve) => setImmediate(resolve));
+    return host.dispatched.includes('prompt.submit');
+  };
+  try {
+    installForTest(roots, sendHold, { grants: ['draft:read', 'submit'] });
+    await waitForRevision(roots, 1, 3000);
+    assert.equal(await send('fix zzhold'), false, 'the plugin added mid-session held the send');
+    assert.deepEqual(
+      loaded.map((spec) => spec.id),
+      ['send-hold'],
+    );
+    installForTest(roots, sendHold, { grants: ['draft:read', 'submit'], enabled: false });
+    await waitForRevision(roots, 2, 3000);
+    assert.equal(await send(''), true, 'the plugin disabled mid-session let it go');
+  } finally {
+    await started.close();
+  }
+  assert.deepEqual(await listLiveSessions(roots), [], 'a closed session leaves no acknowledgement to wait on');
 });

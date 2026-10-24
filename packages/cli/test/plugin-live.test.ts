@@ -1,13 +1,16 @@
 // Live add/disable/enable/remove on the fake host, reloading only the changed
-// plugin so the other plugin's in-memory state survives (E5, E12).
+// plugin so the other plugin's in-memory state survives (E5, E12). The CLI
+// waits for the session's acknowledgement, so each step is in place when the
+// command returns.
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { PluginFactory } from '@murmo/api';
-import { createHarness } from '@murmo/core/testing';
-import { readPluginsManifest } from '@murmo/store/node';
-import { followSelection } from '../src/plugin/lifecycle.ts';
+import { createMemoryStorage, createPluginHost, createSession, followPlugins, pluginStates } from '@murmo/core';
+import { createHarness, createManualClock, ReferenceAdapter, sourceExecutor } from '@murmo/core/testing';
+import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
+import { readInstalledPlugins, watchPluginSelection } from '@murmo/store/node';
 import { packPlugin, preparedHome, runPlugin, writeKey } from './helpers.ts';
 
 const memory: PluginFactory = () => {
@@ -54,39 +57,55 @@ test("disable/enable/remove of one plugin leaves the other plugin's memory intac
   await harness.session?.dispose();
 });
 
-test('open fake session acknowledges add/disable/enable/remove (E12)', async () => {
+test('murmo plugin add, disable, enable and remove reach an open session, which acknowledges each', async () => {
+  // Sessions never followed the selection, so each command either waited on
+  // nobody or, once a session acknowledged at start, timed out; the plugin
+  // itself changed only after a restart.
   const home = await preparedHome();
-  const harness = await createHarness({
-    plugins: [{ id: 'memory', builtin: true, factory: memory }],
+  const clock = createManualClock();
+  const runner = createPluginHost({
+    specs: [{ id: 'memory', builtin: true, factory: memory }],
+    executor: createRoutedExecutor({
+      trusted: createInProcessExecutor({ clock }),
+      isolated: () => sourceExecutor()(clock),
+    }),
+    storage: createMemoryStorage(),
   });
-  const session = harness.session;
-  assert.ok(session);
-  const follow = await followSelection({
+  const session = createSession({ adapter: new ReferenceAdapter({ clock }), runner });
+  await session.ready;
+  const started = await readInstalledPlugins(home.roots);
+  const follower = followPlugins(started, { session, host: runner, builtins: () => [] });
+  const follow = await watchPluginSelection({
     roots: home.roots,
-    sessionId: 'fake',
+    sessionId: 'fake-live',
     host: 'fake',
-    session,
+    started: { revision: started.revision, plugins: pluginStates(session) },
+    apply: (next) => follower.apply(next),
+    pollMs: 20,
   });
-  const tick = setInterval(() => {
-    void readPluginsManifest(home.roots).then((manifest) => {
-      if (manifest && manifest.revision !== follow.current()?.revision) return follow.apply(manifest);
-    });
-  }, 20);
+  const live = () => session.stats().plugins.some((p) => p.id === 'live-demo' && !p.disabled);
   try {
     const packed = packPlugin({ id: 'live-demo' });
     const tgz = join(home.dir, 'live.tgz');
     writeFileSync(tgz, packed.bytes);
     const key = writeKey(home.dir, packed.publicPem);
-    assert.equal(await runPlugin(home, ['add', tgz, '--trust-key', key, '--grant', 'draft:read']), 0);
-    assert.equal(await runPlugin(home, ['disable', 'live-demo']), 0);
-    assert.equal(await runPlugin(home, ['enable', 'live-demo']), 0);
-    assert.equal(await runPlugin(home, ['remove', 'live-demo']), 0);
-    const memoryStill = harness.session?.stats().plugins.find((p) => p.id === 'memory');
+    assert.equal(
+      await runPlugin(home, ['add', tgz, '--trust-key', key, '--grant', 'draft:read']),
+      0,
+      home.stderr.join(''),
+    );
+    assert.equal(live(), true, 'added');
+    assert.equal(await runPlugin(home, ['disable', 'live-demo']), 0, home.stderr.join(''));
+    assert.equal(live(), false, 'disabled');
+    assert.equal(await runPlugin(home, ['enable', 'live-demo']), 0, home.stderr.join(''));
+    assert.equal(live(), true, 'enabled again');
+    assert.equal(await runPlugin(home, ['remove', 'live-demo']), 0, home.stderr.join(''));
+    assert.equal(live(), false, 'removed');
+    const memoryStill = session.stats().plugins.find((p) => p.id === 'memory');
     assert.equal(memoryStill?.activated, true);
   } finally {
-    clearInterval(tick);
     await follow.stop();
-    await harness.session?.dispose();
+    await session.dispose();
     home.remove();
   }
 });

@@ -9,7 +9,7 @@ import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { PluginSpec } from '@murmo/api/adapter';
 import { sourceExecutor } from '@murmo/core/testing';
-import { readPluginSelection } from '@murmo/store';
+import { parsePluginsManifest, pluginsManifestPath, readPluginSelection } from '@murmo/store';
 import { installForTest, type TestInstall } from '@murmo/store/node/testing';
 import { debugHost, register, resetHost } from '../src/register.ts';
 import { createClaudeHost } from '../src/session.ts';
@@ -90,4 +90,66 @@ test('session.start reads the installed plugins through Claude file API and need
   );
   await host.dispose();
   resetHost();
+});
+
+test('plugin add and disable apply to an open Claude session', async () => {
+  // A running session read plugins.json once at session.start: an added
+  // plugin did nothing and a disabled one kept running until Claude restarted.
+  const data = mkdtempSync(join(scratch, 'live-'));
+  const fake = new FakeClaude({ files: {} });
+  const publish = (options: TestInstall) => {
+    installForTest({ data }, sendHold, options);
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else fake.files.set(`/data/murmo/${relative(data, path)}`, readFileSync(path));
+      }
+    };
+    walk(data);
+  };
+  const read = async (path: string) => fake.files.get(path);
+  const roots = { data: '/data/murmo' };
+  const loaded: PluginSpec[] = [];
+  const host = createClaudeHost({ skipProbes: true, thirdParty: sourceExecutor(loaded), recheckMs: 5 });
+  await host.bootPacked({
+    payloadRoot: '',
+    integrityJson: '{}',
+    cwd: '/project',
+    installed: await readPluginSelection(roots, read),
+    services: {
+      after: (ms, callback) => {
+        const id = setTimeout(callback, ms);
+        return { cancel: () => clearTimeout(id) };
+      },
+      spawn: () => {
+        throw new Error('no helper in this test');
+      },
+      fetch: () => Promise.reject(new Error('no helper in this test')),
+      repaint() {},
+    },
+    selection: {
+      revision: async () => parsePluginsManifest(await read(pluginsManifestPath(roots)))?.revision ?? 0,
+      read: () => readPluginSelection(roots, read),
+    },
+  });
+  const until = async (what: string, ready: () => boolean) => {
+    for (let i = 0; i < 500 && !ready(); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.ok(ready(), what);
+  };
+  const runs = () => host.session?.stats().plugins.some((p) => p.id === 'send-hold' && !p.disabled) ?? false;
+  try {
+    publish({ grants: ['draft:read', 'submit'] });
+    await until('send-hold to start', runs);
+    await type(host, fake, 'fix zzhold');
+    const held = await host.adapter.handleSubmit({ text: fake.draft.text }, submitNext(fake));
+    assert.ok(held.drop, 'the plugin added mid-session held the send');
+
+    publish({ grants: ['draft:read', 'submit'], enabled: false });
+    await until('send-hold to stop', () => !runs());
+    await host.adapter.handleSubmit({ text: fake.draft.text }, submitNext(fake));
+    assert.deepEqual(fake.sent, ['fix zzhold'], 'the plugin disabled mid-session let it go');
+  } finally {
+    await host.dispose();
+  }
 });

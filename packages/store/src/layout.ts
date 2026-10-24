@@ -51,7 +51,7 @@ export function storeLayout(roots: StoreRoots): StoreLayout {
 }
 
 /** Selected generation, revision, grants and order (`<data>/plugins.json`). */
-export function pluginsManifestPath(roots: StoreRoots): string {
+export function pluginsManifestPath(roots: Pick<StoreRoots, 'data'>): string {
   return `${roots.data}/plugins.json`;
 }
 

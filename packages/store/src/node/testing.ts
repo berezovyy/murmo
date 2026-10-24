@@ -4,8 +4,8 @@
 // session loads what the CLI installed.
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Permission } from '@murmo/api';
 import { extensionsDir, pluginsManifestPath, type StoreRoots } from '../layout.ts';
 import type { PluginsManifest } from '../plugins.ts';
@@ -20,7 +20,7 @@ export interface TestInstall {
 
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 
-/** Returns the generation folder; plugins.json is rewritten each call. */
+/** Returns the generation folder; plugins.json is rewritten each call, one revision up, as the CLI does. */
 export function installForTest(roots: Pick<StoreRoots, 'data'>, folder: string, options: TestInstall): string {
   const manifestBytes = readFileSync(join(folder, 'murmo.plugin.json'));
   const manifest = JSON.parse(manifestBytes.toString('utf8')) as { name: string; version: string; entry: string };
@@ -32,6 +32,8 @@ export function installForTest(roots: Pick<StoreRoots, 'data'>, folder: string, 
   writeFileSync(join(dir, 'murmo.plugin.json'), manifestBytes);
   writeFileSync(join(dir, manifest.entry), entryBytes);
   const base = defaultManifest();
+  const path = pluginsManifestPath(roots as StoreRoots);
+  const previous = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as PluginsManifest).revision : 0;
   const plugins = { ...base.plugins };
   for (const id of options.disabled ?? []) plugins[id] = { enabled: false, builtin: true, grants: [] };
   plugins[manifest.name] = {
@@ -45,7 +47,14 @@ export function installForTest(roots: Pick<StoreRoots, 'data'>, folder: string, 
       source: { kind: 'folder', spec: folder },
     },
   };
-  const selection: PluginsManifest = { ...base, revision: 1, order: [...base.order, manifest.name], plugins };
-  writeFileSync(pluginsManifestPath(roots as StoreRoots), `${JSON.stringify(selection, null, 2)}\n`);
+  const selection: PluginsManifest = {
+    ...base,
+    revision: previous + 1,
+    order: [...base.order, manifest.name],
+    plugins,
+  };
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(`${path}.tmp`, `${JSON.stringify(selection, null, 2)}\n`);
+  renameSync(`${path}.tmp`, path);
   return dir;
 }

@@ -65,6 +65,13 @@ export {
   STALE_TEMP_MS,
   writeAtomic,
 } from './files.ts';
+export {
+  SELECTION_POLL_MS,
+  type SelectionOutcome,
+  type SelectionWatch,
+  type SelectionWatchOptions,
+  watchPluginSelection,
+} from './follow.ts';
 export type { HeldLock, Locked, LockOptions } from './lock.ts';
 export { LOCK_RETRY_MS, LOCK_STALE_MS, LOCK_TIMEOUT_MS, lockPath, withLock } from './lock.ts';
 export type { LogEntry, LogRead } from './logs.ts';

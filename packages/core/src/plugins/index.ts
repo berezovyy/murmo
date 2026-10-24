@@ -1,6 +1,13 @@
 export { type Admission, type AdmissionLimits, admit } from './admission.ts';
 export { ChangeCoalescer } from './coalesce.ts';
 export { type FaultAction, FaultBook } from './faults.ts';
+export {
+  type FollowResult,
+  followPlugins,
+  type PluginFollower,
+  type PluginFollowerOptions,
+  pluginStates,
+} from './follow.ts';
 export { attributionGate, permissionGate, reviewCapabilityGate } from './gates.ts';
 export {
   createPluginHost,

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import type { PluginSpec } from '@murmo/api/adapter';
 import { sourceExecutor } from '@murmo/core/testing';
 import { pluginRecordPath, storeLayout } from '@murmo/store';
-import { storeRootsFromEnv } from '@murmo/store/node';
+import { listLiveSessions, storeRootsFromEnv, waitForRevision } from '@murmo/store/node';
 import { installForTest } from '@murmo/store/node/testing';
 import { startPiSession } from '../src/session.ts';
 import { createFakePi, FakePiEditor, fakeTuiApi } from './fake-pi.ts';
@@ -72,4 +72,58 @@ test('an installed plugin runs in the next Pi session with its reviewed grants, 
   const free = await sendInNewSession('fix zzhold');
   assert.deepEqual(free.loaded, []);
   assert.deepEqual(free.sent, ['fix zzhold']);
+});
+
+test('plugin add and disable apply to an open Pi session, which acknowledges each revision', async () => {
+  // A running session never looked at plugins.json again: an added plugin
+  // did nothing and a disabled one kept running until Pi restarted, and the
+  // CLI had no session acknowledgement to wait for before swapping files.
+  const roots = storeRootsFromEnv();
+  rmSync(roots.data, { recursive: true, force: true });
+  const env = createFakePi();
+  const loaded: PluginSpec[] = [];
+  const started = await startPiSession({
+    Base: FakePiEditor,
+    tuiApi: fakeTuiApi,
+    ctx: env.ctx,
+    pi: env.host,
+    version: '1.3.0',
+    cwd: root,
+    thirdParty: sourceExecutor(loaded),
+  });
+  const sent: string[] = [];
+  const editor = env.editor;
+  const original = editor.onSubmit;
+  editor.onSubmit = (value) => {
+    sent.push(value);
+    original?.(value);
+  };
+  const send = async (text: string) => {
+    for (const ch of text) editor.handleInput(ch);
+    await started.session.settle();
+    const before = sent.length;
+    editor.handleInput('\r');
+    for (let i = 0; i < 200 && sent.length === before; i++) await new Promise((resolve) => setImmediate(resolve));
+    editor.setText('');
+  };
+  try {
+    installForTest(roots, sendHold, { grants: ['draft:read', 'submit'] });
+    await waitForRevision(roots, 1, 3000);
+    await send('fix zzhold');
+    assert.deepEqual(sent, [], 'the plugin added mid-session held the send');
+    assert.deepEqual(
+      loaded.map((spec) => spec.id),
+      ['send-hold'],
+    );
+
+    installForTest(roots, sendHold, { grants: ['draft:read', 'submit'], enabled: false });
+    await waitForRevision(roots, 2, 3000);
+    await send('fix zzhold');
+    assert.deepEqual(sent, ['fix zzhold'], 'the plugin disabled mid-session let it go');
+    const [live] = await listLiveSessions(roots);
+    assert.equal(live?.ack.host, 'pi');
+  } finally {
+    await started.dispose();
+  }
+  assert.deepEqual(await listLiveSessions(roots), [], 'a closed session leaves no acknowledgement to wait on');
 });

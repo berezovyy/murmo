@@ -607,7 +607,7 @@ async function changeGrants(
     ctx,
     json,
     { status: command, id, grants, revision: manifest.revision },
-    `${id} keeps ${grants.join(', ') || 'no permissions'}; new sessions apply it`,
+    `${id} keeps ${grants.join(', ') || 'no permissions'}; open sessions apply it now`,
   );
 }
 

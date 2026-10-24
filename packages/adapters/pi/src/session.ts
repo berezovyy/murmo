@@ -10,8 +10,10 @@ import { loadedSession, loadSessionConfig, recheckSessionConfig, type SessionCon
 import {
   createPluginHost,
   createSession,
+  followPlugins,
   type HostPluginSpec,
   type PluginHost,
+  pluginStates,
   reloadPlugins,
   type Session,
   withInstalled,
@@ -21,7 +23,13 @@ import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { findOffer } from '@murmo/plugin-rescue';
 import { EMPTY_SELECTION, newDraftSession } from '@murmo/store';
-import { openStore, projectIdOfCwd, readInstalledPlugins, storeRootsFromEnv } from '@murmo/store/node';
+import {
+  openStore,
+  projectIdOfCwd,
+  readInstalledPlugins,
+  storeRootsFromEnv,
+  watchPluginSelection,
+} from '@murmo/store/node';
 import { createPiAdapter, type PiAdapter, type PiAdapterOptions } from './adapter.ts';
 import { attachPiEvents, type PiEventsHandle } from './events.ts';
 import { loadBuiltins } from './plugins.ts';
@@ -142,11 +150,14 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
       }
     : builtinsOf(config, true);
 
+  const selection = options.specs ? EMPTY_SELECTION : await readInstalledPlugins(roots);
   const loaded = withInstalled(
     { specs: builtins.specs, order: builtins.order, grants: BUILTIN_GRANTS },
-    options.specs ? EMPTY_SELECTION : await readInstalledPlugins(roots),
+    selection,
     config.effective.plugins,
   );
+  // The built-ins as the config now makes them, for one turned on mid-session.
+  let builtinSpecs: readonly HostPluginSpec[] = builtins.specs;
   const notices = [...builtins.notices, ...loaded.notices];
 
   const trusted = createInProcessExecutor();
@@ -194,6 +205,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
           const previous = config;
           config = next;
           const rebuilt = builtinsOf(next, false);
+          builtinSpecs = rebuilt.specs;
           const changed = new Set(changedBuiltins(previous.effective, next.effective));
           await reloadPlugins(
             session,
@@ -206,6 +218,23 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
             ...loaded.notices,
           ]);
         },
+      });
+  // `murmo plugin add`, `enable`, `disable`, `remove` and grant changes apply
+  // to this session as they happen; the CLI waits for this session's ack.
+  const follower = followPlugins(selection, {
+    session,
+    host: runner,
+    builtins: () => builtinSpecs,
+    tables: () => config.effective.plugins,
+  });
+  const following = options.specs
+    ? undefined
+    : await watchPluginSelection({
+        roots,
+        sessionId: identity.session,
+        host: 'pi',
+        started: { revision: selection.revision, plugins: pluginStates(session) },
+        apply: (next) => follower.apply(next),
       });
   let events: PiEventsHandle | undefined;
   if (options.pi && config.effective.events) {
@@ -242,6 +271,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     ...(events ? { events } : {}),
     async dispose() {
       stopWatch();
+      await following?.stop();
       events?.dispose();
       await session.dispose();
       await adapter.dispose();

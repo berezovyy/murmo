@@ -107,7 +107,7 @@ test('one grant can be taken back and given again without removing the plugin', 
     );
     const revoked = await run(home, ['revoke-grant', 'dist-demo', 'draft:write']);
     assert.equal(revoked.code, 0, revoked.err);
-    assert.match(revoked.out, /dist-demo keeps draft:read; new sessions apply it/);
+    assert.match(revoked.out, /dist-demo keeps draft:read; open sessions apply it now/);
     assert.deepEqual((await readPluginsManifest(home.roots))?.plugins['dist-demo']?.grants, ['draft:read']);
 
     // An update keeps it off and does not ask again.

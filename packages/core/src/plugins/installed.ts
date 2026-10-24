@@ -17,6 +17,10 @@ export interface InstalledSelection {
   }[];
   readonly disabled: readonly string[];
   readonly notices: readonly string[];
+  /** Every plugin's place, built-ins and installed (`plugins.json` order). */
+  readonly order?: readonly string[];
+  /** `plugins.json`'s revision; a running session follows it from here. */
+  readonly revision?: number;
 }
 
 export interface SessionPlugins {

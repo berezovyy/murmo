@@ -1,7 +1,7 @@
 // Claude plugin entry. `hooks/hooks.json` points here. No Node; the idle
 // config re-check asks the helper (session.ts).
 
-import { readPluginSelection } from '@murmo/store';
+import { parsePluginsManifest, pluginsManifestPath, readPluginSelection } from '@murmo/store';
 import { bytesOf, textOf } from './decode.ts';
 import { CLAUDE_EVENT_TIMEOUT_MS, ingestClaudeHook } from './events.ts';
 import { HELPER_PATHS, packageFromPluginRoot } from './payload.ts';
@@ -108,9 +108,14 @@ export function register(on: ClaudeRegister): void {
       const tomlPath = joinPath(configRoot, 'murmo.toml');
       if (await $.fs.exists(tomlPath)) userToml = asText(await $.fs.read(tomlPath));
       // What `murmo plugin add` installed; checked against its signed file hashes.
-      const installed = await readPluginSelection({ data: dataRoot }, async (path) =>
-        (await $.fs.exists(path)) ? bytesOf(await $.fs.read(path, { as: 'bytes' })) : undefined,
-      );
+      const readFile = async (path: string) =>
+        (await $.fs.exists(path)) ? bytesOf(await $.fs.read(path, { as: 'bytes' })) : undefined;
+      const installed = await readPluginSelection({ data: dataRoot }, readFile);
+      const selection = {
+        revision: async () =>
+          parsePluginsManifest(await readFile(pluginsManifestPath({ data: dataRoot })))?.revision ?? 0,
+        read: () => readPluginSelection({ data: dataRoot }, readFile),
+      };
       await host.bootPacked({
         payloadRoot,
         integrityJson,
@@ -122,6 +127,7 @@ export function register(on: ClaudeRegister): void {
         helperBinaries,
         tmpdir: (await $.env.get('TMPDIR')) ?? '',
         installed,
+        selection,
       });
     } catch (error) {
       host.adapter.notices.push(`startup failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -204,6 +210,8 @@ export function debugHost(): ClaudeHost | undefined {
   return host;
 }
 
+/** Tests: drop the host, disposing it, so its idle re-checks stop with it. */
 export function resetHost(): void {
+  void host?.dispose();
   host = undefined;
 }

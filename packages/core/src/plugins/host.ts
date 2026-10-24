@@ -133,11 +133,20 @@ export interface PluginHost extends HookRunner {
   readonly executor: Executor;
   storage(): Readonly<Record<string, string>>;
   grantOf(pluginId: string): readonly Permission[];
-  /** Load one extra spec without touching plugins already in memory (E5). */
-  loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin>;
+  /**
+   * Load one extra spec without touching plugins already in memory (E5).
+   * `grants` replaces the grants this plugin was given, as `murmo plugin
+   * grant` and `revoke-grant` change them.
+   */
+  loadOne(
+    spec: HostPluginSpec,
+    caps?: Capabilities | HostCapabilities,
+    grants?: readonly Permission[],
+  ): Promise<LoadedPlugin>;
 }
 
 export function createPluginHost(options: PluginHostOptions): PluginHost {
+  const grants: Record<string, readonly Permission[]> = { ...options.grants };
   const local = options.broker ? undefined : createStorageBroker(options.storage);
   const storage: PluginStorageBroker = options.broker ?? (local as PluginStorageBroker);
   const coalescer = new ChangeCoalescer();
@@ -289,7 +298,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       }
       const granted = grantedPermissions(
         { id: spec.id, builtin: spec.builtin, declared: descriptor.permissions },
-        options.grants,
+        grants,
       );
       const routes = routesFor(granted);
       if (routes.services.includes('project.read') && !services.includes('project.read')) {
@@ -328,8 +337,13 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       return specs.map((spec) => spec.id);
     },
 
-    async loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin> {
+    async loadOne(
+      spec: HostPluginSpec,
+      caps?: Capabilities | HostCapabilities,
+      granted?: readonly Permission[],
+    ): Promise<LoadedPlugin> {
       if (disposed) throw new Error('disposed');
+      if (granted) grants[spec.id] = granted;
       if (loaded.has(spec.id)) await this.unload(spec.id);
       if (!specs.some((item) => item.id === spec.id)) specs.push(spec);
       else {

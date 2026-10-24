@@ -24,8 +24,10 @@ import {
   createPluginHost,
   createSession,
   type EventBroker,
+  followPlugins,
   type HostPluginSpec,
   type InstalledSelection,
+  type PluginFollowerOptions,
   type PluginHost,
   reloadPlugins,
   type Session,
@@ -115,6 +117,16 @@ export interface PackedBoot {
   readonly tmpdir?: string;
   /** What `murmo plugin` installed (`readPluginSelection`, read through `$.fs`). */
   readonly installed?: InstalledSelection;
+  /** Re-reads it while the session runs, so `murmo plugin` changes apply live. */
+  readonly selection?: SelectionSource;
+}
+
+/** `murmo plugin`'s selection as Claude reads it (`$.fs`). */
+export interface SelectionSource {
+  /** `plugins.json`'s revision, 0 without one; cheap, read every round. */
+  revision(): Promise<number>;
+  /** The whole selection, its files checked; read only when the revision moved. */
+  read(): Promise<InstalledSelection>;
 }
 
 function servicesOf(rt: ClaudeRuntime): HostServices {
@@ -280,6 +292,8 @@ interface ConfigFollow {
   readonly everyMs: number | undefined;
   /** The new startup notices, without the boot ones. */
   readonly restate: (notices: readonly string[]) => void;
+  /** The config and the built-ins it makes, after each change. */
+  readonly rebuilt?: (session: LoadedSession, builtins: readonly HostPluginSpec[]) => void;
 }
 
 /**
@@ -312,6 +326,7 @@ function followConfig(follow: ConfigFollow): () => void {
       current = next;
       stamps = reply.stamps;
       const rebuilt = builtinsFromConfig(next, follow.table, follow.rescue);
+      follow.rebuilt?.(next, rebuilt.specs);
       const changed = new Set(changedBuiltins(previous.effective, next.effective));
       await reloadPlugins(
         follow.session,
@@ -319,6 +334,36 @@ function followConfig(follow: ConfigFollow): () => void {
         rebuilt.specs.filter((spec) => changed.has(spec.id)),
       );
       follow.restate([...restartNotice(restartSettings(follow.started.effective, next.effective)), ...rebuilt.notices]);
+    },
+  });
+}
+
+/**
+ * `murmo plugin add`, `enable`, `disable`, `remove` and grant changes apply to
+ * a running Claude session: plugins.json's revision is read while idle, and
+ * when it moved the session follows the new selection. Claude can't write the
+ * acknowledgement the CLI waits on, so the CLI doesn't wait for it.
+ */
+function followSelection(
+  source: SelectionSource,
+  services: HostServices,
+  started: InstalledSelection,
+  options: PluginFollowerOptions,
+  everyMs: number | undefined,
+): () => void {
+  const follower = followPlugins(started, options);
+  let seen = started.revision ?? 0;
+  return watchConfig({
+    ...(everyMs === undefined ? {} : { everyMs }),
+    after: (ms, callback) => {
+      const handle = services.after(ms, callback);
+      return () => handle.cancel();
+    },
+    check: async () => {
+      if ((await source.revision()) === seen) return;
+      const next = await source.read();
+      await follower.apply(next);
+      seen = next.revision ?? seen;
     },
   });
 }
@@ -412,7 +457,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
   /** Starts the idle config re-check when the helper loaded this session's config. */
   const follows = (
     booted: Awaited<ReturnType<typeof loadConfig>>,
-    boot: Pick<ConfigFollow, 'clock' | 'cwd' | 'table' | 'rescue' | 'session' | 'runner'> & {
+    boot: Pick<ConfigFollow, 'clock' | 'cwd' | 'table' | 'rescue' | 'session' | 'runner' | 'rebuilt'> & {
       readonly services: HostServices | undefined;
       /** Boot notices, shown before the config's own, and the installed plugins' after them. */
       readonly notices: readonly string[];
@@ -637,7 +682,9 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
-      stopWatch = follows(booted, {
+      // What the session runs now: config edits change it, the plugin follower reads it.
+      const live = { builtins: builtins.specs as readonly HostPluginSpec[], tables: booted.session.effective.plugins };
+      const stopConfig = follows(booted, {
         services: input.services,
         clock,
         cwd: input.cwd,
@@ -647,7 +694,30 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         runner,
         notices,
         installed: loaded.notices,
+        rebuilt: (next, specs) => {
+          live.builtins = specs;
+          live.tables = next.effective.plugins;
+        },
       });
+      const stopPlugins =
+        options.plugins || !input.services || !input.selection
+          ? () => {}
+          : followSelection(
+              input.selection,
+              input.services,
+              input.installed ?? EMPTY_SELECTION,
+              {
+                session,
+                host: runner,
+                builtins: () => live.builtins,
+                tables: () => live.tables,
+              },
+              options.recheckMs,
+            );
+      stopWatch = () => {
+        stopConfig();
+        stopPlugins();
+      };
       alive = true;
     },
     async dispose() {

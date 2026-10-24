@@ -16,8 +16,11 @@ import {
   createMemoryStorage,
   createPluginHost,
   createSession,
+  followPlugins,
   type HostPluginSpec,
   type PluginHost,
+  type PluginTables,
+  pluginStates,
   reloadPlugins,
   type Session,
   withInstalled,
@@ -38,7 +41,13 @@ import {
   shortcutsPlugin,
 } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts, EMPTY_SELECTION, newDraftSession } from '@murmo/store';
-import { openStore, projectIdOfCwd, readInstalledPlugins, storeRootsFromEnv } from '@murmo/store/node';
+import {
+  openStore,
+  projectIdOfCwd,
+  readInstalledPlugins,
+  storeRootsFromEnv,
+  watchPluginSelection,
+} from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
 
 export interface SessionStartOptions {
@@ -236,11 +245,18 @@ export async function prepareRescue(
  * reload and the startup notices follow (the trust notice goes once the
  * project file is approved). `installed` are the installed plugins' notices.
  */
+/** What the session runs now: config edits change it, the plugin follower reads it. */
+interface LiveState {
+  builtins: readonly HostPluginSpec[];
+  tables: PluginTables;
+}
+
 function follow(
   session: Session,
   host: PluginHost,
   options: SessionStartOptions,
   installed: readonly string[],
+  live: LiveState,
 ): () => void {
   const recheck = options.recheck;
   const started = options.session && options.config ? { ...options.session, effective: options.config } : undefined;
@@ -256,6 +272,8 @@ function follow(
       current = next;
       const { replacements: _fixed, notices: _failed, ...rest } = options;
       const rebuilt = builtinPlugins({ ...rest, config: next.effective, session: next, loadLanguagePack: false });
+      live.builtins = rebuilt.specs;
+      live.tables = next.effective.plugins;
       const changed = new Set(changedBuiltins(previous.effective, next.effective));
       await reloadPlugins(
         session,
@@ -281,11 +299,14 @@ function sessionExecutor(thirdParty: SessionStartOptions['thirdParty']): Executo
 
 export async function startSession(options: SessionStartOptions): Promise<StartedSession> {
   const builtins = builtinPlugins(options);
+  const roots = storeRootsFromEnv(options.env);
+  const selection = options.plugins ? EMPTY_SELECTION : await readInstalledPlugins(roots);
   const loaded = withInstalled(
     { specs: builtins.specs, order: options.order ?? builtins.specs.map((spec) => spec.id), grants: {} },
-    options.plugins ? EMPTY_SELECTION : await readInstalledPlugins(storeRootsFromEnv(options.env)),
+    selection,
     options.config?.plugins,
   );
+  const live: LiveState = { builtins: builtins.specs, tables: options.config?.plugins ?? {} };
   const executor = options.executor ?? sessionExecutor(options.thirdParty);
   const host = createPluginHost({
     specs: loaded.specs,
@@ -293,9 +314,7 @@ export async function startSession(options: SessionStartOptions): Promise<Starte
     grants: loaded.grants,
     // The namespaces `murmo plugin` snapshots, migrates and rolls back; a
     // test's own plugin list keeps them in memory.
-    ...(options.plugins
-      ? { storage: createMemoryStorage() }
-      : { broker: (await openStore({ roots: storeRootsFromEnv(options.env) })).plugins }),
+    ...(options.plugins ? { storage: createMemoryStorage() } : { broker: (await openStore({ roots })).plugins }),
   });
   const session = createSession({
     adapter: options.adapter,
@@ -306,11 +325,29 @@ export async function startSession(options: SessionStartOptions): Promise<Starte
     ...(options.notify ? { notify: options.notify } : {}),
   });
   await session.ready;
-  const stopWatch = follow(session, host, options, loaded.notices);
+  const stopWatch = follow(session, host, options, loaded.notices, live);
+  // `murmo plugin add`, `enable`, `disable`, `remove` and grant changes apply
+  // to this session as they happen; the CLI waits for this session's ack.
+  const follower = followPlugins(selection, {
+    session,
+    host,
+    builtins: () => live.builtins,
+    tables: () => live.tables,
+  });
+  const following = options.plugins
+    ? undefined
+    : await watchPluginSelection({
+        roots,
+        sessionId: newDraftSession('opencode'),
+        host: 'opencode',
+        started: { revision: selection.revision, plugins: pluginStates(session) },
+        apply: (next) => follower.apply(next),
+      });
   return {
     session,
     async close() {
       stopWatch();
+      await following?.stop();
       await session.dispose();
       await executor.dispose();
     },
