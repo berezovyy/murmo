@@ -11,7 +11,9 @@
 // - Status: notices and plugin rows, hidden while a host popup or dialog
 //   shows and unless the host says Murmo status can't cover a dialog
 //   (`ui.dialogSafe`, lesson 74), passed through `displayText` and cut to
-//   `ui.statusMaxLength`. Third-party rows carry `[plugin <id>]`.
+//   `ui.statusMaxLength`. Third-party rows carry `[plugin <id>]`. Notices
+//   come first, newest first, and leave the screen when their lifetime ends
+//   (`NoticeLifetime`); the session log keeps every one for stats.
 //
 // Transient UI never enters host undo (lesson 41): all of it goes through the
 // adapter's presentation calls, never through draft edits.
@@ -25,8 +27,26 @@ import type { Counters, Surface } from './stats.ts';
 /** The prototype's cap when the adapter advertises none. */
 export const DEFAULT_STATUS_MAX_LENGTH = 512;
 
-/** At most this many notices are kept; the oldest go first. */
+/** At most this many notices are kept in the session log; the oldest go first. */
 const MAX_NOTICES = 32;
+
+/** At most this many notices are on screen at once, newest first. */
+export const MAX_SHOWN_NOTICES = 3;
+
+/**
+ * How long a notice stays on screen:
+ * - `send`: until the next committed send (the default);
+ * - `draft`: until the draft changes, for a refused send that describes this draft;
+ * - `native-ui`: while the host's own menu or dialog is open. Status is hidden
+ *   then, so such a notice is never left behind once the host UI closes.
+ */
+export type NoticeLifetime = 'send' | 'draft' | 'native-ui';
+
+interface LiveNotice {
+  readonly text: string;
+  readonly lifetime: NoticeLifetime;
+  readonly version: number;
+}
 
 export interface PresentationDeps {
   readonly adapter: Adapter;
@@ -74,11 +94,15 @@ export class Presentation {
   readonly #ghosts = new Map<string, Versioned<string>>();
   readonly #highlights = new Map<string, Versioned<{ ranges: readonly Range[]; marks: readonly HighlightMark[] }>>();
   readonly #statuses = new Map<string, string>();
+  /** Every notice of the session, oldest first (stats, doctor). */
   #notices: string[] = [];
+  /** Notices still on screen, oldest first. */
+  #live: LiveNotice[] = [];
   /** What the adapter was last asked to show; the host starts with nothing of Murmo's on screen. */
   #ghostKey: string | null = null;
   #highlightKey: string | null = null;
-  #statusText: string | null = null;
+  /** `undefined`: unknown, the next render sends the status whatever it is. */
+  #statusText: string | null | undefined = null;
   #visibleGhost: VisibleGhost | null = null;
 
   constructor(deps: PresentationDeps) {
@@ -138,8 +162,17 @@ export class Presentation {
     return 'applied';
   }
 
-  notice(text: string): void {
+  notice(text: string, lifetime: NoticeLifetime = 'send'): void {
     this.#notices = [...this.#notices, text].slice(-MAX_NOTICES);
+    const version = this.#deps.draft().version;
+    this.#live = [...this.#live.filter((n) => n.text !== text), { text, lifetime, version }].slice(-MAX_NOTICES);
+    this.render();
+  }
+
+  /** A send was committed: notices about the old draft leave the screen. */
+  expireOnSend(): void {
+    if (!this.#live.length) return;
+    this.#live = this.#live.filter((n) => n.lifetime === 'native-ui');
     this.render();
   }
 
@@ -155,6 +188,7 @@ export class Presentation {
     for (const map of [this.#ghosts, this.#highlights] as Map<string, Versioned<unknown>>[]) {
       for (const [id, entry] of map) if (entry.version !== version) map.delete(id);
     }
+    this.#live = this.#live.filter((n) => n.lifetime !== 'draft' || n.version === version);
   }
 
   /** Session end: everything Murmo showed is hidden. */
@@ -162,7 +196,7 @@ export class Presentation {
     this.#ghosts.clear();
     this.#highlights.clear();
     this.#statuses.clear();
-    this.#notices = [];
+    this.#live = [];
     this.render();
   }
 
@@ -255,8 +289,13 @@ export class Presentation {
     if (!caps.status) return;
     const state = this.#deps.state();
     let text: string | null = null;
-    if (caps.ui.dialogSafe && !state.dialog && state.popup === null) {
-      const rows = [...this.#notices];
+    const nativeUi = state.dialog || state.popup !== null;
+    if (!nativeUi) this.#live = this.#live.filter((n) => n.lifetime !== 'native-ui');
+    if (caps.ui.dialogSafe && !nativeUi) {
+      const rows = this.#live
+        .slice(-MAX_SHOWN_NOTICES)
+        .reverse()
+        .map((n) => n.text);
       for (const plugin of this.#deps.plugins()) {
         const status = this.#statuses.get(plugin.id);
         if (status !== undefined) rows.push(plugin.builtin ? status : `[plugin ${plugin.id}] ${status}`);
@@ -267,6 +306,9 @@ export class Presentation {
     if (text === this.#statusText) return;
     this.#statusText = text;
     const shown = text;
-    this.#call('status', () => adapter.showStatus(shown, this.#deps.draft().version));
+    const status = this.#call('status', () => adapter.showStatus(shown, this.#deps.draft().version));
+    // The host was a version ahead (an inline commit not yet adopted): the
+    // status never reached the screen, so the next render must send it again.
+    if (status === 'stale') this.#statusText = undefined;
   }
 }

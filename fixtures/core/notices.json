@@ -1,0 +1,60 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "real-host bugs on Pi: an autocorrect notice after a shortcut expansion with autocorrect off; notices that never left the screen, including the host-menu notice after the menu closed",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin"
+  },
+  "cases": [
+    {
+      "id": "expansion-notice-names-the-shortcut",
+      "note": "A shortcut expansion with no autocorrect loaded says it was a shortcut, never 'Autocorrect:'.",
+      "plugins": ["shortcuts"],
+      "requires": ["core.inline", "plugin.shortcuts=release"],
+      "settings": { "shortcuts": { "replacements": { "tst": "Run the test suite." } } },
+      "steps": [{ "type": "tst " }],
+      "expect": {
+        "draft": { "text": "Run the test suite. " },
+        "notices": ["Shortcut expanded: Backspace or Undo restores what you typed."],
+        "never": { "status": ["Autocorrect"] }
+      }
+    },
+    {
+      "id": "notice-leaves-the-screen-after-send",
+      "note": "A notice about the draft being written is gone from the status once that draft is sent; the session log keeps it.",
+      "plugins": ["shortcuts"],
+      "requires": ["core.inline", "plugin.shortcuts=release"],
+      "settings": { "shortcuts": { "replacements": { "tst": "Run the test suite." } } },
+      "steps": [
+        { "type": "tst " },
+        { "check": { "ui": { "statusIncludes": "Shortcut expanded" } } },
+        { "submit": "send" },
+        { "settle": true }
+      ],
+      "expect": {
+        "requests": ["Run the test suite. "],
+        "ui": { "status": null },
+        "notices": ["Shortcut expanded: Backspace or Undo restores what you typed."]
+      }
+    },
+    {
+      "id": "host-menu-notice-not-left-behind",
+      "note": "The 'host menu or dialog is open' notice never stays on screen after the host menu closes.",
+      "steps": [
+        { "type": "a" },
+        { "state": { "popup": { "owner": "host" } } },
+        { "key": "x", "routing": "pass" },
+        { "state": { "popup": null } },
+        { "type": "b" }
+      ],
+      "expect": {
+        "ui": { "status": null },
+        "notices": ["Murmo: host menu or dialog is open; ghost accept and edits are deferred until it closes."]
+      }
+    }
+  ]
+}

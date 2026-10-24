@@ -46,6 +46,12 @@
       "variants": 35
     },
     {
+      "file": "core/notices.json",
+      "owner": "05, 07",
+      "cases": 3,
+      "variants": 3
+    },
+    {
       "file": "core/edits/edits.json",
       "owner": "05",
       "cases": 25,

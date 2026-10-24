@@ -7,8 +7,8 @@ import autocorrect from '@murmo/api/examples/autocorrect';
 import snippets from '@murmo/api/examples/semicolon-menu';
 import counter from '@murmo/api/examples/status-counter';
 import todoGuard from '@murmo/api/examples/todo-guard';
-import { DraftState } from '../src/index.ts';
-import { canonicalKey, createHarness, type DirectPluginSpec } from '../src/testing/index.ts';
+import { Counters, DraftState, MAX_SHOWN_NOTICES, Presentation } from '../src/index.ts';
+import { canonicalKey, createHarness, type DirectPluginSpec, ReferenceAdapter } from '../src/testing/index.ts';
 
 test('stats lists a disabled plugin and a dead executor while ready is true (E20, lessons 71, 76)', async () => {
   const thrower: DirectPluginSpec = {
@@ -90,6 +90,31 @@ test('onPause runs once, after LIMITS.pauseMs without a change, on the latest dr
   await h.driver.wait(LIMITS.pauseMs * 10);
   assert.deepEqual(paused, ['ab|ab'], 'one call per pause');
   await h.session?.dispose();
+});
+
+test('the status shows the newest notices first and drops them when their lifetime ends', () => {
+  // Pi kept the first five notices under the composer for the whole session,
+  // so newer ones never showed.
+  const adapter = new ReferenceAdapter();
+  const presentation = new Presentation({
+    adapter,
+    caps: adapter.caps,
+    plugins: () => [],
+    draft: () => adapter.getDraft(),
+    state: () => adapter.getState(),
+    editable: () => true,
+    counters: new Counters(),
+  });
+  for (const n of ['n1', 'n2', 'n3', 'n4']) presentation.notice(n);
+  presentation.notice('refused', 'draft');
+  assert.equal(MAX_SHOWN_NOTICES, 3);
+  assert.equal(adapter.status, 'refused | n4 | n3');
+  presentation.dropStale(adapter.getDraft().version + 1);
+  presentation.render();
+  assert.equal(adapter.status, 'n4 | n3 | n2', 'a draft notice goes when the draft changes');
+  presentation.expireOnSend();
+  assert.equal(adapter.status, null, 'send notices go at the next send');
+  assert.deepEqual(presentation.notices, ['n1', 'n2', 'n3', 'n4', 'refused'], 'the session log keeps them all');
 });
 
 test('a ghost bound to an older baseVersion is never shown (E8)', async () => {

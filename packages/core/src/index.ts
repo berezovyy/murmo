@@ -140,7 +140,14 @@ export {
   permissionGate,
   reviewCapabilityGate,
 } from './plugins/index.ts';
-export { DEFAULT_STATUS_MAX_LENGTH, Presentation, type PresentationDeps, type VisibleGhost } from './present.ts';
+export {
+  DEFAULT_STATUS_MAX_LENGTH,
+  MAX_SHOWN_NOTICES,
+  type NoticeLifetime,
+  Presentation,
+  type PresentationDeps,
+  type VisibleGhost,
+} from './present.ts';
 export {
   onScreenRange,
   REVIEW_BLOCK,
@@ -155,6 +162,8 @@ export {
 export {
   createSession,
   disabledNotice,
+  FIRST_EXPANSION_NOTICE,
+  FIRST_TYPO_FIX_NOTICE,
   KILL_NOTICE,
   newSessionId,
   type PluginActivation,

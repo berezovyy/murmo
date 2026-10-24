@@ -165,6 +165,12 @@ export type PluginChange =
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
+/** The first typo fix of a session names the keys that restore the typed word. */
+export const FIRST_TYPO_FIX_NOTICE = 'Autocorrect: Backspace or Undo restores the typed word.';
+
+/** The first shortcut expansion of a session names the keys that restore the shortcut. */
+export const FIRST_EXPANSION_NOTICE = 'Shortcut expanded: Backspace or Undo restores what you typed.';
+
 /** The one notice a plugin the session turned off gets; `murmo doctor` has the details. */
 export function disabledNotice(name: string, why: 'slow' | 'failed'): string {
   return why === 'slow'
@@ -248,8 +254,9 @@ class CoreSession implements Session {
   #settled = 0;
   #subscribed = false;
   #disposed = false;
-  /** First inline typo/shortcut in this session; names the rejection keys once. */
-  #firstInlineFix = false;
+  /** First inline typo fix and first shortcut expansion; each names the restore keys once. */
+  #firstTypoFix = false;
+  #firstExpansion = false;
   /** Cancels the pending typing-pause timer (`onPause`). */
   #cancelPause: (() => void) | undefined;
   #disposing: Promise<void> | undefined;
@@ -384,7 +391,8 @@ class CoreSession implements Session {
       clock: submitOpts.clock,
       plugins: () => this.#plugins,
       counters,
-      notice,
+      // A refused send describes this draft; the notice goes when the draft changes.
+      notice: (text: string) => presentation.notice(text, 'draft'),
       menu: this.#options.menu ?? menu,
       guardPolicy: submitOpts.guardPolicy,
       evidence: hostCaps.inputOriginEvidence,
@@ -576,7 +584,7 @@ class CoreSession implements Session {
         evidence: { kind: 'peer-declaration', detail: state.popup ? 'popup' : 'dialog' },
         action: 'defer',
       });
-      if (text) this.#presentation?.notice(text);
+      if (text) this.#presentation?.notice(text, 'native-ui');
     }
     const result = this.#router?.route(key).result ?? 'pass';
     this.#inline?.noteKey(key);
@@ -627,10 +635,15 @@ class CoreSession implements Session {
     for (const word of rejected) this.#options.onRejectedWord?.(word);
     this.#counters.shortcutExpanded += shortcutExpanded;
     this.#counters.shortcutUndone += shortcutUndone;
-    if (corrections > 0 && !this.#firstInlineFix) {
-      this.#firstInlineFix = true;
-      if (this.#hostCaps?.ui.dialogSafe) {
-        this.#presentation?.notice('Autocorrect: Backspace or Undo restores the typed word.');
+    // `corrections` counts typo fixes and shortcut expansions alike; the notice
+    // names what actually happened.
+    if (this.#hostCaps?.ui.dialogSafe) {
+      if (corrections > shortcutExpanded && !this.#firstTypoFix) {
+        this.#firstTypoFix = true;
+        this.#presentation?.notice(FIRST_TYPO_FIX_NOTICE);
+      } else if (shortcutExpanded > 0 && !this.#firstExpansion) {
+        this.#firstExpansion = true;
+        this.#presentation?.notice(FIRST_EXPANSION_NOTICE);
       }
     }
     if (!deferred.length || commit.status !== 'applied') return;
@@ -888,7 +901,7 @@ class CoreSession implements Session {
     try {
       // Phase 32: a dead helper cannot run a required guard.
       if (this.#executorHealth() === 'down' && this.#plugins.some((p) => p.guard)) {
-        this.#presentation?.notice(TRANSPORT_UNAVAILABLE);
+        this.#presentation?.notice(TRANSPORT_UNAVAILABLE, 'draft');
         return { action: 'block', reason: TRANSPORT_UNAVAILABLE };
       }
       const review = this.#review?.intercept(tx.draft.version);
@@ -981,6 +994,7 @@ class CoreSession implements Session {
     this.#options.menu?.dismiss();
     this.#menu?.dismiss();
     this.#review?.reset();
+    this.#presentation?.expireOnSend();
   }
 
   #kill(): void {
