@@ -12,7 +12,7 @@ import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
-import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import { type CompileShortcut, compileConfigShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import type { OpenCodeAdapter } from './adapter.ts';
@@ -23,11 +23,7 @@ export interface SessionStartOptions {
   readonly order?: readonly string[];
   readonly executor?: Executor;
   readonly config?: EffectiveConfig;
-  readonly replacements?: readonly {
-    readonly shortcut: string;
-    readonly text: string;
-    readonly origin: 'user' | 'project';
-  }[];
+  readonly replacements?: readonly CompileShortcut[];
   readonly loadLanguagePack?: boolean;
   readonly notify?: (message: string) => void;
 }
@@ -48,16 +44,10 @@ function builtinPlugins(options: SessionStartOptions): HostPluginSpec[] {
     }
   }
   const replacements = options.replacements ?? options.config?.replacements ?? [];
-  const compiled = compileShortcuts({
-    replacements: replacements.map((entry) => ({
-      shortcut: entry.shortcut,
-      text: entry.text,
-      origin: entry.origin,
-    })),
-    ...(options.config?.overrides ? { overrides: options.config.overrides } : {}),
-    trust: 'none',
-    asyncEdits: true,
-  });
+  const compiled = compileConfigShortcuts(
+    { replacements, overrides: options.config?.overrides ?? [] },
+    { trust: 'none', asyncEdits: true },
+  );
   const autocorrect = autocorrectSpec('autocorrect', {
     enabled: options.config?.autocorrect === true,
     allow: (options.config?.protect ?? []).join(' '),

@@ -30,7 +30,7 @@ import { historyPlugin } from '@murmo/plugin-history';
 import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { rescuePlugin } from '@murmo/plugin-rescue';
-import { compileShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import { compileConfigShortcuts, menuPlugin, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
@@ -186,16 +186,7 @@ function builtinsFromConfig(
   specs: HostPluginSpec[];
   order: string[];
 } {
-  const compiled = compileShortcuts({
-    replacements: config.replacements.map((entry) => ({
-      shortcut: entry.shortcut,
-      text: entry.text,
-      origin: entry.origin,
-    })),
-    overrides: config.overrides,
-    asyncEdits: false,
-    inlineMaxBytes: INLINE_MAX_BYTES,
-  });
+  const compiled = compileConfigShortcuts(config, { asyncEdits: false, inlineMaxBytes: INLINE_MAX_BYTES });
   for (const notice of compiled.notices) adapter.notices.push(notice.text);
 
   if (table) {

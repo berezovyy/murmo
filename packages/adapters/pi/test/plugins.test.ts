@@ -158,3 +158,25 @@ test('shipped pack with autocorrect off leaves teh (opt-in; packed miss without 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a template shortcut inserts its field defaults, not the bare placeholder (real-host bug)', () => {
+  // Pi inserted `Review <change> for correctness.` from the starter template:
+  // the loader copied only shortcut, text and origin and dropped `fields`.
+  const loaded = loadBuiltins({
+    ids: ['shortcuts'],
+    config: {
+      ...cfg(false),
+      replacements: [
+        {
+          shortcut: ';review',
+          text: 'Review <change> for correctness.',
+          origin: 'user',
+          description: 'Code review request',
+          fields: { change: { default: 'this change' } },
+        },
+      ],
+    },
+  });
+  const entries = loaded.specs.find((spec) => spec.id === 'shortcuts')?.inline?.[0]?.replacements?.entries ?? {};
+  assert.equal(entries[';review'], 'Review this change for correctness.');
+});

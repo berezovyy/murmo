@@ -28,6 +28,14 @@
       "note": "A cloned repository's shortcuts never expand before the user reviewed them, on any host (phase 14 trust). A host that never loads project config also leaves the draft literal, so this case means something only beside trusted-project-shortcut-expands in the same run; the review notice itself is checked by packages/adapters/claude/test/project-config.gate.ts.",
       "steps": [{ "type": ";hp " }],
       "expect": { "draft": { "text": ";hp " }, "requests": [] }
+    },
+    {
+      "id": "template-field-default",
+      "tags": ["project-config", "templates"],
+      "projectTrust": "approved",
+      "note": "A [replace] table's field default is inserted, not its placeholder. Every host once inserted `Review <change> for correctness.`: the adapters copied only shortcut, text and origin into the compiler.",
+      "steps": [{ "type": ";hr " }],
+      "expect": { "draft": { "text": "Review this change for correctness. " }, "requests": [] }
     }
   ]
 }

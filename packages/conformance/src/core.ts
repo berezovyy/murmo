@@ -33,7 +33,7 @@ import {
   installTestPolicy,
   resolveAutocorrectSettings,
 } from '@murmo/plugin-autocorrect';
-import { compileShortcuts, shortcutsInlineRules } from '@murmo/plugin-shortcuts';
+import { compileShortcuts, shortcutRecords, shortcutsInlineRules } from '@murmo/plugin-shortcuts';
 import type { Observation } from './expect.ts';
 import { type DriverDelta, interpretEditorCase, type KeyTiming, type StepDriver } from './interpreter.ts';
 import { pluginFeatures, plugins } from './plugins.ts';
@@ -104,9 +104,8 @@ function pluginSpecs(c: EditorCase, builtin: boolean): DirectPluginSpec[] {
       return { ...spec, inline: [bundle.rules], assets: bundle.assets };
     }
     if (builtin && plugin === 'shortcuts' && requires.includes('core.inline')) {
-      const replacements = (spec.settings?.replacements as Readonly<Record<string, string>> | undefined) ?? {};
       const compiled = compileShortcuts({
-        replacements: Object.entries(replacements).map(([shortcut, text]) => ({ shortcut, text, origin: 'user' })),
+        replacements: shortcutRecords(spec.settings?.replacements),
         asyncEdits: c.host?.edit?.atomic !== false,
       });
       return { ...spec, inline: [shortcutsInlineRules(id, compiled, { asyncEdits: c.host?.edit?.atomic !== false })] };

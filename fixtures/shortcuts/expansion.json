@@ -143,6 +143,23 @@
         },
         "requests": ["tst"]
       }
+    },
+    {
+      "id": "template-default",
+      "note": "A [replace] table's field default is inserted in place of its placeholder. Every host once copied only shortcut, text and origin into the compiler and inserted `Review <change> for correctness.` (real-host bug, all four hosts).",
+      "settings": {
+        "shortcuts": {
+          "replacements": {
+            ";review": {
+              "text": "Review <change> for correctness.",
+              "description": "Code review request",
+              "fields": { "change": { "default": "this change" } }
+            }
+          }
+        }
+      },
+      "steps": [{ "type": ";review " }],
+      "expect": { "draft": { "text": "Review this change for correctness. " } }
     }
   ]
 }

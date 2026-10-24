@@ -115,8 +115,8 @@
     {
       "file": "hosts/project-shortcuts.json",
       "owner": "14, 20, 24",
-      "cases": 2,
-      "variants": 2
+      "cases": 3,
+      "variants": 3
     },
     {
       "file": "hosts/r14-followup.json",
@@ -232,8 +232,8 @@
     {
       "file": "shortcuts/expansion.json",
       "owner": "15",
-      "cases": 8,
-      "variants": 8
+      "cases": 9,
+      "variants": 9
     },
     {
       "file": "shortcuts/moved.json",

@@ -2,3 +2,8 @@ version = 1
 # The project file the host cases in fixtures/hosts/project-shortcuts.json load.
 [replace]
 ";hp" = 'harness project shortcut'
+
+[replace.";hr"]
+text = 'Review <change> for correctness.'
+description = "Harness review template"
+fields.change = { default = "this change" }

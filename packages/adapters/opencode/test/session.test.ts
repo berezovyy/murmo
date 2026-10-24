@@ -129,3 +129,32 @@ test('loadHostSessionConfig turns autocorrect on from the user file', async () =
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('a template shortcut from config inserts its field defaults (real-host bug)', async () => {
+  // OpenCode inserted `Review <change> for correctness.`: the session copied
+  // only shortcut, text and origin into the compiler and dropped `fields`.
+  const host = new FakeOpenCode();
+  const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+  const started = await startSession({
+    adapter,
+    loadLanguagePack: false,
+    executor: executor(),
+    config: {
+      ...cfg(false),
+      replacements: [
+        {
+          shortcut: ';review',
+          text: 'Review <change> for correctness.',
+          origin: 'user',
+          fields: { change: { default: 'this change' } },
+        },
+      ],
+    },
+  });
+  host.type(';review');
+  host.press({ name: 'space', sequence: ' ' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(adapter.getDraft().text, /^Review this change for correctness\./);
+  await started.close();
+});

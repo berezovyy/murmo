@@ -12,7 +12,13 @@ import { memoryBackend, namesPlugin } from '@murmo/plugin-names';
 import { phrasesPlugin } from '@murmo/plugin-phrases';
 import { persistEvents } from '@murmo/plugin-phrases/node';
 import { rescuePlugin } from '@murmo/plugin-rescue';
-import { compileShortcuts, menuPlugin, SAMPLE_SHORTCUTS, shortcutsPlugin } from '@murmo/plugin-shortcuts';
+import {
+  compileConfigShortcuts,
+  menuPlugin,
+  SAMPLE_SHORTCUTS,
+  shortcutRecords,
+  shortcutsPlugin,
+} from '@murmo/plugin-shortcuts';
 import type { DraftIdentity, Drafts } from '@murmo/store';
 import type { Store } from '@murmo/store/node';
 
@@ -37,23 +43,13 @@ export interface BuiltinOptions {
 export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
   const notices: string[] = [];
   const config = options.config;
-  const replacements =
-    config?.replacements ??
-    Object.entries(SAMPLE_SHORTCUTS).map(([shortcut, text]) => ({
-      shortcut,
-      text,
-      origin: 'user' as const,
-    }));
-  const compiled = compileShortcuts({
-    replacements: replacements.map((entry) => ({
-      shortcut: entry.shortcut,
-      text: entry.text,
-      origin: entry.origin === 'project' ? ('project' as const) : ('user' as const),
-    })),
-    ...(config?.overrides ? { overrides: config.overrides } : {}),
-    trust: 'none',
-    asyncEdits: true,
-  });
+  const compiled = compileConfigShortcuts(
+    config ?? { replacements: shortcutRecords(SAMPLE_SHORTCUTS), overrides: [] },
+    {
+      trust: 'none',
+      asyncEdits: true,
+    },
+  );
   for (const notice of compiled.notices) notices.push(notice.text);
 
   const ids = new Set(options.ids ?? DEFAULT_ORDER);

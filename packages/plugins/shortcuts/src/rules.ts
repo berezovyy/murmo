@@ -13,6 +13,7 @@ import {
   SHORTCUTS_PRIORITY,
   SHORTCUTS_VERSION,
 } from './compile.ts';
+import { shortcutRecords } from './records.ts';
 import { createShortcutsHooks, DEFAULT_PREVIOUS_FIELD, fieldClaims, type TemplateBox } from './session.ts';
 
 const SKIP = ['code', 'path', 'URL', 'flag', 'identifier', 'foreign-letter-line'] as const;
@@ -95,18 +96,10 @@ export function shortcutsPlugin(
 }
 
 function compiledFrom(settings: Readonly<Record<string, unknown>>): CompiledShortcuts {
-  const entries = settings.replacements;
-  if (!entries || typeof entries !== 'object' || Array.isArray(entries)) {
-    return compileShortcuts({ replacements: [] });
-  }
-  return compileShortcuts({
-    replacements: Object.entries(entries as Record<string, unknown>)
-      .filter((row): row is [string, string] => typeof row[1] === 'string')
-      .map(([shortcut, text]) => ({ shortcut, text, origin: 'user' as const })),
-  });
+  return compileShortcuts({ replacements: shortcutRecords(settings.replacements) });
 }
 
-/** Conformance/factory entry: settings.replacements plus optional host / previousFieldKey. */
+/** Conformance/factory entry: settings.replacements (text or `[replace]` tables) plus optional host / previousFieldKey. */
 export const shortcutsFactory: PluginFactory = (settings) =>
   createPlugin(
     { compiled: compiledFrom(settings) },

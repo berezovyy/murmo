@@ -66,6 +66,7 @@ export {
 } from './menu/plugin.ts';
 export { defaultCellMeasure, formatRow } from './menu/rows.ts';
 export { commandPrefix, findTrigger, hostBlocksMenu, inCode, type Trigger } from './menu/trigger.ts';
+export { type ConfigShortcuts, compileConfigShortcuts, shortcutRecords } from './records.ts';
 export { type InlineCapOptions, shortcutsFactory, shortcutsInlineRules, shortcutsPlugin } from './rules.ts';
 export {
   DEFAULT_PREVIOUS_FIELD,
