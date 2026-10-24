@@ -2,13 +2,14 @@
 // the third-party executor with its reviewed grants; disabled, it does not.
 // Pi once loaded only its built-ins, so an installed plugin never ran.
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { PluginSpec } from '@murmo/api/adapter';
 import { sourceExecutor } from '@murmo/core/testing';
+import { pluginRecordPath, storeLayout } from '@murmo/store';
 import { storeRootsFromEnv } from '@murmo/store/node';
 import { installForTest } from '@murmo/store/node/testing';
 import { startPiSession } from '../src/session.ts';
@@ -62,6 +63,10 @@ test('an installed plugin runs in the next Pi session with its reviewed grants, 
   );
   assert.deepEqual(held.grants, ['draft:read', 'submit']);
   assert.deepEqual(held.sent, [], 'the plugin held the send');
+  // Its storage was in a folder `murmo plugin` never reads, so an update's
+  // migration and a rollback's snapshot missed it.
+  const record = JSON.parse(readFileSync(pluginRecordPath(storeLayout(roots), 'send-hold'), 'utf8'));
+  assert.deepEqual([record.plugin, record.data], ['send-hold', { lastHeld: 'fix zzhold' }]);
 
   installForTest(roots, sendHold, { grants: ['draft:read', 'submit'], enabled: false });
   const free = await sendInNewSession('fix zzhold');

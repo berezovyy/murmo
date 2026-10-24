@@ -2,13 +2,14 @@
 // session, in the third-party executor with its reviewed grants; disabled,
 // it does not. OpenCode once loaded only its built-ins.
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { PluginSpec } from '@murmo/api/adapter';
 import { sourceExecutor } from '@murmo/core/testing';
+import { pluginRecordPath, storeLayout } from '@murmo/store';
 import { storeRootsFromEnv } from '@murmo/store/node';
 import { installForTest } from '@murmo/store/node/testing';
 import { OpenCodeAdapter } from '../src/adapter.ts';
@@ -45,6 +46,10 @@ test('an installed plugin runs in the next OpenCode session, and stops once disa
   );
   assert.equal(held.sent, false, 'the plugin held the send');
   assert.equal(held.draft, 'fix zzhold');
+  // Its storage lived in memory and was gone when OpenCode quit.
+  const path = pluginRecordPath(storeLayout(storeRootsFromEnv(env)), 'send-hold');
+  const record = JSON.parse(readFileSync(path, 'utf8'));
+  assert.deepEqual([record.plugin, record.data], ['send-hold', { lastHeld: 'fix zzhold' }]);
 
   installForTest(storeRootsFromEnv(env), sendHold, { grants: ['draft:read', 'submit'], enabled: false });
   const free = await sendInNewSession('fix zzhold');

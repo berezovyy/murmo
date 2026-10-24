@@ -21,13 +21,19 @@ import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import type { PluginSpec } from '@murmo/api/adapter';
 import { approveProject, scanProject } from '@murmo/config/node';
+import { sourceExecutor } from '@murmo/core/testing';
 import { helperBinary } from '@murmo/executor/node';
-import { decodeDraft } from '@murmo/store';
-import { openStore, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
+import { decodeDraft, pluginRecordPath, storeLayout } from '@murmo/store';
+import { openStore, projectIdOfCwd, readInstalledPlugins, storeRootsFromEnv } from '@murmo/store/node';
+import { installForTest } from '@murmo/store/node/testing';
 import { createClaudeHost } from '../src/session.ts';
 import { type HostServices, PLUGIN_VERSION, type SpawnChunk } from '../src/types.ts';
-import { FakeClaude, typeChars } from './fake-runtime.ts';
+import { FakeClaude, submitNext, typeChars } from './fake-runtime.ts';
+
+const SEND_HOLD = fileURLToPath(new URL('../../../../fixtures/hosts/plugins/send-hold', import.meta.url));
 
 const PROJECT = `version = 1\n[replace]\n";hp" = 'harness project shortcut'\n`;
 
@@ -275,4 +281,38 @@ test('murmo trust and a murmo.toml edit apply to a running Claude session', asyn
     await host.dispose();
     writeFileSync(userFile, `version = 1\n[replace]\n";me" = 'personal shortcut'\n`);
   }
+});
+
+test('an installed plugin keeps its storage on disk through the helper, where murmo plugin finds it', async () => {
+  // Claude kept third-party storage in memory: it was gone when Claude quit,
+  // and an update's migration or a rollback's snapshot never saw it.
+  const root = repo('plugin-storage');
+  const roots = storeRootsFromEnv(env, env.HOME);
+  installForTest(roots, SEND_HOLD, { grants: ['draft:read', 'submit'] });
+  const loaded: PluginSpec[] = [];
+  const host = createClaudeHost({ thirdParty: sourceExecutor(loaded) });
+  await host.bootPacked({
+    payloadRoot: '',
+    integrityJson: JSON.stringify({ version: PLUGIN_VERSION }),
+    cwd: root,
+    services: claudeServices(),
+    helperBinaries: [helperBinary()],
+    tmpdir: dir,
+    installed: await readInstalledPlugins(roots),
+  });
+  const fake = new FakeClaude();
+  try {
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'fix zzhold');
+    await host.session?.settle();
+    const result = await host.adapter.handleSubmit({ text: fake.draft.text }, submitNext(fake));
+    assert.ok(result.drop, 'the plugin held the send');
+    assert.deepEqual(
+      loaded.map((spec) => spec.id),
+      ['send-hold'],
+    );
+  } finally {
+    await host.dispose();
+  }
+  const record = JSON.parse(readFileSync(pluginRecordPath(storeLayout(roots), 'send-hold'), 'utf8'));
+  assert.deepEqual([record.plugin, record.data], ['send-hold', { lastHeld: 'fix zzhold' }]);
 });

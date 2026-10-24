@@ -28,7 +28,7 @@ import { executorFault } from '@murmo/executor';
 import { denyGit } from '../brokers/git.ts';
 import { denyList, type ProjectListAccess } from '../brokers/list.ts';
 import { denyNetwork } from '../brokers/network.ts';
-import { createStorageBroker, type StorageBroker } from '../brokers/storage.ts';
+import { createStorageBroker, type PluginStorageBroker } from '../brokers/storage.ts';
 import type { HookCall, HookRunner, LoadedPlugin, RunnerHealth } from '../hooks.ts';
 import { uniquePluginIds } from '../order.ts';
 import { type AdmissionLimits, admit } from './admission.ts';
@@ -61,6 +61,11 @@ export interface PluginHostOptions {
   readonly executor: Executor;
   readonly grants?: GrantMap;
   readonly storage?: StorageBackend;
+  /**
+   * The store's durable per-plugin namespaces (`store.plugins`), where
+   * `murmo plugin` snapshots and migrates them. Replaces `storage`.
+   */
+  readonly broker?: PluginStorageBroker;
   readonly projectFiles?: ProjectFiles;
   readonly list?: ProjectListAccess;
   readonly network?: NetworkAccess;
@@ -125,7 +130,8 @@ export interface PluginHost extends HookRunner {
 }
 
 export function createPluginHost(options: PluginHostOptions): PluginHost {
-  const storage: StorageBroker = createStorageBroker(options.storage);
+  const local = options.broker ? undefined : createStorageBroker(options.storage);
+  const storage: PluginStorageBroker = options.broker ?? (local as PluginStorageBroker);
   const coalescer = new ChangeCoalescer();
   const loaded = new Map<string, Loaded>();
   const specs = [...options.specs];
@@ -356,7 +362,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     },
 
     storage(): Readonly<Record<string, string>> {
-      return storage.snapshot();
+      return local?.snapshot() ?? {};
     },
 
     grantOf(pluginId: string): readonly Permission[] {

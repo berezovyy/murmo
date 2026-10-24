@@ -16,7 +16,7 @@ import {
   type Session,
   withInstalled,
 } from '@murmo/core';
-import { createFileStorage, createProjectFileBroker } from '@murmo/core/node';
+import { createProjectFileBroker } from '@murmo/core/node';
 import { createInProcessExecutor, createRoutedExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
 import { findOffer } from '@murmo/plugin-rescue';
@@ -157,7 +157,6 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
         isolated: () =>
           frameExecutor(options.thirdParty?.(trusted.clock) ?? createNodeIsolatedExecutor({ clock: trusted.clock })),
       });
-  const storage = await createFileStorage(`${store.layout.store}/adapter-namespaces`);
   const projectFiles = await createProjectFileBroker({
     root: cwd,
     requestTrust: async () => config.trust === 'approved' || config.trust === 'none',
@@ -167,7 +166,8 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   const runner = createPluginHost({
     specs: loaded.specs,
     executor,
-    storage,
+    // The namespaces `murmo plugin` snapshots, migrates and rolls back.
+    broker: store.plugins,
     projectFiles,
     grants: loaded.grants,
   });

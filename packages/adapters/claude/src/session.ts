@@ -47,6 +47,7 @@ import { compileConfigShortcuts, menuPlugin, sessionNotices, shortcutsPlugin } f
 import {
   createMemoryDrafts,
   createRemoteDrafts,
+  createRemoteStore,
   EMPTY_SELECTION,
   newDraftSession,
   remoteProjectId,
@@ -233,6 +234,13 @@ async function loadConfig(
  * the current helper, so a restarted one takes over. Without a helper (or a
  * project id from it) drafts stay in memory and nothing is offered.
  */
+/** The store protocol over the helper's socket. */
+function storeTransport(helper: HelperHandle): StoreTransport {
+  return {
+    request: async (message) => (await helper.transport().request({ ...message })) as unknown as StoreReply,
+  };
+}
+
 async function rescueOptions(helper: HelperHandle | undefined, cwd: string, clock: Clock): Promise<RescueOptions> {
   const session = newDraftSession('claude');
   const memory = {
@@ -240,9 +248,7 @@ async function rescueOptions(helper: HelperHandle | undefined, cwd: string, cloc
     identity: { project: '0'.repeat(64), host: 'claude' as const, session },
   };
   if (!helper) return memory;
-  const transport: StoreTransport = {
-    request: async (message) => (await helper.transport().request({ ...message })) as unknown as StoreReply,
-  };
+  const transport = storeTransport(helper);
   const project = await within(clock, CONFIG_LOAD_MS, 'project.id', remoteProjectId(transport, cwd)).catch(
     () => undefined,
   );
@@ -613,8 +619,9 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         specs: loaded.specs,
         executor,
         grants: loaded.grants,
-        // Third-party storage lasts the session here; Pi and the CLI keep it on disk.
-        storage: createMemoryStorage(),
+        // The namespaces `murmo plugin` snapshots, migrates and rolls back,
+        // through the helper; without one they last the session.
+        ...(helper ? { broker: createRemoteStore(storeTransport(helper)) } : { storage: createMemoryStorage() }),
         projectFiles: createMemoryProjectFiles({ root: input.cwd }),
       });
       session = createSession({

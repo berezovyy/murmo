@@ -291,8 +291,11 @@ export async function startSession(options: SessionStartOptions): Promise<Starte
     specs: loaded.specs,
     executor,
     grants: loaded.grants,
-    // Third-party storage lasts the session here; Pi and the CLI keep it on disk.
-    storage: createMemoryStorage(),
+    // The namespaces `murmo plugin` snapshots, migrates and rolls back; a
+    // test's own plugin list keeps them in memory.
+    ...(options.plugins
+      ? { storage: createMemoryStorage() }
+      : { broker: (await openStore({ roots: storeRootsFromEnv(options.env) })).plugins }),
   });
   const session = createSession({
     adapter: options.adapter,
