@@ -55,6 +55,8 @@ export interface Journal {
   skipped: { host: string; reason: string }[];
   package: { version: string; sha256: string };
   launcher?: LauncherRecord;
+  /** The starter personal `murmo.toml` setup wrote; uninstall removes it only while unchanged. */
+  starter?: LauncherRecord;
   generations: string[];
 }
 
@@ -101,6 +103,7 @@ export function readJournal(file: string): Journal | undefined {
       package: value.package ?? { version: '', sha256: '' },
       generations: value.generations ?? [],
       ...(value.launcher ? { launcher: value.launcher } : {}),
+      ...(value.starter ? { starter: value.starter } : {}),
     };
   } catch {
     return undefined;

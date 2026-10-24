@@ -4,9 +4,10 @@
 
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { INTEGRITY_FILE, loadTrustAnchor, parseManifest, VerifyError, verifyPackage } from '@murmo/integrity';
+import { writeUserStarter } from '@murmo/plugin-shortcuts/node';
 import { detectHosts } from './detect.ts';
 import { CliError } from './errors.ts';
-import { homeLayout, inventoryOf, knownFiles, ownedRoots, parentExistence } from './home.ts';
+import { homeLayout, inventoryOf, knownFiles, ownedRoots, parentExistence, sha256Bytes } from './home.ts';
 import { alreadyRegistered, registerHost } from './hosts.ts';
 import { backupFile, emptyJournal, type Journal, readJournal, setPhase, snapshotFile } from './journal.ts';
 import {
@@ -42,6 +43,8 @@ export interface SetupReport {
   readonly launcherOnPath?: boolean;
   readonly warning?: string;
   readonly claudeOnboarding: string;
+  /** The personal murmo.toml: written now (the starter), already there, or missing. */
+  readonly personal: { readonly path: string; readonly state: 'written' | 'existing' | 'missing' };
 }
 
 const CLAUDE_ONBOARDING = 'Claude asks its own onboarding questions on first start; setup does not answer them';
@@ -81,7 +84,7 @@ export function verifyIncoming(
 function seedJournal(layout: ReturnType<typeof homeLayout>, pin: { version: string; sha256: string }): Journal {
   const journal = emptyJournal(pin);
   journal.before = inventoryOf(ownedRoots(layout));
-  journal.parents = parentExistence(layout, [layout.launcher]);
+  journal.parents = parentExistence(layout, [layout.launcher, layout.personal]);
   for (const file of knownFiles(layout)) {
     if (existsSync(file)) journal.backup[file] = backupFile(file);
   }
@@ -118,6 +121,17 @@ function registerDetected(
   return registered;
 }
 
+function personalState(layout: ReturnType<typeof homeLayout>): SetupReport['personal'] {
+  return { path: layout.personal, state: existsSync(layout.personal) ? 'existing' : 'missing' };
+}
+
+/** A first install writes the starter personal file where none exists, so the first session has shortcuts. */
+async function writeStarter(layout: ReturnType<typeof homeLayout>, journal: Journal): Promise<SetupReport['personal']> {
+  if (!(await writeUserStarter(layout.personal))) return personalState(layout);
+  journal.starter = { path: layout.personal, sha256: sha256Bytes(readFileSync(layout.personal)) };
+  return { path: layout.personal, state: 'written' };
+}
+
 export async function setupCommand(options: SetupOptions): Promise<SetupReport> {
   const env = options.env ?? process.env;
   const layout = homeLayout(env);
@@ -143,6 +157,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
         skipped: existing.skipped,
         ...(existing.launcher ? { launcher: existing.launcher.path } : {}),
         claudeOnboarding: CLAUDE_ONBOARDING,
+        personal: personalState(layout),
         ...(verified.fingerprint ? { fingerprint: verified.fingerprint } : {}),
         ...(availability.warning ? { warning: availability.warning } : {}),
       };
@@ -178,6 +193,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
       launcher: launcher.record.path,
       launcherOnPath: launcher.onPath,
       claudeOnboarding: CLAUDE_ONBOARDING,
+      personal: personalState(layout),
       ...(verified.fingerprint ? { fingerprint: verified.fingerprint } : {}),
       ...(availability.warning ? { warning: availability.warning } : {}),
     };
@@ -197,6 +213,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
   const registered = registerDetected(journal.hosts, journal, layout, layout.payload, env, false);
   const launcher = writeLauncher(layout, env);
   journal.launcher = launcher.record;
+  const personal = await writeStarter(layout, journal);
   snapshotWritten(layout, journal);
   journal.complete = true;
   setPhase(journal, layout.journal, 'complete', env);
@@ -212,6 +229,7 @@ export async function setupCommand(options: SetupOptions): Promise<SetupReport> 
     launcher: launcher.record.path,
     launcherOnPath: launcher.onPath,
     claudeOnboarding: CLAUDE_ONBOARDING,
+    personal,
     ...(verified.fingerprint ? { fingerprint: verified.fingerprint } : {}),
     ...(availability.warning ? { warning: availability.warning } : {}),
   };
@@ -245,5 +263,16 @@ export function printSetup(report: SetupReport, json: boolean, out: (s: string) 
     out(
       '  Codex: run `murmo codex`. Event hooks are not installed until [events] is on; Murmo never ships bypass_hook_trust.\n',
     );
+  }
+  const { path, state } = report.personal;
+  if (state === 'written') {
+    out(`  wrote starter shortcuts: ${path}\n`);
+    out('\nTry it: in a new agent session, type ;rvw then a space (;tst too).\n');
+    out('Autocorrect is off until you set [autocorrect] enabled = true in that file.\n');
+  } else if (state === 'existing') {
+    out(`  your shortcuts and settings: ${path}\n`);
+    out('  autocorrect is opt-in: [autocorrect] enabled = true in that file\n');
+  } else {
+    out('  no personal shortcuts yet: run `murmo init --user` for the starter file\n');
   }
 }

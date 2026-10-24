@@ -5,6 +5,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { userConfigPath } from '@murmo/config/node';
 import { storeRootsFromEnv } from '@murmo/store/node';
 import { CliError } from './errors.ts';
 
@@ -29,6 +30,8 @@ export interface HomeLayout {
   readonly sessions: string;
   readonly launcher: string;
   readonly localBin: string;
+  /** The personal `murmo.toml`; setup writes the starter one only where none exists. */
+  readonly personal: string;
   readonly dirs: {
     readonly claude: string;
     readonly pi: string;
@@ -74,6 +77,7 @@ export function homeLayout(env: NodeJS.ProcessEnv = process.env): HomeLayout {
     sessions: join(roots.data, 'sessions'),
     launcher: join(home, '.local', 'bin', 'murmo'),
     localBin: join(home, '.local', 'bin'),
+    personal: userConfigPath(env, home),
     dirs,
     xdg: xdgDirs,
   };

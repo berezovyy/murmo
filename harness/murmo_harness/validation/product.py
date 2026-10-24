@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -133,15 +134,17 @@ def plugin_argv(product: PackedProduct, args: list[str]) -> list[str]:
 
 
 def enable_autocorrect(profile) -> None:
-    """Plugin set (b): user file, not a project file (a project cannot turn it on)."""
+    """Plugin set (b): user file, not a project file (a project cannot turn it on).
+    Only a live `[autocorrect]` header counts: the starter file setup writes
+    shows the stanza commented out."""
     config = Path(profile.env['XDG_CONFIG_HOME']) / 'murmo' / 'murmo.toml'
     config.parent.mkdir(parents=True, exist_ok=True)
     existing = config.read_text() if config.is_file() else ''
-    if '[autocorrect]' not in existing:
+    if not re.search(r'^\s*\[autocorrect\]', existing, re.MULTILINE):
         prefix = existing.strip() or 'version = 1'
         config.write_text(f'{prefix}\n\n[autocorrect]\nenabled = true\n')
         return
-    config.write_text(existing.replace('enabled = false', 'enabled = true'))
+    config.write_text(re.sub(r'^(\s*)enabled = false', r'\1enabled = true', existing, flags=re.MULTILINE))
 
 
 def murmo_data(profile) -> Path:

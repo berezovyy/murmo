@@ -91,10 +91,11 @@ export function replayJournal(journal: Journal, layout: HomeLayout): void {
   for (const root of [layout.data, layout.state, layout.cache]) {
     rmSync(root, { recursive: true, force: true });
   }
-  if (journal.launcher?.path && existsSync(journal.launcher.path)) {
+  // The launcher, and the starter murmo.toml unless the user has made it their own.
+  for (const owned of [journal.launcher, journal.starter]) {
+    if (!owned?.path || !existsSync(owned.path)) continue;
     try {
-      const body = readFileSync(journal.launcher.path);
-      if (sha256Bytes(body) === journal.launcher.sha256) unlinkSync(journal.launcher.path);
+      if (sha256Bytes(readFileSync(owned.path)) === owned.sha256) unlinkSync(owned.path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }

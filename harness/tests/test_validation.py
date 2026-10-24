@@ -290,6 +290,26 @@ class PackedLaunchArgv(unittest.TestCase):
             toml = (root / 'config' / 'murmo' / 'murmo.toml').read_text()
             self.assertIn('enabled = true', toml)
 
+    def test_autocorrect_turns_on_over_the_commented_starter_stanza(self):
+        """Catches plugin set (b) running with autocorrect off: setup's starter
+        murmo.toml shows `# [autocorrect]` commented, which a plain substring
+        check took for a live table."""
+        from murmo_harness.validation.product import enable_autocorrect
+        from support import scratch
+
+        class Profile:
+            def __init__(self, root):
+                self.env = {'XDG_CONFIG_HOME': str(root / 'config'), 'HOME': str(root / 'home')}
+
+        with scratch() as root:
+            config = root / 'config' / 'murmo' / 'murmo.toml'
+            config.parent.mkdir(parents=True)
+            config.write_text('version = 1\n[replace]\n";tst" = \'t\'\n# [autocorrect]\n# enabled = true\n')
+            enable_autocorrect(Profile(root))
+            text = config.read_text()
+            self.assertIn('\n[autocorrect]\nenabled = true\n', text)
+            self.assertIn('";tst" = \'t\'', text)
+
     def test_packed_pi_passes_explicit_extension(self):
         from murmo_harness.validation.integration import PackedMurmo
         from support import scratch

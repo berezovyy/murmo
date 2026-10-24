@@ -1,5 +1,7 @@
-// Starter file `murmo init` writes. Single-quoted strings only, `;`-prefixed
-// names, version = 1 (02-architecture § File format).
+// Starter files. Single-quoted strings only, `;`-prefixed names, version = 1
+// (02-architecture § File format). `murmo init` writes the project one;
+// `murmo setup` and `murmo init --user` write the personal one, which also
+// shows the switches only a personal file may turn on.
 
 export const INIT_TEMPLATE = `\
 version = 1
@@ -19,4 +21,15 @@ List issues by severity. Be concise.
 # '''
 # description = "Code review request"
 # fields.change = { default = "this change" }
+`;
+
+export const USER_TEMPLATE = `${INIT_TEMPLATE}
+# Autocorrect fixes known typos as you finish a word (teh -> the). It is off
+# until you turn it on here; Backspace right after a fix undoes it.
+# [autocorrect]
+# enabled = true
+
+# Words autocorrect never changes. \`murmo words add <word>\` adds to a list too.
+# [words]
+# protect = ["Kubernetes"]
 `;

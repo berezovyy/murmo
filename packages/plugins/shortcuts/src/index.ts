@@ -75,4 +75,4 @@ export {
   remapFields,
   remapRange,
 } from './session.ts';
-export { INIT_TEMPLATE } from './template.ts';
+export { INIT_TEMPLATE, USER_TEMPLATE } from './template.ts';
