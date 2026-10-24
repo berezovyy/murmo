@@ -2,7 +2,7 @@
 // Super+z instead of the logical Undo key.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bindingMatches, canonicalKey, extraUndoKeys } from '../src/keys.ts';
+import { bindingMatches, canonicalKey, extraUndoKeys, isPrintableTyped } from '../src/keys.ts';
 import type { ParsedKey } from '../src/types.ts';
 import { FakeOpenCode } from './fake-opencode.ts';
 
@@ -43,4 +43,17 @@ test('multi-stroke queue bindings need the pending prefix (Ctrl+X Enter)', () =>
   assert.equal(bindingMatches(host.api.keymap, 'prompt.queue', enter), false);
   host.pendingKeys = [{ key: 'ctrl+x' }];
   assert.equal(bindingMatches(host.api.keymap, 'prompt.queue', enter), true);
+});
+
+test('any printable single-grapheme key is typed; controls, chords and bulk input are not', () => {
+  // Catches Cyrillic, accented and emoji keys being left out of typed spans,
+  // which kept `;привіт` from expanding on OpenCode alone.
+  for (const sequence of ['a', ' ', 'п', 'é', 'e\u0301', '日', '👋', '👨\u200d👩\u200d👧']) {
+    assert.equal(isPrintableTyped(key({ name: sequence, sequence })), true, sequence);
+  }
+  for (const sequence of ['', '\x1b', '\t', '\x7f', 'ab', 'пр', '\u202e', '\ud83d']) {
+    assert.equal(isPrintableTyped(key({ name: sequence, sequence })), false, JSON.stringify(sequence));
+  }
+  assert.equal(isPrintableTyped(key({ name: 'п', sequence: 'п', ctrl: true })), false);
+  assert.equal(isPrintableTyped(key({ name: 'п', sequence: 'п', meta: true })), false);
 });

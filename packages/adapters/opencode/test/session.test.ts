@@ -205,3 +205,28 @@ test('a word added with murmo words is left alone in the next session', async ()
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('a shortcut with a non-ASCII name expands when typed (real-host bug)', async () => {
+  // `;привіт` plus space stayed literal on OpenCode while Pi and Claude
+  // expanded it: Cyrillic keys were not counted as typed, so no fully typed
+  // span covered the name. The ASCII control shows the session is live.
+  const host = new FakeOpenCode();
+  const adapter = new OpenCodeAdapter({ api: host.api, core: host.core });
+  const compiled = compileShortcuts({
+    replacements: [
+      { shortcut: ';привіт', text: 'Привіт! 👋', origin: 'user' },
+      { shortcut: ';hi', text: 'Hello!', origin: 'user' },
+    ],
+  });
+  const started = await startSession({
+    adapter,
+    loadLanguagePack: false,
+    executor: executor(),
+    plugins: [shortcutsPlugin(compiled)],
+  });
+  host.type(';hi ;привіт ');
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(adapter.getDraft().text, 'Hello! Привіт! 👋 ');
+  await started.close();
+});

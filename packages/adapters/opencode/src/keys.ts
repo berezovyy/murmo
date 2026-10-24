@@ -2,6 +2,7 @@
 // Super is not a Murmo modifier: configured undo chords become the logical `Undo`.
 
 import { isCanonicalKey, type KeyId } from '@murmo/api';
+import { graphemeBoundaries, unsafeText } from '@murmo/text';
 import type { KeymapPending, OpenCodeKeymap, ParsedKey } from './types.ts';
 
 const NAMED: Readonly<Record<string, KeyId>> = {
@@ -95,9 +96,18 @@ export function canonicalKey(parsed: ParsedKey, keymap: OpenCodeKeymap): KeyId {
   return parsed.name;
 }
 
+const CONTROL = /\p{Cc}/u;
+
+/**
+ * A key that types one printable character: any single grapheme (Cyrillic,
+ * accents, CJK, emoji), never a chord, a control or escape sequence, a bidi
+ * control or a multi-character chunk of bulk input.
+ */
 export function isPrintableTyped(parsed: ParsedKey): boolean {
   if (parsed.ctrl || parsed.meta || parsed.super || parsed.option) return false;
-  return typeof parsed.sequence === 'string' && /^[\x20-\x7e]$/.test(parsed.sequence);
+  const text = parsed.sequence;
+  if (typeof text !== 'string' || text.length === 0 || CONTROL.test(text) || unsafeText(text) !== null) return false;
+  return graphemeBoundaries(text).length === 2;
 }
 
 /** Single-stroke undo bindings that are already canonical Murmo IDs (custom keys). */

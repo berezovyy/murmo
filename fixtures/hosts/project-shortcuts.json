@@ -36,6 +36,14 @@
       "note": "A [replace] table's field default is inserted, not its placeholder. Every host once inserted `Review <change> for correctness.`: the adapters copied only shortcut, text and origin into the compiler.",
       "steps": [{ "type": ";hr " }],
       "expect": { "draft": { "text": "Review this change for correctness. " }, "requests": [] }
+    },
+    {
+      "id": "non-ascii-shortcut-name",
+      "tags": ["project-config"],
+      "projectTrust": "approved",
+      "note": "A shortcut whose name is not ASCII expands like any other. OpenCode left `;привіт` literal: it counted only ASCII keys as typed, so the name was never a fully typed span.",
+      "steps": [{ "type": ";привіт " }],
+      "expect": { "draft": { "text": "harness greeting " }, "requests": [] }
     }
   ]
 }
