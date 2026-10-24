@@ -250,6 +250,24 @@ class FunctionalNotLoaded(unittest.TestCase):
             self.assertIn('murmo plugin add', verdict['reason'])
             self.assertEqual(run.launches, 0)
 
+    def test_workspace_opencode_integration_links_murmo_where_setup_does(self):
+        """Catches workspace runs registering Murmo through cli.json while
+        `murmo setup` links it into `<config>/plugins/murmo`: the workspace
+        runs then tested a load path no user has."""
+        from murmo_harness import integrations
+
+        opencode = integrations.load('opencode')
+        with scratch() as folder:
+            config = folder / 'opencode'
+            profile = type('Profile', (), {'opencode_config_dir': config})()
+            host = type('Host', (), {'name': 'opencode'})()
+            opencode.prepare(host, profile)
+            opencode.prepare(host, profile)  # a second prepare replaces its own link
+            link = config / 'plugins' / 'murmo'
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(link.resolve(), (paths.REPO / 'packages' / 'adapters' / 'opencode').resolve())
+            self.assertFalse((config / 'cli.json').exists())
+
     def test_valued_integration_feature_meets_a_valued_requirement(self):
         """Catches every autocorrect case skipping on the packed product: the
         integration says `plugin.autocorrect=release` and cases require exactly
