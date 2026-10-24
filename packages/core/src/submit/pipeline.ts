@@ -75,10 +75,8 @@ export async function runPipeline(
   const anyGuard = guards.length > 0;
   const guardsOnly = options.guardsOnly === true;
 
-  const block = (reason: string): SubmitOutcome => {
-    hooks.notice(reason);
-    return blocked(reason);
-  };
+  // The session announces every refusal once, wherever it came from (`Session#announce`).
+  const block = blocked;
 
   // 1. Native popup or dialog (defensive; adapters should not get here).
   const state = hooks.state();

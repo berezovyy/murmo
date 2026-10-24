@@ -629,3 +629,40 @@ test('an edit an earlier key started that cannot land in time does not hold the 
     ['go'],
   );
 });
+
+test('every refusal reaches the status line once, whoever refused', async () => {
+  // Hosts show refusals only through the core's status line. Refusals the core
+  // returned without announcing (native UI open, a core failure) left Pi and
+  // OpenCode silent: Enter did nothing and nothing said why.
+  const notices = (h: { session: { stats(): { notices: readonly string[] } } | null }, text: string) =>
+    (h.session?.stats().notices ?? []).filter((n) => n === text).length;
+
+  const ui = await createHarness({ draft: { text: 'hi' } });
+  await ui.driver.state({ popup: { owner: 'completion' }, dialog: false });
+  await ui.driver.submit('send');
+  // Status stays off while the host's own popup is up; it shows once that closes.
+  await ui.driver.state({ popup: null, dialog: false });
+  await ui.driver.settle();
+  assert.match(ui.adapter.status ?? '', /native UI owns submit gesture/);
+  assert.equal(notices(ui, 'native UI owns submit gesture'), 1);
+
+  const guarded = await createHarness({ plugins: [guard], draft: { text: 'fix TODO' } });
+  await guarded.driver.submit('send');
+  await guarded.driver.settle();
+  assert.match(guarded.adapter.status ?? '', /The prompt still has a TODO/);
+  assert.equal(notices(guarded, 'The prompt still has a TODO'), 1);
+
+  // A core failure mid-pipeline (here the menu surface throws) fails closed and says so.
+  const menu = {
+    visibleAt: (): boolean => {
+      throw new Error('menu state unreadable');
+    },
+    dismiss: () => {},
+  };
+  const broken = await createHarness({ draft: { text: 'hi' }, menu });
+  const outcome = await broken.driver.submit('send');
+  assert.equal(outcome.action, 'block');
+  assert.equal(broken.adapter.requests.length, 0);
+  await broken.driver.settle();
+  assert.match(broken.adapter.status ?? '', /menu state unreadable/);
+});

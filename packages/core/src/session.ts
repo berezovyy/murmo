@@ -211,6 +211,7 @@ export function disabledNotice(name: string, why: 'slow' | 'failed'): string {
     : `${name} is off for this session after an error.`;
 }
 
+const NOT_READY = 'session is not ready';
 export const TRANSPORT_UNAVAILABLE = 'transport unavailable';
 
 /** Opaque session id: stable across plugin reload, unique per CoreSession. */
@@ -995,38 +996,58 @@ class CoreSession implements Session {
   async beforeSubmit(tx: SubmitTransaction): Promise<SubmitOutcome> {
     await this.ready;
     const submit = this.#submit;
-    if (!this.#live || !submit) return { action: 'block', reason: 'session is not ready' };
+    if (!this.#live || !submit) return this.#announce(NOT_READY, tx.draft.version);
     try {
       // Phase 32: a dead helper cannot run a required guard.
       if (this.#executorHealth() === 'down' && this.#plugins.some((p) => p.guard)) {
-        this.#presentation?.notice(TRANSPORT_UNAVAILABLE, 'draft');
-        return { action: 'block', reason: TRANSPORT_UNAVAILABLE };
+        return this.#announce(TRANSPORT_UNAVAILABLE, tx.draft.version);
       }
       // Sends what the keys before this one made; the adapter's snapshot predates their edits.
       const waited = await this.#afterKeyWork();
       const draft = this.#intake?.draft;
       const moved = waited && draft !== undefined && draft.version !== tx.draft.version;
       const current: SubmitTransaction = moved ? { ...tx, draft } : tx;
+      // The review panel is its own announcement.
       const review = this.#review?.intercept(current.draft.version);
       if (review) return review;
       const outcome = await submit.beforeSubmit(current);
-      return moved && outcome.action !== 'block' ? { ...outcome, version: current.draft.version } : outcome;
+      if (outcome.action === 'block') return this.#announce(outcome.reason, current.draft.version);
+      return moved ? { ...outcome, version: current.draft.version } : outcome;
     } catch (error) {
       this.#guard.record(error);
-      return { action: 'block', reason: error instanceof Error ? error.message : String(error) };
+      return this.#announce(error instanceof Error ? error.message : String(error), tx.draft.version);
     }
   }
 
   async finalGuard(input: { text: string; gesture: SubmitGesture }): Promise<SubmitOutcome> {
     await this.ready;
     const submit = this.#submit;
-    if (!this.#live || !submit) return { action: 'block', reason: 'session is not ready' };
+    const version = () => this.#intake?.draft.version ?? 0;
+    if (!this.#live || !submit) return this.#announce(NOT_READY, version());
     try {
-      return await submit.finalGuard(input);
+      const outcome = await submit.finalGuard(input);
+      return outcome.action === 'block' ? this.#announce(outcome.reason, version()) : outcome;
     } catch (error) {
       this.#guard.record(error);
-      return { action: 'block', reason: error instanceof Error ? error.message : String(error) };
+      return this.#announce(error instanceof Error ? error.message : String(error), version());
     }
+  }
+
+  /**
+   * A refused send, said once on the status line: hosts show refusals only
+   * through the core, so every block the session returns passes through here.
+   * Before the session is up, the adapter's status is all there is.
+   */
+  #announce(reason: string, version: number): SubmitOutcome {
+    try {
+      const presentation = this.#presentation;
+      if (presentation) presentation.notice(reason, 'draft');
+      else this.#adapter.showStatus(reason, version);
+    } catch (error) {
+      // A host that cannot show it still gets the refusal.
+      this.#guard.record(error);
+    }
+    return { action: 'block', reason };
   }
 
   replaceInline(rule: RegisteredInline): void {
