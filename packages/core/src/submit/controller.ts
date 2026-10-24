@@ -293,14 +293,14 @@ export class SubmitController implements CommitGate {
 }
 
 export function submitOptions(options: {
-  clock?: Clock;
+  clock: Clock;
   guardPolicy?: 'managed' | 'final-boundary';
   scaleSubmitDeadline?: boolean;
   pressure?: number;
   commitWindowMs?: number;
 }): { clock: Clock; guardPolicy: 'managed' | 'final-boundary'; deadlineMs: number; commitWindowMs: number } {
   return {
-    clock: options.clock ?? frozenClock,
+    clock: options.clock,
     guardPolicy: options.guardPolicy ?? 'managed',
     deadlineMs: submitDeadlineMs({
       scaleByPressure: options.scaleSubmitDeadline === true,
@@ -309,11 +309,3 @@ export function submitOptions(options: {
     commitWindowMs: options.commitWindowMs ?? COMMIT_WINDOW_MS,
   };
 }
-
-/** No timeouts, no window: production sessions pass the executor clock. */
-const frozenClock: Clock = {
-  now: () => 0,
-  wallTimeMs: () => 0,
-  setTimer: () => () => {},
-  sleep: () => new Promise<void>(() => {}),
-};

@@ -107,7 +107,7 @@ export interface SessionOptions {
    * spec list is the order. Missing, duplicate or unknown IDs refuse loading.
    */
   readonly order?: readonly string[];
-  /** Injected time: submit deadlines and the commit window. */
+  /** Submit deadlines, the commit window and the edit rate; default the runner's clock. */
   readonly clock?: Clock;
   /** `final-boundary` refuses a managed-position call (V1-require-final). Default `managed`. */
   readonly guardPolicy?: 'managed' | 'final-boundary';
@@ -287,12 +287,14 @@ class CoreSession implements Session {
   /** Phase 32. */
   #review: ReviewLog | undefined;
   readonly #sessionId: string;
+  readonly #clock: Clock;
 
   constructor(options: SessionOptions) {
     this.#options = options;
     this.#adapter = options.adapter;
     this.#runner = options.runner;
-    this.#sessionId = options.sessionId ?? newSessionId(options.clock);
+    this.#clock = options.clock ?? options.runner.clock;
+    this.#sessionId = options.sessionId ?? newSessionId(this.#clock);
     this.#guard = new FailOpen(() => this.#kill(), options.failureLimit ?? FAILURE_LIMIT);
     this.ready = this.#start();
   }
@@ -385,6 +387,7 @@ class CoreSession implements Session {
     }
     const submitOpts = submitOptions({
       ...this.#options,
+      clock: this.#clock,
       guardPolicy: this.#options.guardPolicy ?? (coverage.block ? 'final-boundary' : 'managed'),
     });
     // Phase 32: review panel for third-party edits. Hosts without ui.review
@@ -797,8 +800,8 @@ class CoreSession implements Session {
   #armPause(change: Change): void {
     this.#cancelPause?.();
     this.#cancelPause = undefined;
-    const clock = this.#runner.clock ?? this.#options.clock;
-    if (!clock || !this.#plugins.some((p) => !p.disabled && p.hooks.has('onPause'))) return;
+    const clock = this.#runner.clock;
+    if (!this.#plugins.some((p) => !p.disabled && p.hooks.has('onPause'))) return;
     const version = change.draft.version;
     const fire = this.#guard.wrap(() => {
       this.#cancelPause = undefined;

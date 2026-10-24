@@ -130,8 +130,12 @@ export type RunnerHealth = 'ok' | 'degraded' | 'down';
 
 export interface HookRunner {
   readonly runtime: RuntimeCapabilities;
-  /** The clock plugins see as `ctx.clock`; the session times the typing pause (`onPause`) on it. */
-  readonly clock?: Clock;
+  /**
+   * The clock plugins see as `ctx.clock`. A session given no clock of its own
+   * times everything on it: the typing pause, submit deadlines, the commit
+   * window and the third-party edit rate.
+   */
+  readonly clock: Clock;
   /** Spec IDs in the host's explicit list, before `load` (duplicate check happens here). */
   ids(): readonly string[];
   /** Loads every plugin, in the session's order. Caps are for manifest negotiation. */

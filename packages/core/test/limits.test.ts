@@ -3,8 +3,16 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LIMITS, type PluginFactory } from '@murmo/api';
 import { createInProcessExecutor } from '@murmo/executor';
-import { createPluginHost } from '../src/index.ts';
-import { canonicalKey, createHarness, type DirectPluginSpec } from '../src/testing/index.ts';
+import { createMemoryStorage, createPluginHost, createSession } from '../src/index.ts';
+import {
+  canonicalKey,
+  createHarness,
+  createManualClock,
+  type DirectPluginSpec,
+  Driver,
+  type Harness,
+  ReferenceAdapter,
+} from '../src/testing/index.ts';
 
 test('129 effects in one result is output-limit and disables the plugin (E4)', async () => {
   const flood: DirectPluginSpec = {
@@ -52,6 +60,37 @@ test('a third-party plugin is capped at 20 applied edits per rolling second (L6,
   await h.driver.fill('status', 'unknown');
   assert.ok(h.adapter.status === null || h.adapter.status.includes('[plugin real-id]'));
   await h.session?.dispose();
+});
+
+test('the edit-rate window slides on the runner clock when the session is given none (Pi, OpenCode)', async () => {
+  // Pi and OpenCode create the session without `clock`. The core once fell
+  // back to a clock stuck at zero there, so the window never slid: a
+  // third-party plugin got 20 edits per session, then every edit was refused.
+  const edit: PluginFactory = () => ({
+    name: 'bang',
+    version: '1',
+    permissions: ['draft:read', 'draft:write'],
+    onChange(change) {
+      if (change.origin === 'plugin') return [];
+      return [{ type: 'edit', edit: { from: 0, to: 0, insert: '!', baseVersion: change.draft.version } }];
+    },
+  });
+  const clock = createManualClock();
+  const adapter = new ReferenceAdapter({ clock });
+  const runner = createPluginHost({
+    specs: [{ id: 'bang', builtin: false, factory: edit }],
+    executor: createInProcessExecutor({ clock }),
+    storage: createMemoryStorage(),
+  });
+  const session = createSession({ adapter, runner, keyBursts: true });
+  const harness: Harness = { clock, adapter, runner, session, driver: new Driver(() => harness, false) };
+  await session.ready;
+  await harness.driver.type('x'.repeat(LIMITS.editsPerSecond + 5));
+  assert.equal(adapter.edits.length, LIMITS.editsPerSecond);
+  await harness.driver.wait(1_100);
+  await harness.driver.type('y');
+  assert.equal(adapter.edits.length, LIMITS.editsPerSecond + 1, 'the 21st edit after a second is accepted');
+  await session.dispose();
 });
 
 test('a third-party edit on a host without attribution is denied with a notice (S1, E3)', async () => {
