@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Map, Value};
 
 use crate::files::{
-    ensure_private_dir, process_alive, read_store_file, remove_stale_temps, write_atomic,
+    ensure_private_dir, process_alive, read_store_file, remove_stale_temps_at, write_atomic,
     BoundedRead, ModeRepairs, FILE_MODE,
 };
 use crate::layout::{check_project_id, check_session_id, StoreLayout};
@@ -712,7 +712,7 @@ fn walk(dir: &Path, at: f64, repairs: &mut ModeRepairs, removed: &mut usize) -> 
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(e),
     };
-    *removed += remove_stale_temps(dir)?;
+    *removed += remove_stale_temps_at(dir, at)?;
     for entry in entries {
         let path = entry.path();
         if entry.file_type()?.is_dir() {
@@ -755,6 +755,23 @@ mod tests {
         assert!(utf16_boundary("😀a", 3.0));
         assert!(!utf16_boundary("😀a", 4.0));
         assert!(!utf16_boundary("a", 0.5));
+    }
+
+    #[test]
+    fn cleanup_ages_temps_by_the_time_it_is_given() {
+        // Cleanup took the real clock for temps while drafts used `now`, so a
+        // test (or the parity check) could not age a live writer's temp.
+        let dir = std::env::temp_dir().join(format!("murmo-drafts-temps-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let temp = crate::files::temp_path(&dir.join("x.draft"), "").unwrap();
+        fs::write(&temp, b"partial").unwrap();
+        let written = crate::now_ms() as f64;
+        assert_eq!(remove_stale_temps_at(&dir, written + 60_000.0).unwrap(), 0, "a live writer's fresh temp stays");
+        assert!(temp.exists());
+        assert_eq!(remove_stale_temps_at(&dir, written + 2.0 * 3_600_000.0).unwrap(), 1, "an hour-old temp goes");
+        assert!(!temp.exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

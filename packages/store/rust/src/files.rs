@@ -190,6 +190,12 @@ pub fn read_store_file(path: &Path, max: u64, repairs: &mut ModeRepairs) -> Boun
 
 /// Removes temps in `dir` whose writer is dead or that are older than an hour.
 pub fn remove_stale_temps(dir: &Path) -> io::Result<usize> {
+    remove_stale_temps_at(dir, crate::now_ms() as f64)
+}
+
+/// `remove_stale_temps` with the time given, in Unix milliseconds: draft
+/// cleanup passes its `now`, as `removeStaleTemps(dir, now)` does in Node.
+pub fn remove_stale_temps_at(dir: &Path, now_ms: f64) -> io::Result<usize> {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(0),
@@ -206,7 +212,13 @@ pub fn remove_stale_temps(dir: &Path) -> io::Result<usize> {
         let stale = !process_alive(pid)
             || fs::symlink_metadata(&path)
                 .and_then(|m| m.modified())
-                .map(|t| SystemTime::now().duration_since(t).unwrap_or_default() > STALE_TEMP)
+                .map(|t| {
+                    let mtime_ms = t
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .map(|d| d.as_secs_f64() * 1000.0)
+                        .unwrap_or(0.0);
+                    now_ms - mtime_ms > STALE_TEMP.as_secs_f64() * 1000.0
+                })
                 .unwrap_or(false);
         if stale {
             let gone = if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
