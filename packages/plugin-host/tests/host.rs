@@ -683,3 +683,69 @@ fn http_mode_removes_its_socket_on_sigterm() {
     assert_eq!(status.code(), Some(128 + libc::SIGTERM), "{status}");
     assert!(!socket.exists(), "SIGTERM left the socket behind");
 }
+
+/// A socket file nobody listens on, as a SIGKILLed helper leaves it, `age` old.
+fn dead_socket(path: &std::path::Path, age: Duration) {
+    drop(std::os::unix::net::UnixListener::bind(path).expect("bind"));
+    set_age(path, age);
+}
+
+fn set_age(path: &std::path::Path, age: Duration) {
+    let then = std::time::SystemTime::now() - age;
+    let secs = then
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as libc::time_t;
+    let times = [libc::timeval {
+        tv_sec: secs,
+        tv_usec: 0,
+    }; 2];
+    let c = std::ffi::CString::new(path.to_str().unwrap()).unwrap();
+    // SAFETY: a valid C path and two timevals.
+    assert_eq!(unsafe { libc::utimes(c.as_ptr(), times.as_ptr()) }, 0);
+}
+
+#[test]
+fn http_mode_removes_sockets_that_killed_helpers_left() {
+    // A SIGKILLed helper cannot remove its socket, so every crash left one
+    // more file, in /tmp when $TMPDIR is too deep. The next helper removes
+    // the ones nobody listens on, and never a live or just-created one.
+    let t = ConfigHome::new("stale");
+    let old = Duration::from_secs(60);
+    let stale = t.0.join("murmo-0000dead.sock");
+    dead_socket(&stale, old);
+    let starting = t.0.join("murmo-0000f2e5.sock");
+    dead_socket(&starting, Duration::ZERO);
+    let other = t.0.join("other-00000000.sock");
+    dead_socket(&other, old);
+    let live_path = t.0.join("murmo-0000a11e.sock");
+    let live = std::os::unix::net::UnixListener::bind(&live_path).expect("bind");
+    set_age(&live_path, old);
+    let socket = t.0.join("murmo-12345678.sock");
+    let mut child = Command::new(bin())
+        .args(["--http", "--socket", socket.to_str().unwrap()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn helper");
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut line)
+        .expect("ready");
+    let start = Instant::now();
+    while stale.exists() && start.elapsed() < Duration::from_secs(3) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!stale.exists(), "a dead helper's socket stayed");
+    assert!(live_path.exists(), "a live helper's socket was removed");
+    assert!(starting.exists(), "a just-created socket was removed");
+    assert!(
+        other.exists(),
+        "a file that is not a helper socket was removed"
+    );
+    assert!(socket.exists());
+    drop(live);
+    assert_eq!(post(&socket, &json!({"op": "shutdown"}))["status"], "ok");
+    let _ = child.wait();
+}

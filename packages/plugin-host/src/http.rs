@@ -4,12 +4,13 @@
 //! loopback port, while the socket file is the user's own (mode 0600).
 
 use std::ffi::CString;
-use std::io::{Read, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
+use std::io::{ErrorKind, Read, Write};
+use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use serde_json::{json, Value};
 
@@ -44,6 +45,60 @@ fn remove_socket_on_termination(socket: &str) {
     for signal in [libc::SIGTERM, libc::SIGHUP, libc::SIGINT] {
         // SAFETY: installs a handler that only calls async-signal-safe functions.
         unsafe { libc::signal(signal, on_terminate as *const () as libc::sighandler_t) };
+    }
+}
+
+/// A socket this young may belong to a helper between its bind and listen.
+const STALE_AFTER: Duration = Duration::from_secs(2);
+
+/// `murmo-` plus eight hex digits plus `.sock`: the names the Claude adapter
+/// gives its helpers (`packages/adapters/claude/src/helper.ts`).
+fn is_helper_socket_name(name: &str) -> bool {
+    name.strip_prefix("murmo-")
+        .and_then(|rest| rest.strip_suffix(".sock"))
+        .is_some_and(|id| id.len() == 8 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+/// Removes helper sockets in `socket`'s folder that nobody listens on any
+/// more. A SIGKILLed helper cannot unlink its own, so each crash left one more
+/// file, in the shared /tmp when `$TMPDIR` is too deep for `sun_path`. Only the
+/// user's own socket files with a helper's name go, and only when a connect is
+/// refused and they are older than a helper's start-up.
+fn remove_stale_sockets(socket: &Path) {
+    let Some(dir) = socket.parent() else {
+        return;
+    };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    // SAFETY: geteuid(2) has no failure mode.
+    let uid = unsafe { libc::geteuid() };
+    let now = SystemTime::now();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == socket
+            || !entry
+                .file_name()
+                .to_str()
+                .is_some_and(is_helper_socket_name)
+        {
+            continue;
+        }
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        let old = meta
+            .modified()
+            .ok()
+            .and_then(|at| now.duration_since(at).ok())
+            .is_some_and(|age| age >= STALE_AFTER);
+        if !meta.file_type().is_socket() || meta.uid() != uid || !old {
+            continue;
+        }
+        if matches!(UnixStream::connect(&path), Err(e) if e.kind() == ErrorKind::ConnectionRefused)
+        {
+            let _ = std::fs::remove_file(&path);
+        }
     }
 }
 
@@ -193,6 +248,9 @@ pub fn serve(socket: String) {
     };
     println!("{ready}");
     let _ = std::io::Write::flush(&mut std::io::stdout());
+    // After ready, so a full /tmp never delays the session's first request.
+    let own = std::path::PathBuf::from(&socket);
+    std::thread::spawn(move || remove_stale_sockets(&own));
 
     let u_sup = supervisor.clone();
     let u_serial = serial.clone();
