@@ -12,6 +12,7 @@ import type {
   ConfigRow,
   FillResult,
   FsBytes,
+  HostServices,
   PromptBox,
   PromptChangeInput,
   PromptEditInput,
@@ -295,6 +296,24 @@ export function classicNext(fake: FakeClaude): (event: ClassicSubmitInput) => Cl
   return (event) => {
     fake.sent.push(event.prompt);
     return {};
+  };
+}
+
+/** `bootPacked` services with real timers and no helper process. */
+export function liveServices(): HostServices {
+  return {
+    after(ms, callback) {
+      const id = setTimeout(callback, ms);
+      return { cancel: () => clearTimeout(id) };
+    },
+    spawn() {
+      return {
+        async *[Symbol.asyncIterator]() {},
+      };
+    },
+    async fetch() {
+      return { text: JSON.stringify({ status: 'error', error: 'no helper' }) };
+    },
   };
 }
 

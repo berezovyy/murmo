@@ -1,0 +1,65 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. Claude Code 2.1.306 never showed the ; menu (with 0, 2 and 3 shortcuts) while Pi's worked in the same home: typed keys reached the core as untyped resyncs, so the menu never saw a typed ;. Rows are read off Claude's native completion list (harness/murmo_harness/validation/integration.py claude_menu_rows), so the cases are Claude's own",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["menu", "shortcuts"],
+    "requires": ["host=claude", "host.project-config"],
+    "project": "hosts/projects/shortcuts"
+  },
+  "cases": [
+    {
+      "id": "claude-semicolon-shows-rows",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Typing ; at a word start opens the menu with every shortcut (phase 16).",
+      "steps": [{ "type": ";" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": ";" }, "requests": [], "ui": { "menu": [";hp"] } }
+    },
+    {
+      "id": "claude-unmatched-query-shows-none",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "A query that matches nothing shows no rows, not the rows of the key before.",
+      "steps": [{ "type": ";zz" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": ";zz" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "claude-tab-picks-row",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Tab inserts the selected row's expansion in place of the typed ;query.",
+      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Tab" }],
+      "expect": { "draft": { "text": "harness project shortcut" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "claude-down-tab-picks-row",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Down moves the selection inside Claude's list (not prompt history) and Tab inserts it.",
+      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Down" }, { "key": "Tab" }],
+      "expect": { "draft": { "text": "harness project shortcut" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "claude-enter-never-sends",
+      "tags": ["menu", "menu-enter"],
+      "projectTrust": "approved",
+      "note": "Enter on a row Claude inserts itself closes the menu and keeps the draft; the raw ;h is never sent (fixtures/menu/enter.json, Claude profile).",
+      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";h" }, "requests": [], "ui": { "menu": null } }
+    },
+    {
+      "id": "claude-escape-closes",
+      "tags": ["menu"],
+      "projectTrust": "approved",
+      "note": "Escape closes the list and leaves the typed ;h.",
+      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Escape" }],
+      "expect": { "draft": { "text": ";h" }, "requests": [], "ui": { "menu": null } }
+    }
+  ]
+}

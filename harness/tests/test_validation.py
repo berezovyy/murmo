@@ -332,3 +332,34 @@ class PackedLaunchArgv(unittest.TestCase):
             )
             self.assertIn('--no-extensions', argv)
             self.assertEqual(argv[-2:], ['-e', str(entry)])
+
+
+class ClaudeMenuRows(unittest.TestCase):
+    """The `;` menu fixtures read Claude's native list off the screen; a parser
+    that saw rows in the transcript, or none at all, would pass or fail them
+    for the wrong reason."""
+
+    BORDER = '─' * 40
+
+    def screen(self, *above: str) -> str:
+        return '\n'.join([
+            ' ▐▛███▛█   Claude Code v2.1.306',
+            '    ;old   a row the transcript happens to show',
+            '',
+            *above,
+            self.BORDER,
+            '❯ ;h',
+            self.BORDER,
+            '  ⏵⏵ auto mode on (shift+tab to cycle)',
+        ])
+
+    def test_rows_against_the_prompt_box(self):
+        from murmo_harness.validation.integration import claude_menu_rows
+
+        text = self.screen('    ;hp   harness project shortcut', '    ;hq   another one')
+        self.assertEqual(claude_menu_rows(text), [';hp', ';hq'])
+
+    def test_no_list_is_none(self):
+        from murmo_harness.validation.integration import claude_menu_rows
+
+        self.assertIsNone(claude_menu_rows(self.screen()))

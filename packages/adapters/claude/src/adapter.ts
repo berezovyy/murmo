@@ -465,7 +465,8 @@ export class ClaudeAdapter implements Adapter {
     this.#offered.clear();
     for (const item of this.nativeRows()) {
       const edit = item.inlineEdit;
-      if (!edit) continue;
+      // Taking a row replaces Claude's token, so only a row validated for exactly that span may go in.
+      if (!edit || edit.from !== event.start || edit.to !== event.start + event.token.length) continue;
       extra.push({
         text: edit.insert,
         label: displayText(item.label),
@@ -656,9 +657,10 @@ export class ClaudeAdapter implements Adapter {
     const keyed = isKeyedSingle(event, key) && isSingleCodePoint(event.inputText);
     const origin: Origin = result.text !== expected ? 'unknown' : keyed ? 'typed' : 'unknown';
     const deltas: DraftDelta[] = [{ origin, from: event.start, to: event.end, insert: event.inputText }];
-    const next = applyChange(this.#draft, deltas, typing);
-    this.#draft = { ...next, text: result.text, cursor: result.cursor, version: this.#draft.version + 1 };
-    this.#emit(origin, this.#draft, deltas);
+    const before = this.#draft;
+    const next = applyChange(before, deltas, typing);
+    this.#draft = { ...next, text: result.text, cursor: result.cursor, version: before.version + 1 };
+    this.#emit(origin, before, deltas);
   }
 
   #adopt(

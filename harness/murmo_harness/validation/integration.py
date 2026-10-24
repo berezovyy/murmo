@@ -10,6 +10,7 @@ them).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from ..integrations import Integration, IntegrationState, PluginState
@@ -230,4 +231,39 @@ class PackedMurmo(Integration):
         if 'helper unavailable' in text.lower() or 'helper-down' in text.lower():
             status = 'helper unavailable'
         ghost = None
-        return {'ghost': ghost, 'menu': [], 'status': status, 'screen': text[-2000:]}
+        name = host.name if hasattr(host, 'name') else str(host)
+        menu = claude_menu_rows(text) if name == 'claude' else []
+        return {'ghost': ghost, 'menu': menu, 'status': status, 'screen': text[-2000:]}
+
+
+_BORDER = re.compile(r'^─{8,}\s*$')
+_SHORTCUT_ROW = re.compile(r'^\s{2,}(;\S+)(?:\s{2,}.*)?$')
+
+
+def claude_menu_rows(text: str) -> list[str] | None:
+    """Shortcut ids in Claude's native completion list, or None when none shows.
+
+    Claude 2.1.30x draws the list as a block of `  ;name   description` lines
+    right against the prompt box (above it while the prompt sits at the bottom
+    of the screen, below it otherwise), so only rows touching the box count.
+    """
+    lines = text.splitlines()
+    prompt = next((i for i in range(len(lines) - 1, -1, -1) if lines[i].startswith('❯')), None)
+    if prompt is None:
+        return None
+    top = next((i for i in range(prompt - 1, -1, -1) if _BORDER.match(lines[i])), None)
+    bottom = next((i for i in range(prompt + 1, len(lines)) if _BORDER.match(lines[i])), None)
+    above: list[str] = []
+    for i in range(top - 1 if top is not None else -1, -1, -1):
+        row = _SHORTCUT_ROW.match(lines[i])
+        if not row:
+            break
+        above.insert(0, row.group(1))
+    below: list[str] = []
+    for i in range(bottom + 1 if bottom is not None else len(lines), len(lines)):
+        row = _SHORTCUT_ROW.match(lines[i])
+        if not row:
+            break
+        below.append(row.group(1))
+    rows = above or below
+    return rows or None

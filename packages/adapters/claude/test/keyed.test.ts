@@ -9,9 +9,12 @@ import { boot, pasteText, type } from './boot.ts';
 test('typed letters are host-labeled so a draft:read view is unmasked', async () => {
   const { fake, host } = await boot();
   await type(host, fake, 'ab');
-  const draft = host.adapter.getDraft();
-  assert.deepEqual(draft.typedSpans, [[0, 2]]);
-  assert.equal(projectTyped(draft, 'host-labeled').text, 'ab');
+  assert.deepEqual(host.adapter.getDraft().typedSpans, [[0, 2]]);
+  // What plugins see is the core's draft: each key's change must add up from
+  // the draft before it, or the core resyncs it as untyped and masks it all.
+  const draft = host.session?.draft();
+  assert.deepEqual(draft?.typedSpans, [[0, 2]]);
+  assert.equal(draft && projectTyped(draft, 'host-labeled').text, 'ab');
   await host.dispose();
 });
 
