@@ -4,6 +4,7 @@
 
 import type {
   EditBuffer,
+  EditorTraits,
   Extmark,
   Highlight,
   KeypressHandler,
@@ -20,7 +21,7 @@ import type {
   TextareaOptions,
   TextOverlay,
 } from '../src/types.ts';
-import { FOCUSED_EDITOR } from '../src/types.ts';
+import { FOCUSED_EDITOR, TRAITS_CHANGED } from '../src/types.ts';
 
 const wide = (cp: number): boolean =>
   (cp >= 0x1100 && cp <= 0x115f) ||
@@ -75,7 +76,8 @@ export function setHideMeasureText(value: boolean): void {
 export class FakeTextarea implements TextareaEditor {
   plainText: string;
   cursorOffset: number;
-  traits: { owner: string; role: string } = { owner: 'opencode', role: 'prompt' };
+  #traits: EditorTraits = { owner: 'opencode', role: 'prompt' };
+  readonly #traitListeners = new Set<() => void>();
   isDestroyed = false;
   syntaxStyle: SyntaxStyle = new FakeStyle();
   x = 2;
@@ -121,6 +123,24 @@ export class FakeTextarea implements TextareaEditor {
     if (this.measureHidden) {
       (this.editBuffer as { measureText?: unknown }).measureText = undefined;
     }
+  }
+
+  /** Like OpenTUI: setting traits emits `traits-changed`. */
+  get traits(): EditorTraits {
+    return this.#traits;
+  }
+
+  set traits(value: EditorTraits) {
+    this.#traits = value;
+    for (const fn of [...this.#traitListeners]) fn();
+  }
+
+  on(event: string, fn: () => void): void {
+    if (event === TRAITS_CHANGED) this.#traitListeners.add(fn);
+  }
+
+  removeListener(event: string, fn: () => void): void {
+    if (event === TRAITS_CHANGED) this.#traitListeners.delete(fn);
   }
 
   get visualCursor() {
@@ -367,6 +387,12 @@ export class FakeOpenCode {
   inbox: ((event: { inboxID: string; item: { payload: { text: string } } }) => void)[] = [];
   layers: { id: string; run: () => void }[] = [];
   panelOpen = false;
+  /**
+   * Whether OpenCode has mounted and focused its prompt. OpenCode mounts the
+   * prompt only once every TUI plugin's setup has returned, so a plugin
+   * starts with no prompt (`new FakeOpenCode({ promptMounted: false })`).
+   */
+  promptMounted: boolean;
   /** Keys Murmo let through to OpenCode, by name. */
   hostKeys: string[] = [];
   readonly children: unknown[] = [];
@@ -409,13 +435,15 @@ export class FakeOpenCode {
   #resize: Array<(...args: unknown[]) => void> = [];
   #applyKeys = true;
 
-  constructor() {
+  constructor(options: { readonly promptMounted?: boolean } = {}) {
     this.prompt = new FakeTextarea({ initialValue: '' });
+    this.promptMounted = options.promptMounted ?? true;
+    if (!this.promptMounted) this.prompt.traits = {};
     const host = this;
     this.api = {
       renderer: {
         get currentFocusedEditor() {
-          return host.prompt.isDestroyed || host.panelOpen ? null : host.prompt;
+          return host.prompt.isDestroyed || host.panelOpen || !host.promptMounted ? null : host.prompt;
         },
         set currentFocusedEditor(value) {
           void value;
@@ -539,6 +567,16 @@ export class FakeOpenCode {
   focusPrompt(): void {
     this.panelOpen = false;
     for (const fn of this.#focus) fn(this.prompt, null);
+  }
+
+  /**
+   * OpenCode's plugins are set up: the home screen mounts the prompt, focuses
+   * it, and only then marks it as the prompt (one effect after another).
+   */
+  mountPrompt(): void {
+    this.promptMounted = true;
+    this.focusPrompt();
+    this.prompt.traits = { owner: 'opencode', role: 'prompt' };
   }
 
   /** An OpenCode panel (Subagents, command palette) takes focus from the prompt. */

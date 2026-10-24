@@ -54,6 +54,7 @@ import {
   type ParsedKey,
   type PasteEvent,
   type TextareaEditor,
+  TRAITS_CHANGED,
 } from './types.ts';
 
 export interface OpenCodeAdapterOptions {
@@ -144,6 +145,7 @@ export class OpenCodeAdapter implements Adapter {
     opaqueParts: false,
   };
   #probed = false;
+  readonly #promptWaits = new Set<(focused: boolean) => void>();
   #degraded: string | null = null;
   #disposed = false;
   #ownsStatus: boolean;
@@ -186,6 +188,58 @@ export class OpenCodeAdapter implements Adapter {
       },
       options.api,
     );
+  }
+
+  /**
+   * Resolves `true` once OpenCode's prompt has focus, `false` if the adapter
+   * is disposed first. OpenCode mounts the prompt only after every TUI
+   * plugin's setup has returned, so a session started during setup saw no
+   * prompt: its host state read as a dialog, every plugin's `activate` was
+   * dropped as stale and the status stayed hidden until the first key.
+   */
+  whenPrompt(): Promise<boolean> {
+    if (this.#disposed) return Promise.resolve(false);
+    const renderer = this.#api.renderer;
+    if (this.#isPrompt(renderer.currentFocusedEditor)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const stop = this.#watchFocus(() => {
+        if (this.#isPrompt(renderer.currentFocusedEditor)) finish(true);
+      });
+      const finish = (focused: boolean): void => {
+        stop();
+        this.#promptWaits.delete(finish);
+        resolve(focused);
+      };
+      this.#promptWaits.add(finish);
+    });
+  }
+
+  /**
+   * Calls `fn` when focus moves to another editor and when the focused
+   * editor's traits change: OpenCode marks a newly focused textarea as its
+   * prompt only after focusing it.
+   */
+  #watchFocus(fn: () => void): () => void {
+    const renderer = this.#api.renderer;
+    let watched: TextareaEditor | null = null;
+    const watch = (): void => {
+      const focused = renderer.currentFocusedEditor;
+      if (focused === watched) return;
+      watched?.removeListener?.(TRAITS_CHANGED, fn);
+      watched = focused && typeof focused.on === 'function' ? focused : null;
+      watched?.on?.(TRAITS_CHANGED, fn);
+    };
+    const onFocus = (): void => {
+      watch();
+      fn();
+    };
+    renderer.on(FOCUSED_EDITOR, onFocus);
+    watch();
+    return () => {
+      renderer.removeListener(FOCUSED_EDITOR, onFocus);
+      watched?.removeListener?.(TRAITS_CHANGED, fn);
+      watched = null;
+    };
   }
 
   /** Whether this OpenCode lets Murmo edit the prompt (it has `measureText`). Probes once. */
@@ -561,10 +615,10 @@ export class OpenCodeAdapter implements Adapter {
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
+    for (const finish of [...this.#promptWaits]) finish(false);
     for (const off of this.#unsub) off();
     this.#unsub.length = 0;
     const renderer = this.#api.renderer;
-    renderer.removeListener(FOCUSED_EDITOR, this.#onFocus);
     renderer.removeListener('resize', this.#onResize);
     renderer.keyInput.removeListener('keypress', this.#onKeypress);
     renderer.keyInput.removeListener('paste', this.#onPaste);
@@ -593,7 +647,7 @@ export class OpenCodeAdapter implements Adapter {
 
   #listen(): void {
     const renderer = this.#api.renderer;
-    renderer.on(FOCUSED_EDITOR, this.#onFocus);
+    this.#unsub.push(this.#watchFocus(this.#onFocus));
     renderer.on('resize', this.#onResize);
     renderer.keyInput.prependListener('keypress', this.#onKeypress);
     renderer.keyInput.prependListener('paste', this.#onPaste);

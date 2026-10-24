@@ -98,6 +98,9 @@ export interface TextareaEditor {
   removeHighlightsByRef(ref: number): void;
   getLineHighlights(line: number): readonly Highlight[];
   destroy(): void;
+  /** OpenTUI renderables are event emitters; the textarea emits `traits-changed`. */
+  on?(event: typeof TRAITS_CHANGED, fn: () => void): void;
+  removeListener?(event: typeof TRAITS_CHANGED, fn: () => void): void;
 }
 
 /**
@@ -251,6 +254,12 @@ export interface OpenTuiCore {
 }
 
 export const FOCUSED_EDITOR = 'focused_editor';
+/**
+ * OpenCode focuses a new prompt first and gives it its traits (owner
+ * `opencode`, role `prompt`) an effect later, so the focus event alone
+ * cannot tell that the prompt arrived.
+ */
+export const TRAITS_CHANGED = 'traits-changed';
 
 export const MURMO_HIGHLIGHT_REF = 65533;
 export const MURMO_INLINE_HIGHLIGHT_REF = 65532;
