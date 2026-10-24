@@ -17,9 +17,9 @@
       "id": "claude-semicolon-shows-rows",
       "tags": ["menu"],
       "projectTrust": "approved",
-      "note": "Typing ; at a word start opens the menu with every shortcut (phase 16).",
-      "steps": [{ "type": ";" }, { "waitMs": 500 }],
-      "expect": { "draft": { "text": ";" }, "requests": [], "ui": { "menu": [";hp"] } }
+      "note": "Typing ; at a word start opens the menu and the query filters it (phase 16). Setup's starter murmo.toml adds its own shortcuts, so the query names the project one.",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }],
+      "expect": { "draft": { "text": ";hp" }, "requests": [], "ui": { "menu": [";hp"] } }
     },
     {
       "id": "claude-unmatched-query-shows-none",
@@ -34,7 +34,7 @@
       "tags": ["menu"],
       "projectTrust": "approved",
       "note": "Tab inserts the selected row's expansion in place of the typed ;query.",
-      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Tab" }],
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Tab" }],
       "expect": { "draft": { "text": "harness project shortcut" }, "requests": [], "ui": { "menu": null } }
     },
     {
@@ -42,24 +42,24 @@
       "tags": ["menu"],
       "projectTrust": "approved",
       "note": "Down moves the selection inside Claude's list (not prompt history) and Tab inserts it.",
-      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Down" }, { "key": "Tab" }],
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Down" }, { "key": "Tab" }],
       "expect": { "draft": { "text": "harness project shortcut" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "claude-enter-never-sends",
       "tags": ["menu", "menu-enter"],
       "projectTrust": "approved",
-      "note": "Enter on a row Claude inserts itself closes the menu and keeps the draft; the raw ;h is never sent (fixtures/menu/enter.json, Claude profile).",
-      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Enter" }],
-      "expect": { "draft": { "text": ";h" }, "requests": [], "ui": { "menu": null } }
+      "note": "Enter on a row Claude inserts itself closes the menu and keeps the draft; the raw ;hp is never sent (fixtures/menu/enter.json, Claude profile).",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Enter" }],
+      "expect": { "draft": { "text": ";hp" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "claude-escape-closes",
       "tags": ["menu"],
       "projectTrust": "approved",
-      "note": "Escape closes the list and leaves the typed ;h.",
-      "steps": [{ "type": ";h" }, { "waitMs": 500 }, { "key": "Escape" }],
-      "expect": { "draft": { "text": ";h" }, "requests": [], "ui": { "menu": null } }
+      "note": "Escape closes the list and leaves the typed ;hp.",
+      "steps": [{ "type": ";hp" }, { "waitMs": 500 }, { "key": "Escape" }],
+      "expect": { "draft": { "text": ";hp" }, "requests": [], "ui": { "menu": null } }
     }
   ]
 }
