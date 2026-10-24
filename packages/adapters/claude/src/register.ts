@@ -194,7 +194,8 @@ export function register(on: ClaudeRegister): void {
   on('ui.render', { component: 'PromptHint' }, async (_rt, event: RenderEvent, next) => {
     if (!host) return next(event);
     host.adapter.hint(event.props);
-    host.adapter.measureHint(event.props.hint);
+    const columns = event.viewport?.columns;
+    host.adapter.measureHint(event.props.hint, typeof columns === 'number' && columns > 0 ? columns : undefined);
     const tail = host.adapter.statusLine();
     return next({ ...event, props: { ...event.props, ...(tail ? { tail } : {}) } });
   });

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { installTestPolicy } from '@murmo/plugin-autocorrect';
 import { debugHost, register, resetHost } from '../src/register.ts';
+import { HELPER_FALLBACK_NOTICE } from '../src/session.ts';
 import { CLASSIC_GUARD_TIMEOUT_MS, type PromptEditInput } from '../src/types.ts';
-import { boot } from './boot.ts';
 import { FakeClaude, type NativeApply, submitNext, typeChars } from './fake-runtime.ts';
 
 test('register hooks session.start, prompt.edit, classic guard and autocomplete', () => {
@@ -75,7 +75,7 @@ test('the prompt hint tail says murmo is on and what it loaded, until the first 
   assert.ok(host);
   // The fake has no helper, so the fallback comes first; at 120 columns the
   // hint row has room for it whole and not for the second line.
-  const fallback = 'project shortcuts off: the Murmo helper is missing from this install (murmo doctor)';
+  const fallback = HELPER_FALLBACK_NOTICE;
   assert.deepEqual(host.notices, [fallback, 'murmo on · 1 shortcut · autocorrect off']);
   assert.equal(await tail(), fallback);
   await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'hello');
@@ -111,15 +111,51 @@ test('a status change asks Claude to redraw the prompt hint (real-host bug)', as
   resetHost();
 });
 
-test('the tail keeps the trust notice whole beside a long host hint (real-host bug)', async () => {
-  // On the auto-mode footer Claude cut the untrusted-project notice before the
-  // command: `.murmo.toml: 1 shortcut stays off … run "murmo tr…`.
-  const { host } = await boot();
+test('the tail keeps only whole rows beside the parts of the row Claude draws (real-host bug)', async () => {
+  // Claude 2.1.306 at 120 columns in auto mode drew
+  // `  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents · murmo on · 5 shortcut…  ◐ medium · /effort`:
+  // the hint prop is only `(shift+tab to cycle) · ← for agents`, and the width
+  // was a fixed 120, so a second row was budgeted and then cut mid-word.
+  resetHost();
+  const fake = new FakeClaude();
+  register(fake.on);
+  const start = fake.hooks.get('session.start')?.[0]?.handler as (
+    $: unknown,
+    event: unknown,
+    next: (event: unknown) => unknown,
+  ) => Promise<unknown>;
+  await start(fake.$, {}, (event) => event);
+  const render = fake.hooks
+    .get('ui.render')
+    ?.find((h) => (h.options as { component?: string } | undefined)?.component === 'PromptHint')?.handler as (
+    $: unknown,
+    event: unknown,
+    next: (event: unknown) => unknown,
+  ) => Promise<{ props: { tail?: string } }>;
+  const host = debugHost();
+  assert.ok(host);
   const trust = '.murmo.toml has 1 shortcut. Run "murmo trust" to review.';
-  host.adapter.showStatus(`${trust} | murmo on · 3 shortcuts · autocorrect off`, host.adapter.getDraft().version);
-  host.adapter.measureHint('⏵⏵ auto mode on (shift+tab to cycle)');
-  assert.equal(host.adapter.statusLine(), trust);
-  host.adapter.measureHint('! for shell mode');
-  assert.equal(host.adapter.statusLine(), `${trust} | murmo on · 3 shortcuts · autocorrect off`);
-  await host.dispose();
+  const second = 'murmo on · 3 shortcuts · autocorrect off';
+  host.adapter.notices.length = 0;
+  host.adapter.showStatus(`${trust} | ${second}`, host.adapter.getDraft().version);
+  const tail = async (hint: string, columns?: number) =>
+    (
+      await render(
+        fake.$,
+        { component: 'PromptHint', ...(columns ? { viewport: { columns, rows: 40 } } : {}), props: { hint } },
+        (e) => e,
+      )
+    ).props.tail;
+  assert.equal(await tail('(shift+tab to cycle) · ← for agents', 120), trust, 'no second row to cut');
+  assert.equal(
+    await tail('(shift+tab to cycle) · ← for agents', 200),
+    `${trust} | ${second}`,
+    'a wide terminal has room',
+  );
+  assert.equal(await tail('? for shortcuts', 80), trust, 'the first row stays whole; Claude ends it with …');
+  assert.equal(await tail('? for shortcuts'), trust, 'no viewport: 120 columns');
+  // The live case: the fallback and the summary, 82 columns, once budgeted as fitting.
+  host.adapter.showStatus(`${HELPER_FALLBACK_NOTICE} | ${second}`, host.adapter.getDraft().version);
+  assert.equal(await tail('(shift+tab to cycle) · ← for agents', 120), HELPER_FALLBACK_NOTICE);
+  resetHost();
 });

@@ -34,10 +34,18 @@ import type {
   SubmitOutcome,
   Unsubscribe,
 } from '@murmo/api/adapter';
-import { BoundaryBook, fitRows, STATUS_SEPARATOR } from '@murmo/core';
+import { BoundaryBook, STATUS_SEPARATOR } from '@murmo/core';
 import { applyChange, type TypingRules } from '@murmo/provenance';
 import { displayText, isSingleCodePoint } from '@murmo/text';
-import { claudeCaps, disableInline, HINT_ROW_COLUMNS } from './caps.ts';
+import {
+  claudeCaps,
+  disableInline,
+  HINT_INDENT_COLUMNS,
+  HINT_ROW_COLUMNS,
+  MODE_CYCLE_HINT,
+  MODE_LABEL_COLUMNS,
+  RIGHT_PILL_COLUMNS,
+} from './caps.ts';
 import { canonicalKey, isKeyedSingle } from './keys.ts';
 import type {
   AutocompleteInput,
@@ -359,12 +367,22 @@ export class ClaudeAdapter implements Adapter {
 
   /**
    * The PromptHint tail: the adapter's own notices, then the core's status
-   * rows, as many whole rows as fit beside Claude's hint (`measureHint`). A
-   * cut row once hid the command it named (`run "murmo tr…"`).
+   * rows. The first row always, whole: where it is too long Claude cuts it at
+   * the row's end with an ellipsis. After it only whole rows that fit beside
+   * Claude's own parts of the row (`measureHint`); Claude cut a second row
+   * mid-word (`murmo on · 5 shortcut…`).
    */
   statusLine(): string {
     const rows = [...this.notices, ...(this.#status ? displayText(this.#status).split(STATUS_SEPARATOR) : [])];
-    return fitRows(rows, this.caps.ui.statusMaxLength);
+    const room = this.caps.ui.statusMaxLength;
+    let line = '';
+    for (const row of rows) {
+      if (!row) continue;
+      if (!line) line = row;
+      else if (line.length + STATUS_SEPARATOR.length + row.length <= room) line += STATUS_SEPARATOR + row;
+      else break;
+    }
+    return line;
   }
 
   decorations(): PromptDecoration[] {
@@ -406,9 +424,17 @@ export class ClaudeAdapter implements Adapter {
     }
   }
 
-  /** What the host's own hint (`auto mode on (shift+tab to cycle)`, `! for shell mode`) leaves of the row for the tail. */
-  measureHint(hint: string): void {
-    const room = Math.max(24, HINT_ROW_COLUMNS - hint.length - HINT_SEPARATOR.length);
+  /**
+   * What Claude's row leaves for the tail at `columns` (the render's viewport):
+   * the hint (`(shift+tab to cycle) · ← for agents`, `? for shortcuts`, `! for
+   * shell mode`) and the parts its props don't carry (`caps.ts`). The hint
+   * once counted alone, at a fixed 120 columns, so a second row always went
+   * past the edge in auto mode.
+   */
+  measureHint(hint: string, columns: number = HINT_ROW_COLUMNS): void {
+    const label = hint.startsWith(MODE_CYCLE_HINT) ? MODE_LABEL_COLUMNS : 0;
+    const used = HINT_INDENT_COLUMNS + label + hint.length + HINT_SEPARATOR.length + RIGHT_PILL_COLUMNS;
+    const room = Math.max(0, columns - used);
     this.caps = { ...this.caps, ui: { ...this.caps.ui, statusMaxLength: room } };
   }
 

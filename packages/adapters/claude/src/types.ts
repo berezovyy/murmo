@@ -93,6 +93,8 @@ export interface PromptHintProps {
 
 export interface RenderEvent {
   readonly component?: string;
+  /** The surface's size in cells; absent where none has measured. */
+  readonly viewport?: { readonly columns?: number; readonly rows?: number };
   readonly props: PromptHintProps & Record<string, unknown>;
 }
 

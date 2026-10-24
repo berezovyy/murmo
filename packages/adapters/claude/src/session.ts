@@ -77,7 +77,16 @@ const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 
 /** Bounds on session start: the helper is ready in ~4–10 ms and loads config in a few more. */
 export const HELPER_READY_MS = 1500;
 export const CONFIG_LOAD_MS = 1000;
-export const HELPER_DOWN_NOTICE = 'Murmo helper stopped and did not restart; restart Claude Code (murmo doctor)';
+/**
+ * Status copy fits Claude's hint row: at 120 columns in auto mode about 45
+ * columns are left after Claude's own parts, and Claude cuts the rest, the
+ * command first (the old 83-column fallback lost its `murmo doctor`).
+ */
+export const HELPER_DOWN_NOTICE = 'Murmo helper stopped; restart Claude Code';
+/** The helper is missing, did not start or could not load config: doctor says which. */
+export const HELPER_FALLBACK_NOTICE = 'project shortcuts off: run murmo doctor';
+/** A Claude build whose plugins can't start a process. */
+export const NO_PROCESS_NOTICE = 'project shortcuts off: no process API';
 
 export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
@@ -201,12 +210,12 @@ function helperWatch(adapter: ClaudeAdapter, services: HostServices | undefined)
 async function loadConfig(
   boot: ConfigBoot,
 ): Promise<{ session: LoadedSession; helper?: HelperHandle; stamps?: unknown }> {
-  const fallback = (why: string) => {
-    boot.notices.push(`project shortcuts off: ${why}`);
+  const fallback = (notice: string = HELPER_FALLBACK_NOTICE) => {
+    boot.notices.push(notice);
     return { session: personalOnly(boot.userText) };
   };
-  if (!boot.services) return fallback('this Claude build gives plugins no process API');
-  if (boot.binaries.length === 0) return fallback('the Murmo helper is missing from this install (murmo doctor)');
+  if (!boot.services) return fallback(NO_PROCESS_NOTICE);
+  if (boot.binaries.length === 0) return fallback();
   let helper: HelperHandle;
   try {
     helper = await superviseHelper(
@@ -217,8 +226,8 @@ async function loadConfig(
       HELPER_READY_MS,
       boot.watch,
     );
-  } catch (error) {
-    return fallback(`the Murmo helper did not start (${error instanceof Error ? error.message : String(error)})`);
+  } catch {
+    return fallback();
   }
   try {
     const reply = await within(
@@ -228,16 +237,10 @@ async function loadConfig(
       helper.transport().request({ op: 'config.load', cwd: boot.cwd }),
     );
     const session = reply.status === 'ok' ? sessionFromJson(reply.session) : undefined;
-    if (!session) {
-      const why = typeof reply.error === 'string' ? reply.error : 'unreadable reply';
-      return { ...fallback(`the Murmo helper could not load config (${why})`), helper };
-    }
+    if (!session) return { ...fallback(), helper };
     return { session, helper, stamps: reply.stamps };
-  } catch (error) {
-    return {
-      ...fallback(`the Murmo helper could not load config (${error instanceof Error ? error.message : String(error)})`),
-      helper,
-    };
+  } catch {
+    return { ...fallback(), helper };
   }
 }
 
