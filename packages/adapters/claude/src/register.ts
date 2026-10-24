@@ -71,6 +71,7 @@ export function register(on: ClaudeRegister): void {
         spawn: (argv) => $.process.spawn({ argv }),
         fetch: (url, init) => $.http.fetch(url, init),
         repaint: () => $.ui.invalidate('ui.render'),
+        suggest: (text) => $.prompt.suggest({ text }),
       };
       const xdgData = await $.env.get('XDG_DATA_HOME');
       const xdgConfig = await $.env.get('XDG_CONFIG_HOME');

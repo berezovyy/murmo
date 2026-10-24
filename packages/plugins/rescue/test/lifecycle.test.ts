@@ -177,6 +177,70 @@ test('no offer where Tab never reaches plugins (Claude routes Tab natively); the
   await h.session?.dispose();
 });
 
+test("where Tab never reaches plugins, the host's own empty-prompt suggestion carries the draft", async () => {
+  // Claude: no Tab for plugins, so the offer never showed after a crash. Its
+  // `$.prompt.suggest` shows the draft dim in the empty box and its Tab takes it.
+  const t = fresh();
+  const store = await t.store;
+  const crashed = identity('claude-crashed');
+  await store.drafts.save(crashed, { text: UNICODE, cursorUTF16: 0, revision: 1, now: MANUAL_EPOCH_MS });
+  const suggested: string[] = [];
+  const h = await withRescue(store, 'claude-live', {
+    caps: { keys: ['space', 'Backspace', 'Escape'] },
+    suggest: (text) => suggested.push(text),
+  });
+  await presentOffer(h);
+  await h.driver.wait(1); // after the hook returns, so the host sees the box empty
+  assert.equal(h.adapter.ghost, null, 'no ghost of its own: the host draws the suggestion');
+  assert.deepEqual(suggested, [UNICODE], 'the draft itself, byte-exact, is what Tab takes');
+
+  // Typing hides the offer (the host drops its suggestion); an empty prompt asks again.
+  await h.driver.type('x');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null);
+  await h.driver.key('Backspace');
+  await presentOffer(h);
+  await h.driver.wait(1);
+  assert.equal(suggested.length, 2);
+
+  // The host's Tab puts the suggestion in the box: the offer is over, and nothing is typed.
+  await h.driver.fill(UNICODE, 'native-menu');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null);
+  assert.equal(h.adapter.getDraft().typedSpans.length, 0, 'restored text is never corrected or expanded');
+  await h.driver.fill('', 'unknown');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null, 'restored once, never offered again');
+  assert.equal(suggested.length, 2);
+  await h.session?.dispose();
+});
+
+test("a send ends a host-suggestion offer: the host's own suggestions may hold Tab after a turn", async () => {
+  // Claude suggests a next prompt after each turn; a lingering "(Tab)" offer would name its Tab.
+  const t = fresh();
+  const store = await t.store;
+  await store.drafts.save(identity('claude-old'), {
+    text: 'old draft',
+    cursorUTF16: 0,
+    revision: 1,
+    now: MANUAL_EPOCH_MS,
+  });
+  const suggested: string[] = [];
+  const h = await withRescue(store, 'claude-send', {
+    caps: { keys: ['space', 'Backspace', 'Escape'] },
+    suggest: (text) => suggested.push(text),
+  });
+  await presentOffer(h);
+  await h.driver.wait(1);
+  await h.driver.fill('something else', 'typed');
+  await h.driver.submit('send');
+  await h.driver.settle();
+  await h.driver.wait(1);
+  await assertNoOffer(h);
+  assert.deepEqual(suggested, ['old draft']);
+  await h.session?.dispose();
+});
+
 test('submit observed and inferred remove the snapshot; unknown marks attempted and is not offered; a block keeps it', async () => {
   const t = fresh();
   const store = await t.store;

@@ -6,6 +6,12 @@
 // adapter wiring) because a hook can't wait on IO. It is shown whenever the
 // prompt is empty, hidden while there is text, and ends only on Tab (restore)
 // or Escape (dismiss).
+//
+// Where Tab never reaches plugins but the host has its own empty-prompt
+// suggestion that Tab takes (Claude's `$.prompt.suggest`), the draft itself is
+// that suggestion and the host restores it. That host shows no Escape to
+// plugins and has suggestions of its own after a turn, so the offer there
+// also ends at the first send.
 
 import type {
   Change,
@@ -59,6 +65,12 @@ export interface RescueOptions {
    * liveness lock and cleans up in the background.
    */
   readonly offer?: DraftDocument;
+  /**
+   * The host's own empty-prompt suggestion, which its Tab puts in the box
+   * (Claude's `$.prompt.suggest`). Used only where Tab doesn't reach plugins.
+   * Called after the hook returns, so the host sees the box already empty.
+   */
+  readonly suggest?: (text: string) => void;
 }
 
 function clockTime(ms: number): string {
@@ -128,13 +140,17 @@ function clearUi(version: number): Effect[] {
 }
 
 /**
- * Tab can restore only where the host routes Tab to plugins and draws the
- * offer's ghost (the claim needs it on screen). Elsewhere the draft is still
- * saved, but an offer that names Tab would be a lie.
+ * How Tab restores here: through this plugin where the host routes Tab to
+ * plugins and draws the offer's ghost (the claim needs it on screen), or
+ * through the host's own suggestion. With neither the draft is still saved,
+ * but an offer that names Tab would be a lie.
  */
-function canOffer(ctx: PluginContext): boolean {
+type OfferRoute = 'ghost' | 'suggest';
+
+function routeOf(ctx: PluginContext, suggest: RescueOptions['suggest']): OfferRoute | undefined {
   const caps = ctx.host.caps;
-  return caps.ghost !== 'none' && caps.keys.includes('Tab');
+  if (caps.ghost !== 'none' && caps.keys.includes('Tab')) return 'ghost';
+  return suggest ? 'suggest' : undefined;
 }
 
 /**
@@ -188,14 +204,25 @@ export function createRescue(options: RescueOptions): Plugin {
   };
 
   const paint = (ctx: PluginContext, version: number): Effect[] | undefined => {
-    if (!snapshot || !canOffer(ctx)) return undefined;
+    const offered = snapshot;
+    const route = offered ? routeOf(ctx, options.suggest) : undefined;
+    if (!offered || !route) return undefined;
     painted = true;
-    return offerEffects(version, snapshot);
+    if (route === 'ghost') return offerEffects(version, offered);
+    ctx.clock.setTimer(() => {
+      if (snapshot === offered && painted) options.suggest?.(offered.text);
+    }, 0);
+    return [{ type: 'status', text: offerLine(offered.header.capturedAt), baseVersion: version }];
   };
   const unpaint = (version: number): Effect[] | undefined => {
     if (!painted) return undefined;
     painted = false;
     return clearUi(version);
+  };
+  /** The offer is over for this session: restored, dismissed, or (host suggestion) a send. */
+  const end = (version: number): Effect[] | undefined => {
+    snapshot = undefined;
+    return unpaint(version);
   };
 
   const keepable = (draft: Draft | undefined): draft is Draft =>
@@ -270,6 +297,10 @@ export function createRescue(options: RescueOptions): Plugin {
     });
   };
 
+  /** After a send the host's own suggestions may take Tab; an offer still naming Tab would mislead. */
+  const sentPastOffer = (ctx: PluginContext): Effect[] | undefined =>
+    snapshot && routeOf(ctx, options.suggest) === 'suggest' ? end(ctx.draft.version) : undefined;
+
   const plugin: Plugin = {
     name: RESCUE_ID,
     version: RESCUE_VERSION,
@@ -287,9 +318,18 @@ export function createRescue(options: RescueOptions): Plugin {
     },
     async onChange(change: Change, ctx: PluginContext) {
       start(ctx);
+      const previous = change.before ?? last;
       last = change.draft;
       const version = change.draft.version;
       if (change.origin === 'plugin' && change.pluginId === RESCUE_ID) snapshot = undefined;
+      // The host took its suggestion: exactly the offered draft, into the empty prompt.
+      else if (
+        snapshot &&
+        routeOf(ctx, options.suggest) === 'suggest' &&
+        previous?.text === '' &&
+        change.draft.text === snapshot.text
+      )
+        snapshot = undefined;
       if (change.draft.text.length === 0) {
         stopIdle();
         scheduleEmpty(ctx);
@@ -337,22 +377,22 @@ export function createRescue(options: RescueOptions): Plugin {
           },
         ];
       }
-      if (key === 'Escape') {
-        snapshot = undefined;
-        return unpaint(ctx.draft.version);
-      }
+      if (key === 'Escape') return end(ctx.draft.version);
     },
-    onSubmitCommitted(event: SubmitCommitted) {
-      if (event.level !== 'observed' && event.level !== 'inferred') return;
+    onSubmitCommitted(event: SubmitCommitted, ctx: PluginContext) {
+      const ended = sentPastOffer(ctx);
+      if (event.level !== 'observed' && event.level !== 'inferred') return ended;
       suppressSave = true;
       stopIdle();
       stopEmpty();
       void enqueue(io, () => drafts.delete(identity));
+      return ended;
     },
-    onSubmitUnresolved(_event: SubmitUnresolved) {
+    onSubmitUnresolved(_event: SubmitUnresolved, ctx: PluginContext) {
       attemptedRevision = last?.version;
       const at = clock?.wallTimeMs();
       void enqueue(io, () => drafts.markAttempted(identity, at));
+      return sentPastOffer(ctx);
     },
     async deactivate() {
       stopIdle();

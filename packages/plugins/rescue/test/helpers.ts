@@ -44,7 +44,13 @@ export function identity(session: string, host: DraftIdentity['host'] = 'fake'):
 export async function withRescue(
   store: Store,
   session: string,
-  options: { host?: DraftIdentity['host']; caps?: CapsPatch; private?: boolean } = {},
+  options: {
+    host?: DraftIdentity['host'];
+    caps?: CapsPatch;
+    private?: boolean;
+    /** The host's own empty-prompt suggestion (Claude's `$.prompt.suggest`). */
+    suggest?: (text: string) => void;
+  } = {},
 ): Promise<Harness> {
   const id = identity(session, options.host ?? 'fake');
   if (options.private) store.privacy.setConfigPrivate(true);
@@ -60,6 +66,7 @@ export async function withRescue(
         identity: id,
         isPrivate: () => store.privacy.isPrivate(),
         ...(offer ? { offer } : {}),
+        ...(options.suggest ? { suggest: options.suggest } : {}),
       }),
     ],
     ...(options.caps ? { caps: options.caps } : {}),

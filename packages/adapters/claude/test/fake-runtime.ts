@@ -82,6 +82,8 @@ export class FakeClaude {
   readonly env: Record<string, string>;
   /** Every `$.ui.invalidate` call: Claude redraws PromptHint only on one. */
   readonly invalidated: string[] = [];
+  /** Every `$.prompt.suggest` text; Claude shows one only in an empty box. */
+  readonly suggested: string[] = [];
   readonly hooks = new Map<string, { options?: object; handler: (...args: never[]) => unknown }[]>();
   hint = 'Esc to clear · ';
   working = false;
@@ -135,6 +137,10 @@ export class FakeClaude {
         async fill(request) {
           self.draft = { text: request.text, cursor: request.text.length };
           return { text: self.draft.text, cursor: self.draft.cursor, isFilled: true } satisfies FillResult;
+        },
+        async suggest(request) {
+          self.suggested.push(request.text);
+          return { isShown: self.draft.text === '' };
         },
       },
       clock: {
@@ -319,6 +325,9 @@ export function liveServices(): HostServices {
       return { text: JSON.stringify({ status: 'error', error: 'no helper' }) };
     },
     repaint() {},
+    async suggest() {
+      return { isShown: false };
+    },
   };
 }
 

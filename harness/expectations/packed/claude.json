@@ -1,0 +1,14 @@
+{
+  "kind": "host-expectations/v1",
+  "host": "claude",
+  "suites": {
+    "rescue/harness.json": {
+      "sigkill-restore": {
+        "note": "Claude Code's own prompt composes a combining mark typed after its letter (stock Claude Code 2.1.306 sends 'é' for typed 'e\\u0301', without Murmo). Murmo saves and restores what the prompt held, byte for byte.",
+        "expect": {
+          "requests": ["👨‍👩‍👧‍👦\n🇺🇸\né\n\n你好"]
+        }
+      }
+    }
+  }
+}

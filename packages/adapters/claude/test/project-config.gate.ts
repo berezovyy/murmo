@@ -71,6 +71,7 @@ function claudeServices(): HostServices & { spawned: string[][]; exits: Promise<
     spawned,
     exits,
     repaint() {},
+    suggest: async () => ({ isShown: false }),
     after: (ms, callback) => {
       const id = setTimeout(callback, ms);
       return { cancel: () => clearTimeout(id) };

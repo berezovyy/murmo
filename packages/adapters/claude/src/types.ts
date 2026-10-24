@@ -101,6 +101,11 @@ export interface FillResult extends PromptBox {
   readonly refusal?: string;
 }
 
+/** `prompt.suggest`: false while the box holds text, a turn runs, or headless. */
+export interface SuggestResult {
+  readonly isShown: boolean;
+}
+
 export interface FsBytes {
   readonly base64: string;
 }
@@ -151,6 +156,8 @@ export interface HostServices {
   fetch(url: string, init: ClaudeFetchInit): Promise<ClaudeFetchResult>;
   /** Draws Murmo's status tail again: Claude keeps a render's answer until its props change. */
   repaint(): void;
+  /** Claude's dim suggestion in the empty prompt, which Tab or → puts in the box. */
+  suggest(text: string): Promise<SuggestResult>;
 }
 
 /** The `$` object Claude injects into every hook. */
@@ -170,6 +177,7 @@ export interface ClaudeRuntime {
       readonly mode?: string;
       readonly decorations?: readonly PromptDecoration[];
     }): Promise<FillResult>;
+    suggest(request: { readonly text: string }): Promise<SuggestResult>;
   };
   readonly clock: {
     after(ms: number, callback: () => void): ClockHandle;

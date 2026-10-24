@@ -135,6 +135,7 @@ function servicesOf(rt: ClaudeRuntime): HostServices {
     spawn: (argv) => rt.process.spawn({ argv }),
     fetch: (url, init) => rt.http.fetch(url, init),
     repaint: () => rt.ui.invalidate('ui.render'),
+    suggest: (text) => rt.prompt.suggest({ text }),
   };
 }
 
@@ -253,7 +254,12 @@ function storeTransport(helper: HelperHandle): StoreTransport {
   };
 }
 
-async function rescueOptions(helper: HelperHandle | undefined, cwd: string, clock: Clock): Promise<RescueOptions> {
+async function rescueOptions(
+  helper: HelperHandle | undefined,
+  cwd: string,
+  clock: Clock,
+  services: HostServices | undefined,
+): Promise<RescueOptions> {
   const session = newDraftSession('claude');
   const memory = {
     drafts: createMemoryDrafts(),
@@ -274,7 +280,14 @@ async function rescueOptions(helper: HelperHandle | undefined, cwd: string, cloc
     'drafts.offer',
     findOffer(drafts, identity, clock.wallTimeMs()),
   ).catch(() => undefined);
-  return { drafts, identity, ...(offer ? { offer } : {}) };
+  // Claude gives plugins no Tab: the offered draft is Claude's own empty-prompt
+  // suggestion, which its Tab puts in the box.
+  const suggest = services
+    ? (text: string) => {
+        services.suggest(text).catch(() => undefined);
+      }
+    : undefined;
+  return { drafts, identity, ...(offer ? { offer } : {}), ...(suggest ? { suggest } : {}) };
 }
 
 interface ConfigFollow {
@@ -442,7 +455,10 @@ function builtinsFromConfig(
   const enabled = specs.filter((spec) => !disabled.has(spec.id));
   const wanted = config.pluginOrder ?? [...DEFAULT_ORDER];
   const order = wanted.filter((id) => enabled.some((spec) => spec.id === id));
-  return { specs: enabled, order, notices: sessionNotices(session, compiled) };
+  // Claude's hint row has room for one of Murmo's lines: a draft waiting to be
+  // restored says Murmo is on better than "murmo on · …", which hid the offer.
+  const hint = rescue.offer === undefined || disabled.has('rescue');
+  return { specs: enabled, order, notices: sessionNotices(session, compiled, { hint }) };
 }
 
 export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost {
@@ -526,7 +542,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       // Built-ins (inline teh→the) run in-process; the helper serves config and third-party plugins.
       const executor: Executor = createInProcessExecutor({ clock });
       const table = payload ? await loadTable(rt, payload) : undefined;
-      const rescue = await rescueOptions(helper, cwd, clock);
+      const rescue = await rescueOptions(helper, cwd, clock, services);
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
         : builtinsFromConfig(booted.session, table, rescue);
@@ -650,7 +666,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
           return isolatedFrom(helper, clock);
         },
       });
-      const rescue = await rescueOptions(helper, input.cwd, clock);
+      const rescue = await rescueOptions(helper, input.cwd, clock, input.services);
       const builtins = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
         : builtinsFromConfig(booted.session, table, rescue);

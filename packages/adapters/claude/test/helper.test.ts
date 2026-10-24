@@ -125,6 +125,7 @@ class FakeHelpers {
       repaint: () => {
         this.repaints++;
       },
+      suggest: async () => ({ isShown: false }),
     };
   }
 
