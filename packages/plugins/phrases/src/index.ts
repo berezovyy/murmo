@@ -17,7 +17,6 @@ export {
   lastLine,
   MAX_PREFIX_WORDS,
   MIN_PREFIX_WORDS,
-  PAUSE_MS,
   prefixCandidates,
   prefixWords,
 } from './gates.ts';

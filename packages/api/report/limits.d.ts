@@ -39,7 +39,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 export declare const DEADLINES: {
     /** `activate`. */
     readonly activateMs: 50;
-    /** `onChange`. */
+    /** `onChange` and `onPause`. */
     readonly changeMs: 100;
     /** `onKey`, after the synchronous claim decision. */
     readonly keyDispatchMs: 10;
@@ -77,6 +77,8 @@ export declare const LIMITS: {
     readonly faultStrikes: 3;
     /** Largest scheduler-lag multiplier applied to `DEADLINES`. */
     readonly budgetScaleMax: 8;
+    /** Milliseconds without a draft change before the core calls `onPause`. */
+    readonly pauseMs: 120;
     /** One project file read. */
     readonly projectFileBytes: 262144;
     /** All project reads of one plugin per session. */

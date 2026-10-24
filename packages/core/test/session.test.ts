@@ -2,7 +2,7 @@
 // a resync that drops typed coverage, and the key-path cost target.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { PluginFactory } from '@murmo/api';
+import { LIMITS, type PluginFactory } from '@murmo/api';
 import autocorrect from '@murmo/api/examples/autocorrect';
 import snippets from '@murmo/api/examples/semicolon-menu';
 import counter from '@murmo/api/examples/status-counter';
@@ -58,6 +58,38 @@ test("clearing one plugin's highlights keeps another's (E21, lesson 72)", async 
   b = null;
   await h.driver.type('c');
   assert.deepEqual(h.adapter.highlight, [[0, 1]]);
+});
+
+test('onPause runs once, after LIMITS.pauseMs without a change, on the latest draft', async () => {
+  // The typing pause belongs to the core: a plugin that waited inside onChange
+  // spent its whole budget waiting (Pi phrases struck itself off).
+  const paused: string[] = [];
+  const pauser: DirectPluginSpec = {
+    id: 'pauser',
+    builtin: true,
+    factory: () => ({
+      name: 'pauser',
+      version: '1',
+      permissions: ['draft:read'],
+      onPause(change, ctx) {
+        paused.push(`${change.draft.text}|${ctx.draft.text}`);
+        return [{ type: 'ghost', text: '!', baseVersion: ctx.draft.version }];
+      },
+    }),
+  };
+  const h = await createHarness({ plugins: [pauser] });
+  await h.driver.type('a');
+  await h.driver.wait(LIMITS.pauseMs - 1);
+  await h.driver.type('b');
+  await h.driver.wait(LIMITS.pauseMs - 1);
+  assert.deepEqual(paused, [], 'typing within the pause restarts it');
+  await h.driver.wait(1);
+  await h.driver.settle();
+  assert.deepEqual(paused, ['ab|ab']);
+  assert.equal(h.adapter.ghost, '!');
+  await h.driver.wait(LIMITS.pauseMs * 10);
+  assert.deepEqual(paused, ['ab|ab'], 'one call per pause');
+  await h.session?.dispose();
 });
 
 test('a ghost bound to an older baseVersion is never shown (E8)', async () => {

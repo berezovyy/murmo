@@ -197,7 +197,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   };
 
   const inputOf = (call: HookCall, ctx: PluginContext): unknown => {
-    if (call.hook === 'onChange') return ctx.change;
+    if (call.hook === 'onChange' || call.hook === 'onPause') return ctx.change;
     return clone(call.input);
   };
 
@@ -305,6 +305,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   return {
     executor: options.executor,
     runtime,
+    clock: options.executor.clock,
 
     ids(): readonly string[] {
       return specs.map((spec) => spec.id);

@@ -70,6 +70,12 @@
       "variants": 13
     },
     {
+      "file": "core/conformance/budgets.json",
+      "owner": "09, 34",
+      "cases": 1,
+      "variants": 1
+    },
+    {
       "file": "core/conformance/containment.json",
       "owner": "09, 10",
       "cases": 1,

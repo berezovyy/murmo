@@ -6,7 +6,6 @@ import type { PhrasesSettings } from './settings.ts';
 
 export const MIN_PREFIX_WORDS = 2;
 export const MAX_PREFIX_WORDS = 10;
-export const PAUSE_MS = 120;
 
 export type GhostRoute = 'ghost' | 'menu' | 'off';
 

@@ -293,6 +293,9 @@ importers:
       '@murmo/plugin-history':
         specifier: workspace:*
         version: link:../plugins/history
+      '@murmo/plugin-phrases':
+        specifier: workspace:*
+        version: link:../plugins/phrases
       '@murmo/plugin-rescue':
         specifier: workspace:*
         version: link:../plugins/rescue

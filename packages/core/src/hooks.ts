@@ -9,6 +9,7 @@ import type {
   Capabilities,
   CapabilityRequirement,
   Change,
+  Clock,
   Draft,
   EffectType,
   HostState,
@@ -108,7 +109,7 @@ export interface HookSnapshot {
   readonly host: { readonly name: string; readonly version: string; readonly caps: Capabilities };
   readonly draft: Draft;
   readonly state: HostState;
-  /** The change behind an `onChange` call. */
+  /** The change behind an `onChange` or `onPause` call. */
   readonly change?: Change;
 }
 
@@ -129,6 +130,8 @@ export type RunnerHealth = 'ok' | 'degraded' | 'down';
 
 export interface HookRunner {
   readonly runtime: RuntimeCapabilities;
+  /** The clock plugins see as `ctx.clock`; the session times the typing pause (`onPause`) on it. */
+  readonly clock?: Clock;
   /** Spec IDs in the host's explicit list, before `load` (duplicate check happens here). */
   ids(): readonly string[];
   /** Loads every plugin, in the session's order. Caps are for manifest negotiation. */

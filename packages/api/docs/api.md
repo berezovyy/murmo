@@ -19,6 +19,7 @@ This page is the normative contract. The TypeScript types in `packages/api/src/`
 |---|---|---|
 | `activate` | nothing | `DEADLINES.activateMs` (50 ms) |
 | `onChange` | `draft:read` or `draft:read:full` | `DEADLINES.changeMs` (100 ms) |
+| `onPause` | `draft:read` or `draft:read:full` | `DEADLINES.changeMs` (100 ms) |
 | `onKey` | a `dispatch` key claim | `DEADLINES.keyDispatchMs` (10 ms) |
 | `onMenuSelect`, `onAction` | its own menu rows or declared `actions` | `DEADLINES.eventMs` (50 ms) |
 | `onBeforeSubmit` | `submit` | `DEADLINES.submitTotalMs` (50 ms) for all plugins of one attempt |
@@ -29,7 +30,7 @@ This page is the normative contract. The TypeScript types in `packages/api/src/`
 
 The table is `HOOKS` in `@murmo/api/adapter`; `routesFor(permissions)` returns the hooks, services and effects a set of granted permissions opens. Every executor must deliver every hook and service in these tables, and `ctx.host.caps.runtime` reports what this executor really routes (`RuntimeCapabilities`).
 
-Budgets are wall-clock and scale with measured scheduler lag, from 1 up to `LIMITS.budgetScaleMax` (8) times. A late result is dropped. `LIMITS.faultStrikes` (3) consecutive typed budget faults in the same hook disable the plugin; a success resets the count, and an untyped error does not strike. Check `ctx.signal.cancelled` before and after every `await`.
+Budgets are wall-clock and scale with measured scheduler lag, from 1 up to `LIMITS.budgetScaleMax` (8) times. A late result is dropped. Time a hook spends awaiting `ctx.clock.sleep` counts against its budget, so never wait for a typing pause inside `onChange`: the core calls `onPause(change, ctx)` once the draft has not changed for `LIMITS.pauseMs` (120 ms), at most once per pause, with the change that started it. The next change starts a new pause and makes a running `onPause` stale. `LIMITS.faultStrikes` (3) consecutive typed budget faults in the same hook disable the plugin; a success resets the count, and an untyped error does not strike. Check `ctx.signal.cancelled` before and after every `await`.
 
 ## Permissions
 
@@ -138,6 +139,7 @@ Every number is an initial default from the prototype, not a calibrated budget. 
 | `LIMITS.maxMemoryMiB` | 128 MiB | Largest `resources.memoryMiB` a manifest may request |
 | `LIMITS.faultStrikes` | 3 | Consecutive budget faults that disable a plugin |
 | `LIMITS.budgetScaleMax` | 8 | Largest scheduler-lag multiplier |
+| `LIMITS.pauseMs` | 120 ms | Time without a draft change before `onPause` |
 | `LIMITS.storageBytes` | 64 KiB | One storage namespace |
 | `LIMITS.storageKeys` | 64 | Keys per namespace |
 | `LIMITS.storageKeyUnits` | 128 | UTF-16 units per key |
@@ -151,7 +153,7 @@ Every number is an initial default from the prototype, not a calibrated budget. 
 | `LIMITS.projectListEntries` | 10,000 | Paths in one listing snapshot |
 | `LIMITS.projectListPage` | 256 | Paths on one listing page |
 | `DEADLINES.activateMs` | 50 ms | `activate` |
-| `DEADLINES.changeMs` | 100 ms | `onChange` |
+| `DEADLINES.changeMs` | 100 ms | `onChange` and `onPause` |
 | `DEADLINES.keyDispatchMs` | 10 ms | `onKey` |
 | `DEADLINES.submitTotalMs` | 50 ms | All `onBeforeSubmit` calls of one attempt |
 | `DEADLINES.eventMs` | 50 ms | Every other hook |

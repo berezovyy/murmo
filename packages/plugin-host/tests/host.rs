@@ -103,6 +103,7 @@ export default () => ({
   permissions: ['draft:read','submit','submit:observe','fs:project-read'],
   activate() {},
   onChange() {},
+  onPause() {},
   onKey() {},
   onMenuSelect() {},
   onAction() {},
@@ -126,6 +127,7 @@ export default () => ({
     for name in [
         "activate",
         "onChange",
+        "onPause",
         "onKey",
         "onMenuSelect",
         "onAction",

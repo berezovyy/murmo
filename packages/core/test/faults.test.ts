@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PluginFactory } from '@murmo/api';
 import { createInProcessExecutor } from '@murmo/executor';
-import { createPluginHost } from '../src/index.ts';
+import { createPluginHost, disabledNotice } from '../src/index.ts';
 import { createHarness, type DirectPluginSpec } from '../src/testing/index.ts';
 
 const idle: PluginFactory = () => ({
@@ -43,6 +43,24 @@ test('one wall-timeout does not disable; three in the same hook do; a success re
   assert.deepEqual(h2.session?.stats().disabled, ['healthy']);
   await h.session?.dispose();
   await h2.session?.dispose();
+});
+
+test('strikes show nothing; the disable they lead to shows one plain notice', async () => {
+  // Pi showed "budget missed (1/3)", "(2/3)" and the third strike twice.
+  const h = await createHarness({ plugins: [{ id: 'healthy', builtin: true, factory: idle }] });
+  const run = h.runner.run.bind(h.runner);
+  h.runner.run = async (call) => {
+    if (call.hook === 'onChange') throw Object.assign(new Error('deadline exceeded'), { code: 'timeout' });
+    return run(call);
+  };
+  await h.driver.type('ab');
+  assert.deepEqual(h.session?.stats().notices, []);
+  await h.driver.type('c');
+  const stats = h.session?.stats();
+  assert.deepEqual(stats?.disabled, ['healthy']);
+  assert.deepEqual(stats?.notices, [disabledNotice('healthy', 'slow')]);
+  assert.match(stats?.plugins[0]?.reason ?? '', /onChange budget failures: deadline exceeded/);
+  await h.session?.dispose();
 });
 
 test('an untyped error is a notice and no strike (E5)', async () => {

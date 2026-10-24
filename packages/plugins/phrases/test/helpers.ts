@@ -48,9 +48,10 @@ export function seed(phrases: readonly (Partial<PhraseRecord> & Pick<PhraseRecor
 export async function withPhrases(
   memory: PhraseStore,
   settings: Readonly<Record<string, unknown>> = { learn: true },
+  runner: 'direct' | 'executor' = 'direct',
 ): Promise<Harness> {
   return createHarness({
-    runner: 'direct',
+    runner,
     plugins: [phrasesPlugin({ memory, identity: { project: PROJECT, host: 'fake', session: 't' } }, settings)],
   });
 }

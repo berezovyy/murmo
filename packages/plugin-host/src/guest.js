@@ -43,6 +43,7 @@ const clock = {
 const HOOKS = [
   'activate',
   'onChange',
+  'onPause',
   'onKey',
   'onMenuSelect',
   'onAction',

@@ -33,7 +33,7 @@ export interface PluginContext {
   /** The current draft; masked to typed spans unless the plugin holds `draft:read:full`. */
   readonly draft: Draft;
   readonly state: HostState;
-  /** The change that caused this call, for `onChange`. */
+  /** The change that caused this call, for `onChange` and `onPause`. */
   readonly change?: Change;
   /** Settings resolved against the manifest schema, copied per call. */
   readonly settings: Readonly<Record<string, unknown>>;
@@ -123,6 +123,14 @@ export interface Plugin {
   activate?(ctx: PluginContext): Async<HookEffects>;
   /** Needs `draft:read` or `draft:read:full`. */
   onChange?(change: Change, ctx: PluginContext): Async<HookEffects>;
+  /**
+   * The user paused typing: the draft has not changed for `LIMITS.pauseMs`
+   * since `change`. Needs `draft:read`. Runs at most once per pause; the next
+   * change starts a new one. Do the work that waits for a pause (ghost text,
+   * lookups) here instead of sleeping inside `onChange`: the budget is the
+   * same `DEADLINES.changeMs`, and the wait itself is not counted.
+   */
+  onPause?(change: Change, ctx: PluginContext): Async<HookEffects>;
   /** Runs after the claim decision for `dispatch` claims; its result can't consume the key. */
   onKey?(key: string, ctx: PluginContext): Async<HookEffects>;
   /** The user picked one of this plugin's menu rows (by opaque `id`). */

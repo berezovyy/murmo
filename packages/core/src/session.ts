@@ -27,6 +27,7 @@ import type {
   SubmitGesture,
   SubmitTransaction,
 } from '@murmo/api';
+import { LIMITS } from '@murmo/api';
 import type {
   Adapter,
   HostCapabilities,
@@ -164,6 +165,13 @@ export type PluginChange =
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
+/** The one notice a plugin the session turned off gets; `murmo doctor` has the details. */
+export function disabledNotice(name: string, why: 'slow' | 'failed'): string {
+  return why === 'slow'
+    ? `${name} is off for this session: it kept running too slowly.`
+    : `${name} is off for this session after an error.`;
+}
+
 export const TRANSPORT_UNAVAILABLE = 'transport unavailable';
 
 /** Opaque session id: stable across plugin reload, unique per CoreSession. */
@@ -242,6 +250,8 @@ class CoreSession implements Session {
   #disposed = false;
   /** First inline typo/shortcut in this session; names the rejection keys once. */
   #firstInlineFix = false;
+  /** Cancels the pending typing-pause timer (`onPause`). */
+  #cancelPause: (() => void) | undefined;
   #disposing: Promise<void> | undefined;
   #killNotice: string | undefined;
   /** Phase 25: one notice per boundary; doctor reads the records. */
@@ -739,6 +749,27 @@ class CoreSession implements Session {
       this.#menu?.render();
       for (const plugin of this.#plugins) this.#schedule(plugin, 'onChange', change, change);
     }
+    const last = accepted[accepted.length - 1];
+    if (last) this.#armPause(last.change);
+  }
+
+  /**
+   * Restarts the typing pause: once the draft has not changed for
+   * `LIMITS.pauseMs`, plugins with `onPause` run against the last change. The
+   * wait is the core's timer, never time inside a hook, so it costs no budget.
+   */
+  #armPause(change: Change): void {
+    this.#cancelPause?.();
+    this.#cancelPause = undefined;
+    const clock = this.#runner.clock ?? this.#options.clock;
+    if (!clock || !this.#plugins.some((p) => !p.disabled && p.hooks.has('onPause'))) return;
+    const version = change.draft.version;
+    const fire = this.#guard.wrap(() => {
+      this.#cancelPause = undefined;
+      if (!this.#live || this.#intake?.draft.version !== version) return;
+      for (const plugin of this.#plugins) this.#schedule(plugin, 'onPause', change, change);
+    }, undefined);
+    this.#cancelPause = clock.setTimer(fire, LIMITS.pauseMs);
   }
 
   #schedule(plugin: PluginEntry, hook: PluginHook, input: unknown, change?: Change): void {
@@ -791,17 +822,18 @@ class CoreSession implements Session {
     const result = this.#faults.record(plugin, hook, error);
     if (result.action === 'ignore') return;
     this.#counters.faults++;
+    // A strike is a count for stats and doctor, not news for the user; only
+    // the disable it may lead to is shown, once.
     if (result.action === 'strike') {
       plugin.strikes[hook] = result.count;
-      this.#presentation?.notice(result.message);
-      if (result.disable) this.#disable(plugin, result.message);
+      if (result.disable) this.#disable(plugin, result.message, 'slow');
       return;
     }
     if (result.action === 'notice' || result.action === 'degrade') {
       this.#presentation?.notice(result.message);
       return;
     }
-    this.#disable(plugin, result.message);
+    this.#disable(plugin, result.message, 'failed');
   }
 
   #executorHealth(): RunnerHealth {
@@ -810,13 +842,14 @@ class CoreSession implements Session {
     return this.#faults.health();
   }
 
-  #disable(plugin: PluginEntry, reason: string): void {
+  /** `reason` is the technical one for stats and doctor; the notice says it plainly. */
+  #disable(plugin: PluginEntry, reason: string, why: 'slow' | 'failed'): void {
     if (plugin.disabled || this.#disposed) return;
     plugin.disabled = true;
     plugin.reason = reason;
     this.#presentation?.forget(plugin.id);
     this.#menu?.forget(plugin.id);
-    this.#presentation?.notice(`${plugin.name} disabled: ${reason}`);
+    this.#presentation?.notice(disabledNotice(plugin.name, why));
     this.#menu?.render();
     this.#track(this.#runner.unload(plugin.id));
   }
@@ -967,6 +1000,8 @@ class CoreSession implements Session {
 
   async #dispose(): Promise<void> {
     this.#disposed = true;
+    this.#cancelPause?.();
+    this.#cancelPause = undefined;
     this.#submit?.dispose();
     this.#intake?.bumpEpoch();
     for (const off of this.#unsubscribe.splice(0)) {

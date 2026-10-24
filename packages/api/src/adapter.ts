@@ -44,6 +44,7 @@ export interface HookRoute {
 export const HOOKS = {
   activate: { requires: [], deadline: 'activateMs' },
   onChange: { requires: ['draft:read'], deadline: 'changeMs' },
+  onPause: { requires: ['draft:read'], deadline: 'changeMs' },
   onKey: { requires: [], deadline: 'keyDispatchMs' },
   onMenuSelect: { requires: [], deadline: 'eventMs' },
   onAction: { requires: [], deadline: 'eventMs' },

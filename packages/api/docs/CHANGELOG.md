@@ -11,6 +11,11 @@ Additive preview companion, not a prompt-API break:
 
 - **`@murmo/api/events`:** events API 0.4-preview (rebased draft 0.3). Own manifest `events` range; preflight refuses a mismatch. `onAgentEvent` hook, `DEADLINES.agentEventMs` (2000 ms).
 - **Event permissions:** `events:read`, `tools:guard`, `tools:rewrite`, `context:write`, `agent:send`, `agent:control`, `messages:rewrite`. Independent of `draft:read`. `tools:rewrite` / `messages:rewrite` / `agent:send` stay explicit and unadvertised in the preview.
+## 2.0-pre.1 (additive, 2026-10-24)
+
+- **`onPause` hook:** `onPause(change, ctx)` runs once the draft has not changed for `LIMITS.pauseMs` (120 ms), at most once per pause, with `DEADLINES.changeMs` and the same `draft:read` gate as `onChange`. The wait for a typing pause moves out of the budgeted hook: a sleep inside `onChange` counts against its budget. Old plugins are unchanged.
+- **`LIMITS.pauseMs`** (120 ms) added.
+
 ## 2.0-pre.1 (2026-10-22)
 
 Third-party plugins. Breaking relative to `2.0-pre.0`:

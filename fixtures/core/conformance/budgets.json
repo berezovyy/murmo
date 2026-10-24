@@ -1,0 +1,31 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "real-host bug: Pi's phrases plugin missed its onChange budget on ordinary typing and disabled itself within one sentence",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "requires": ["plugin.phrases=release"]
+  },
+  "cases": [
+    {
+      "id": "phrases-sentence-no-strike",
+      "note": "Typing a sentence with phrases on, under the release deadlines, records no budget strike and keeps phrases on. The typing pause before a ghost is the core's, not time spent inside onChange.",
+      "plugins": ["phrases"],
+      "steps": [
+        { "type": "hello from pi, this is an ordinary sentence " },
+        { "waitMs": 500 },
+        { "type": "with a few more words" },
+        { "waitMs": 500 }
+      ],
+      "expect": {
+        "stats": { "faults": 0 },
+        "enabled": ["phrases"],
+        "notices": []
+      }
+    }
+  ]
+}

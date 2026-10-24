@@ -64,6 +64,10 @@ What to know from this example:
 
 Return `{type: 'menu', items, baseVersion}` from `onChange`; `items: null` closes your rows. Each row's `id` is yours and comes back unchanged in `onMenuSelect`. You can't name the row's owner: the host shows your real plugin ID. Up and Down move, Tab picks, Escape closes, and Enter with a menu open only closes it, it never sends. In `onMenuSelect`, check that the draft is still the version you computed the menu for before returning an edit.
 
+### Waiting for a typing pause
+
+Ghost text and lookups that should wait until the user stops typing go in `onPause(change, ctx)`, not behind a `ctx.clock.sleep` in `onChange`. The core calls it once the draft has not changed for `LIMITS.pauseMs` (120 ms); the wait costs no budget, and the hook itself gets `DEADLINES.changeMs` like `onChange`. Keep `onChange` for what must follow every key, such as hiding or trimming a ghost the user is typing over.
+
 ### Guards (`todo-guard`)
 
 Set `guard: true` and return `{action: 'block', reason}` from `onBeforeSubmit`. A guard blocks whenever it fails, times out or lacks its permission, so keep it fast: all plugins of one send share `DEADLINES.submitTotalMs` (50 ms). A guard that checks the whole prompt needs `draft:read:full`, because pasted text is masked under `draft:read`. A third-party plugin can't rewrite the prompt at send: a `replace` from it blocks with a diagnostic. If your guard must run after every other host plugin, require `"submit.guardPosition": "final-boundary"`; on hosts where Murmo's guard is `managed`, it is then refused instead of giving weaker protection than you expect.

@@ -30,6 +30,10 @@ export declare const HOOKS: {
         readonly requires: readonly ["draft:read"];
         readonly deadline: 'changeMs';
     };
+    readonly onPause: {
+        readonly requires: readonly ["draft:read"];
+        readonly deadline: 'changeMs';
+    };
     readonly onKey: {
         readonly requires: readonly [];
         readonly deadline: 'keyDispatchMs';

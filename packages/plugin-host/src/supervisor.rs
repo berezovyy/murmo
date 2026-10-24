@@ -528,7 +528,7 @@ impl Supervisor {
                 "projectFileChange": true,
             },
             "hooks": [
-                "activate", "onChange", "onKey", "onMenuSelect", "onAction",
+                "activate", "onChange", "onPause", "onKey", "onMenuSelect", "onAction",
                 "onBeforeSubmit", "onSubmitCommitted", "onSubmitUnresolved",
                 "onProjectFileChange", "deactivate"
             ],

@@ -183,12 +183,13 @@ export function createDirectRunner(options: DirectRunnerOptions): DirectRunner {
     const ctx = context(call, entry);
     if (call.hook === 'activate') return [ctx];
     if (call.hook === 'deactivate') return [];
-    if (call.hook === 'onChange') return [ctx.change, ctx];
+    if (call.hook === 'onChange' || call.hook === 'onPause') return [ctx.change, ctx];
     return [clone(call.input), ctx];
   };
 
   return {
     runtime: { executor: 'in-process', hooks: hookNames, services: ['clock', 'storage'] },
+    clock: options.clock,
 
     ids(): readonly string[] {
       return options.plugins.map((spec) => spec.id);

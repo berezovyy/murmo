@@ -3,7 +3,8 @@
 // undoes (E9).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ghostRoute, PAUSE_MS } from '../src/gates.ts';
+import { LIMITS } from '@murmo/api';
+import { ghostRoute } from '../src/gates.ts';
 import { seed, withPhrases } from './helpers.ts';
 
 const PHRASE = 'update the cache module for tests';
@@ -12,7 +13,7 @@ async function primed() {
   const memory = seed([{ phrase: PHRASE, count: 5, lastAt: Date.now() }]);
   const h = await withPhrases(memory);
   await h.driver.fill('update the ', 'typed');
-  await h.driver.wait(PAUSE_MS);
+  await h.driver.wait(LIMITS.pauseMs);
   await h.driver.settle();
   return h;
 }
@@ -52,7 +53,7 @@ test('Esc hides the ghost; cursor movement does not bring it back', async () => 
   await h.driver.settle();
   assert.equal(h.adapter.ghost, null);
   await h.driver.move(0);
-  await h.driver.wait(PAUSE_MS);
+  await h.driver.wait(LIMITS.pauseMs);
   await h.driver.settle();
   assert.equal(h.adapter.ghost, null);
 });
@@ -62,7 +63,7 @@ test('0 ghosts while a native menu is open', async () => {
   const h = await withPhrases(memory);
   await h.driver.state({ popup: { owner: 'host' } });
   await h.driver.fill('update the ', 'typed');
-  await h.driver.wait(PAUSE_MS);
+  await h.driver.wait(LIMITS.pauseMs);
   await h.driver.settle();
   assert.equal(h.adapter.ghost, null);
 });
@@ -74,6 +75,21 @@ test('typing that matches the ghost slices the remainder locally', async () => {
   await h.driver.settle();
   assert.equal(h.adapter.getDraft().text, 'update the c');
   assert.equal(h.adapter.ghost, 'ache module for tests');
+});
+
+test('typing a sentence under the release deadlines shows the ghost after the pause and records no strike', async () => {
+  // Pi bug: the pause was a sleep inside onChange (120 ms > 100 ms budget), so
+  // three keys in a row struck phrases off within one sentence.
+  const memory = seed([{ phrase: PHRASE, count: 5, lastAt: Date.now() }]);
+  const h = await withPhrases(memory, { learn: true }, 'executor');
+  await h.driver.type('update the ');
+  assert.equal(h.adapter.ghost, null);
+  await h.driver.wait(LIMITS.pauseMs);
+  await h.driver.settle();
+  assert.equal(h.adapter.ghost, 'cache module for tests');
+  const stats = h.session?.stats();
+  assert.equal(stats?.faults, 0);
+  assert.deepEqual(stats?.disabled, []);
 });
 
 test('Codex ghost route is off; Claude falls back to menu rows', () => {

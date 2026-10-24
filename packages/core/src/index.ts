@@ -154,6 +154,7 @@ export {
 } from './review.ts';
 export {
   createSession,
+  disabledNotice,
   KILL_NOTICE,
   newSessionId,
   type PluginActivation,

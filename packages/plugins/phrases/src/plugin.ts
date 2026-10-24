@@ -1,5 +1,6 @@
 // Built-in `phrases` plugin: learn from onSubmitCommitted typed spans, ghost
-// after a pause, Tab accepts, Esc hides, Enter never accepts. Lookup is the
+// after the core's typing pause (`onPause`), Tab accepts, Esc hides, Enter
+// never accepts. Lookup is the
 // only work that may run on a key (E2); learning and rebuilds are idle.
 
 import type {
@@ -15,11 +16,10 @@ import type {
   SubmitCommitted,
 } from '@murmo/api';
 import { learnFromCommitted } from './extract.ts';
-import { type GhostRoute, ghostGates, ghostRoute, PAUSE_MS, prefixCandidates } from './gates.ts';
+import { type GhostRoute, ghostGates, ghostRoute, prefixCandidates } from './gates.ts';
 import { firstGrapheme, makeVisible, sliceMatching, type VisibleGhost } from './ghost.ts';
 import { createMemoryStore, type PhraseStore } from './memory.ts';
 import { emptyMetrics, formatDoctorStats, type PhraseMetrics } from './metrics.ts';
-import { RevisionGate } from './packed.ts';
 import type { RankedPhrase } from './rank.ts';
 import { resolvePhrasesSettings } from './settings.ts';
 
@@ -69,7 +69,6 @@ export interface PhrasesOptions {
   readonly identity?: { readonly project: string; readonly host?: HostName; readonly session?: string };
   readonly isPrivate?: () => boolean | Promise<boolean>;
   readonly rowCells?: number;
-  readonly pauseMs?: number;
   /** Persist learn events (Node log). Called off the key path. */
   readonly persist?: (events: readonly { phrase: string; host: string; project: string; at: number }[]) => void;
 }
@@ -114,16 +113,22 @@ export function createPhrasesPlugin(
   const memory = options.memory ?? createMemoryStore();
   const privateOf = options.isPrivate ?? (() => false);
   const rowCells = options.rowCells ?? DEFAULT_ROW_CELLS;
-  const pauseMs = options.pauseMs ?? PAUSE_MS;
   const project = options.identity?.project ?? '0'.repeat(64);
   const persist = options.persist;
   const io = { current: Promise.resolve() };
-  const revision = new RevisionGate();
 
   let shown: VisibleGhost | null = null;
   let shownRanked: RankedPhrase | null = null;
+  /** Draft version the visible ghost was computed or sliced for. */
+  let shownVersion = -1;
   let escHideText: string | null = null;
   let lastAccepted: string | null = null;
+
+  const hide = (): void => {
+    shown = null;
+    shownRanked = null;
+    shownVersion = -1;
+  };
 
   const pick = (draft: Draft, host: HostName, now: number): { hit: RankedPhrase; prefix: string } | null => {
     for (const prefix of prefixCandidates(draft.text)) {
@@ -147,11 +152,10 @@ export function createPhrasesPlugin(
       if (await privateOf()) return [{ type: 'status', text: PRIVATE_STATUS, baseVersion: ctx.draft.version }];
       return undefined;
     },
-    async onChange(change: Change, ctx: PluginContext) {
+    onChange(change: Change, ctx: PluginContext) {
       const version = change.draft.version;
       const route = ghostRoute(ctx.host.name, settings, ctx.host.caps.ghost);
       const now = ctx.clock.wallTimeMs();
-      const token = revision.invalidate();
 
       const current = shown;
       const insertedGhost =
@@ -165,8 +169,7 @@ export function createPhrasesPlugin(
           memory.metrics.charactersSaved += shown.visible.length;
           lastAccepted = shown.phrase;
         }
-        shown = null;
-        shownRanked = null;
+        hide();
         return clearEffects(version, route);
       }
       if (change.origin === 'undo') lastAccepted = null;
@@ -181,64 +184,60 @@ export function createPhrasesPlugin(
         const sliced = typed && delta && delta.insert === typed ? sliceMatching(shown.visible, typed) : null;
         if (sliced !== null && sliced.length > 0 && route === 'ghost') {
           shown = { ...shown, visible: sliced, suffix: sliced };
+          shownVersion = version;
           return [{ type: 'ghost', text: sliced, baseVersion: version }];
         }
         memory.recordDismiss(shown.phrase, ctx.host.name, project, now);
-        shown = null;
-        shownRanked = null;
+        hide();
       }
 
       if (route === 'off') return undefined;
-      const reason = ghostGates({ draft: change.draft, state: ctx.state, settings, route });
-      if (reason !== 'ok') {
-        if (shown) {
-          shown = null;
-          shownRanked = null;
-          return clearEffects(version, route);
-        }
-        return undefined;
+      if (shown && ghostGates({ draft: change.draft, state: ctx.state, settings, route }) !== 'ok') {
+        hide();
+        return clearEffects(version, route);
       }
-
-      await ctx.clock.sleep(pauseMs, ctx.signal);
-      if (ctx.signal.cancelled || !revision.accepts(token)) {
-        memory.metrics.staleDrops++;
-        return undefined;
+      // A new ghost waits for the typing pause (`onPause`), never inside this hook.
+      return undefined;
+    },
+    onPause(change: Change, ctx: PluginContext) {
+      const route = ghostRoute(ctx.host.name, settings, ctx.host.caps.ghost);
+      if (route === 'off') return undefined;
+      const draft = ctx.draft;
+      // `onChange` already slices a visible ghost as the user types into it.
+      if (shown && shownVersion === change.draft.version) return undefined;
+      if (escHideText !== null && draft.text === escHideText) return undefined;
+      if (ghostGates({ draft, state: ctx.state, settings, route }) !== 'ok') {
+        hide();
+        return clearEffects(draft.version, route);
       }
-      if (escHideText !== null && ctx.draft.text === escHideText) return undefined;
-      if (ghostGates({ draft: ctx.draft, state: ctx.state, settings, route }) !== 'ok') {
-        shown = null;
-        shownRanked = null;
-        return clearEffects(ctx.draft.version, route);
-      }
-      const picked = pick(ctx.draft, ctx.host.name, ctx.clock.wallTimeMs());
+      const picked = pick(draft, ctx.host.name, ctx.clock.wallTimeMs());
       const already =
         picked &&
         (picked.hit.record.phrase === lastAccepted ||
-          ctx.draft.text === picked.hit.record.phrase ||
-          ctx.draft.text.startsWith(`${picked.hit.record.phrase} `));
-      if (!picked || already) {
-        shown = null;
-        shownRanked = null;
-        return clearEffects(ctx.draft.version, route);
+          draft.text === picked.hit.record.phrase ||
+          draft.text.startsWith(`${picked.hit.record.phrase} `));
+      const visible =
+        picked && !already ? makeVisible(picked.hit.record.phrase, picked.prefix, draft.text, rowCells) : null;
+      if (!picked || !visible) {
+        hide();
+        return clearEffects(draft.version, route);
       }
-      const visible = makeVisible(picked.hit.record.phrase, picked.prefix, ctx.draft.text, rowCells);
-      if (!visible) {
-        shown = null;
-        shownRanked = null;
-        return clearEffects(ctx.draft.version, route);
+      if (ctx.signal.cancelled) {
+        memory.metrics.staleDrops++;
+        return undefined;
       }
       shown = visible;
       shownRanked = picked.hit;
+      shownVersion = draft.version;
       memory.metrics.shown++;
-      return showEffects(route, visible, picked.hit, ctx.draft);
+      return showEffects(route, visible, picked.hit, draft);
     },
     onKey(key, ctx) {
       if (key !== 'Escape' || !shown) return;
       escHideText = ctx.draft.text;
       memory.recordDismiss(shown.phrase, ctx.host.name, project, ctx.clock.wallTimeMs());
       const route = ghostRoute(ctx.host.name, settings, ctx.host.caps.ghost);
-      shown = null;
-      shownRanked = null;
+      hide();
       return clearEffects(ctx.draft.version, route);
     },
     onMenuSelect(item: MenuItem, ctx: PluginContext) {
@@ -248,8 +247,7 @@ export function createPhrasesPlugin(
         memory.recordAccept(shownRanked.record.phrase, ctx.host.name, project, ctx.clock.wallTimeMs());
         memory.metrics.charactersSaved += insert.length;
       }
-      shown = null;
-      shownRanked = null;
+      hide();
       return [
         {
           type: 'edit',

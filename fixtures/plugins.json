@@ -73,6 +73,7 @@
     "menu": "The `;` menu (phase 16). Separate plugin ID so it can be turned off alone.",
     "snippets": "Same factory as menu; kept so C5–C7 and older cases keep running.",
     "rescue": "Our draft rescue plugin (phase 17); idle save, Tab restore, size and private gates.",
+    "phrases": "Our phrase ghost plugin (phase 34); learns from sends, shows a ghost after a typing pause.",
     "names": "Our project-name menu (phase 36); on-request, never an automatic edit.",
     "counter": "The status counter sample (\"N chars\"); prototype shared-v2/plugins/counter.ts, an API sample in phase 03.",
     "todo-guard": "The TODO guard API sample: blocks a send that says TODO; the required guard in the submit cases."
