@@ -69,6 +69,14 @@ export type Step =
    * (PTY master closed). Real hosts only: needs `adapter.rescue`.
    */
   | { restart: RestartHow }
+  /**
+   * While the host runs, the user rewrites a config file outside it: `user`
+   * is the personal murmo.toml, `project` the repository's .murmo.toml.
+   * Real hosts only: needs `configFile`.
+   */
+  | { configFile: 'user' | 'project'; text: TextSpec }
+  /** While the host runs, the user approves the project file with `murmo trust`. Needs `trust`. */
+  | { trust: 'approve' }
   /** A checkpoint: these expectations must hold here. */
   | { check: Expect };
 

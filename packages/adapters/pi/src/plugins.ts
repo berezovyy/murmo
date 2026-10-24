@@ -44,6 +44,10 @@ export interface BuiltinOptions {
   readonly cwd?: string;
   /** Tests pass a subset; the extension loads every built-in. */
   readonly ids?: readonly string[];
+  /** The session's current `private` flag, for plugins a config reload keeps; default `config.private`. */
+  readonly isPrivate?: () => boolean;
+  /** Read the shipped English pack (default). A config reload reuses the one already loaded. */
+  readonly loadLanguagePack?: boolean;
 }
 
 export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
@@ -60,13 +64,15 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
   const ids = new Set(options.ids ?? DEFAULT_ORDER);
   const specs: HostPluginSpec[] = [];
 
-  if (ids.has('autocorrect')) {
+  if (ids.has('autocorrect') && options.loadLanguagePack !== false) {
     try {
       const dir = findShippedEnglishDir();
       if (dir) loadBuiltPack(dir);
     } catch (error) {
       notices.push(`English pack: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  if (ids.has('autocorrect')) {
     const settings = {
       enabled: config?.autocorrect === true,
       language: config?.language ?? 'en',
@@ -92,7 +98,7 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
       rescuePlugin({
         drafts: options.drafts,
         identity: rescueIdentity,
-        isPrivate: async () => config?.private === true,
+        isPrivate: async () => (options.isPrivate ? options.isPrivate() : config?.private === true),
         ...(offer ? { offer } : {}),
       }),
     );

@@ -19,11 +19,14 @@ What an integration can do:
 - `capabilities`: the adapter's measured `Capabilities` record, which phase
   11 turns into host profiles.
 - `approve_project`: approve the profile project's `.murmo.toml` the way a
-  user does (`murmo trust`), for cases with `projectTrust: approved`. Only
-  an integration with the `host.project-config` feature can.
+  user does (`murmo trust`), for cases with `projectTrust: approved` and for
+  `trust` steps while the host runs. Only an integration with the
+  `host.project-config` feature can.
 - `install_plugin`: install a fixture plugin folder with `murmo plugin add`
   (and `disable` it when the case says so), for cases with `installed`.
   Only an integration with the `host.installed-plugins` feature can.
+- `write_config`: rewrite the personal `murmo.toml` or the project's
+  `.murmo.toml` while the host runs (`configFile` steps).
 """
 
 from __future__ import annotations
@@ -98,6 +101,9 @@ class Integration:
 
     def install_plugin(self, host, profile, plugin: dict, run=None) -> None:
         raise NotImplementedError(f'integration {self.name!r} cannot install a plugin')
+
+    def write_config(self, host, profile, which: str, text: str) -> None:
+        raise NotImplementedError(f'integration {self.name!r} does not know where Murmo reads its config')
 
 
 STOCK = Integration()

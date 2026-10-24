@@ -3,7 +3,7 @@
 
 import { TextareaRenderable, TextRenderable } from '@opentui/core';
 import { createTuiPlugin } from './plugin.ts';
-import { hostSessionOptions, loadHostSession, prepareRescue } from './session.ts';
+import { followHostSession, hostSessionOptions, prepareRescue } from './session.ts';
 import type { OpenCodeApi } from './types.ts';
 
 const PLUGIN_ID = 'murmo';
@@ -11,17 +11,28 @@ const PLUGIN_ID = 'murmo';
 export default {
   id: PLUGIN_ID,
   async setup(api: OpenCodeApi) {
-    const options = await hostSessionOptions(() => loadHostSession());
+    const { recheck, ...options } = await hostSessionOptions(() => followHostSession());
+    // Rescue outlives config reloads, so it reads the flag of the latest load.
+    let latest = options.config;
+    const follow = recheck
+      ? {
+          recheck: async () => {
+            const next = await recheck();
+            if (next) latest = next.effective;
+            return next;
+          },
+        }
+      : {};
     let rescue: Awaited<ReturnType<typeof prepareRescue>> | undefined;
     try {
-      rescue = await prepareRescue(undefined, undefined, () => options.config?.private === true);
+      rescue = await prepareRescue(undefined, undefined, () => latest?.private === true);
     } catch {
       // Fail open: no file store means drafts stay in memory for this session.
     }
     const handle = await createTuiPlugin(
       api,
       { TextareaRenderable, TextRenderable },
-      { ...options, ...(rescue ? { rescue } : {}) },
+      { ...options, ...follow, ...(rescue ? { rescue } : {}) },
     );
     return () => handle.dispose();
   },

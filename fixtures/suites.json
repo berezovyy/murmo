@@ -131,6 +131,12 @@
       "variants": 2
     },
     {
+      "file": "hosts/live-config.json",
+      "owner": "14, 15, 21, 22, 24",
+      "cases": 2,
+      "variants": 2
+    },
+    {
       "file": "hosts/project-shortcuts.json",
       "owner": "14, 20, 24",
       "cases": 4,

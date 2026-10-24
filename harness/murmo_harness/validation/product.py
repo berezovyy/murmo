@@ -133,11 +133,16 @@ def plugin_argv(product: PackedProduct, args: list[str]) -> list[str]:
     return [node_bin(), str(product.cli()), 'plugin', *args]
 
 
+def user_config(profile) -> Path:
+    """The personal murmo.toml in the profile (`$XDG_CONFIG_HOME/murmo/murmo.toml`)."""
+    return Path(profile.env['XDG_CONFIG_HOME']) / 'murmo' / 'murmo.toml'
+
+
 def enable_autocorrect(profile) -> None:
     """Plugin set (b): user file, not a project file (a project cannot turn it on).
     Only a live `[autocorrect]` header counts: the starter file setup writes
     shows the stanza commented out."""
-    config = Path(profile.env['XDG_CONFIG_HOME']) / 'murmo' / 'murmo.toml'
+    config = user_config(profile)
     config.parent.mkdir(parents=True, exist_ok=True)
     existing = config.read_text() if config.is_file() else ''
     if not re.search(r'^\s*\[autocorrect\]', existing, re.MULTILINE):

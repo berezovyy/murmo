@@ -141,6 +141,42 @@ class FunctionalNotLoaded(unittest.TestCase):
         text = (paths.FIXTURES / approved['project'] / '.murmo.toml').read_text()
         self.assertEqual(recording.calls, [('prepare', False), ('approve', text, True)])
 
+    def test_config_steps_edit_and_approve_while_the_host_runs(self):
+        """Catches a live-config case passing without its edit: the config and
+        trust steps must reach the integration mid-session, in order, with no
+        relaunch, and skip where the integration can't do them."""
+        needs_sandbox()
+
+        class Recording(Integration):
+            name = 'recording'
+            features = frozenset({'configFile', 'trust', 'host.project-config'})
+
+            def __init__(self):
+                self.calls = []
+
+            def write_config(self, host, profile, which, text):
+                self.calls.append(('write', which, text))
+
+            def approve_project(self, host, profile, run=None):
+                self.calls.append(('approve',))
+
+        recording = Recording()
+        case = {
+            'id': 'live',
+            'steps': [{'configFile': 'user', 'text': ['version = 1', '\n']}, {'trust': 'approve'}, *CASE['steps']],
+            'expect': CASE['expect'],
+        }
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                verdict = subject(run, folder / 'a', recording).run_case('t.json', case)
+                launches = run.launches
+                stock = subject(run, folder / 'b').run_case('t.json', case)
+        self.assertEqual(verdict['status'], 'pass', verdict)
+        self.assertEqual(recording.calls, [('write', 'user', 'version = 1\n'), ('approve',)])
+        self.assertEqual(launches, 1)
+        self.assertEqual(stock['status'], 'skip')
+        self.assertIn('configFile', stock['reason'])
+
     def test_restart_relaunches_in_the_same_profile_without_setup_again(self):
         """Catches a restart step that loses the home (where drafts live) or
         reinstalls Murmo, either of which would hide a lost draft."""

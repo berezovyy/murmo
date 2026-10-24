@@ -13,6 +13,8 @@ export { registerPrioritize } from './prioritize.ts';
 export { type ProbeResult, probeCheckpoints, runProbes } from './probes.ts';
 export {
   configLoadNotice,
+  type FollowedSession,
+  followHostSession,
   hostSessionOptions,
   loadHostSession,
   type SessionStartOptions,

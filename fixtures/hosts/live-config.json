@@ -1,0 +1,103 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. Adding a shortcut to murmo.toml while Claude Code 2.1.306 or Pi ran did nothing, and after `murmo trust` Claude still said the project file was unreviewed and left its shortcut literal, all until the agent restarted. Sessions re-check their config files every 2 s while idle, so each case waits 3 s after the edit",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "requires": ["host.project-config"]
+  },
+  "cases": [
+    {
+      "id": "shortcut-added-while-running-expands",
+      "tags": ["live-config"],
+      "note": "A shortcut the user adds to murmo.toml while the agent runs expands without a restart.",
+      "steps": [
+        {
+          "configFile": "user",
+          "text": "version = 1\n[replace]\n\";live\" = 'added while running'\n"
+        },
+        {
+          "waitMs": 3000
+        },
+        {
+          "type": ";live "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "added while running "
+        },
+        "requests": []
+      },
+      "skip": [
+        {
+          "subject": "host:codex",
+          "reason": "murmo codex reads its shortcuts once, when it starts; a live reload there is not part of this fix"
+        }
+      ]
+    },
+    {
+      "id": "trust-while-running-turns-project-shortcuts-on",
+      "tags": ["live-config", "project-config"],
+      "project": "hosts/projects/shortcuts",
+      "projectTrust": "unreviewed",
+      "note": "`murmo trust` while the agent runs: the project shortcut that stayed literal starts working and the review notice goes, without a restart. The notice is checked after a key because OpenCode draws Murmo's footer only once the prompt has input.",
+      "steps": [
+        {
+          "type": ";hp "
+        },
+        {
+          "check": {
+            "draft": {
+              "text": ";hp "
+            },
+            "ui": {
+              "statusIncludes": "murmo trust"
+            }
+          }
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "trust": "approve"
+        },
+        {
+          "waitMs": 3000
+        },
+        {
+          "type": ";hp "
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "harness project shortcut "
+        },
+        "never": {
+          "status": ["murmo trust"]
+        },
+        "requests": []
+      },
+      "skip": [
+        {
+          "subject": "host:codex",
+          "reason": "murmo codex reads its shortcuts once, when it starts; a live reload there is not part of this fix"
+        }
+      ]
+    }
+  ]
+}

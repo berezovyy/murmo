@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { EffectiveConfig } from '@murmo/config';
+import { approveProject, scanProject } from '@murmo/config/node';
 import { testInlinePlugin } from '@murmo/core/testing';
 import { createInProcessExecutor } from '@murmo/executor';
 import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
@@ -13,7 +14,7 @@ import { compileShortcuts, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { OpenCodeAdapter } from '../src/adapter.ts';
 import { DEGRADED_NOTICE } from '../src/capabilities.ts';
-import { hostSessionOptions, loadHostSession, prepareRescue, startSession } from '../src/session.ts';
+import { followHostSession, hostSessionOptions, loadHostSession, prepareRescue, startSession } from '../src/session.ts';
 import { createStatusSurface } from '../src/status.ts';
 import { FakeOpenCode, setHideMeasureText } from './fake-opencode.ts';
 
@@ -267,11 +268,55 @@ test('the footer says murmo is on and that an unreviewed project file needs murm
     const cwd = join(dir, 'proj');
     mkdirSync(join(cwd, '.git'), { recursive: true });
     writeFileSync(join(cwd, '.murmo.toml'), 'version = 1\n[replace]\n";team" = \'Team text\'\n');
-    const { host, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    const { host, started } = await footerOf(await hostSessionOptions(() => followHostSession(cwd, env)));
     assert.equal(
       host.footerText(),
       '.murmo.toml has 1 shortcut. Run "murmo trust" to review.\nmurmo on · 1 shortcut · autocorrect off',
     );
+    await started.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+async function until(what: string, ready: () => boolean): Promise<void> {
+  for (let waited = 0; waited < 3000; waited += 10) {
+    if (ready()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+
+test('a shortcut added to murmo.toml and murmo trust apply without restarting OpenCode (real-host bug)', async () => {
+  // OpenCode read the config once at start: a new shortcut stayed literal and
+  // an approved project kept its shortcuts off and its trust notice on until
+  // the agent restarted.
+  const dir = mkdtempSync(join(tmpdir(), 'murmo-oc-live-'));
+  try {
+    const env = homeEnv(dir);
+    const userFile = join(env.XDG_CONFIG_HOME as string, 'murmo', 'murmo.toml');
+    mkdirSync(join(env.XDG_CONFIG_HOME as string, 'murmo'), { recursive: true });
+    writeFileSync(userFile, 'version = 1\n[replace]\n";hi" = \'Hello\'\n');
+    const cwd = join(dir, 'proj');
+    mkdirSync(join(cwd, '.git'), { recursive: true });
+    writeFileSync(join(cwd, '.murmo.toml'), 'version = 1\n[replace]\n";team" = \'Team text\'\n');
+    const { host, started } = await footerOf({
+      ...(await hostSessionOptions(() => followHostSession(cwd, env))),
+      recheckMs: 10,
+    });
+    const draft = () => started.session.draft()?.text;
+    writeFileSync(userFile, 'version = 1\n[replace]\n";hi" = \'Hello\'\n";new" = \'Added live\'\n');
+    await until('the new shortcut', () => host.footerText().includes('murmo on · 2 shortcuts'));
+    host.type(';new ');
+    await until('the expansion', () => draft() === 'Added live ');
+
+    const store = await openStore({ roots: storeRootsFromEnv(env) });
+    const snapshot = await scanProject(cwd);
+    assert.equal((await approveProject(store, cwd, snapshot?.fingerprint ?? '')).status, 'ok');
+    await until('the trust notice to go', () => !host.footerText().includes('murmo trust'));
+    assert.match(host.footerText(), /^murmo on · 3 shortcuts · autocorrect off$/m);
+    host.type(';team ');
+    await until('the project expansion', () => draft() === 'Added live Team text ');
     await started.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -290,7 +335,7 @@ test('a broken personal murmo.toml is named with its line in the footer (real-ho
     );
     const cwd = join(dir, 'proj');
     mkdirSync(cwd);
-    const { host, started } = await footerOf(await hostSessionOptions(() => loadHostSession(cwd, env)));
+    const { host, started } = await footerOf(await hostSessionOptions(() => followHostSession(cwd, env)));
     assert.equal(
       host.footerText(),
       'murmo.toml:2: unknown key "shortcuts" ignored\nmurmo on · no shortcuts · autocorrect off',

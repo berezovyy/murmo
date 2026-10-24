@@ -8,7 +8,16 @@
 
 import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
-import { type LoadedSession, mergeConfig, resolveShortcuts, sessionFromJson } from '@murmo/config';
+import {
+  changedBuiltins,
+  type LoadedSession,
+  mergeConfig,
+  resolveShortcuts,
+  restartNotice,
+  restartSettings,
+  sessionFromJson,
+  watchConfig,
+} from '@murmo/config';
 import {
   createMemoryProjectFiles,
   createMemoryStorage,
@@ -17,6 +26,8 @@ import {
   type EventBroker,
   type HostPluginSpec,
   type InstalledSelection,
+  type PluginHost,
+  reloadPlugins,
   type Session,
   withInstalled,
 } from '@murmo/core';
@@ -71,6 +82,8 @@ export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly clock?: Clock;
   /** Where installed third-party plugins run; default the session's helper. Tests pass a stand-in. */
   readonly thirdParty?: (clock: Clock) => Executor;
+  /** How often the helper re-checks the config files; default `RECHECK_MS`. */
+  readonly recheckMs?: number;
 }
 
 export interface ClaudeHost {
@@ -171,7 +184,9 @@ function helperWatch(adapter: ClaudeAdapter, services: HostServices | undefined)
  * leaves the personal file in charge with one notice: project shortcuts are
  * off, never loaded unchecked.
  */
-async function loadConfig(boot: ConfigBoot): Promise<{ session: LoadedSession; helper?: HelperHandle }> {
+async function loadConfig(
+  boot: ConfigBoot,
+): Promise<{ session: LoadedSession; helper?: HelperHandle; stamps?: unknown }> {
   const fallback = (why: string) => {
     boot.notices.push(`project shortcuts off: ${why}`);
     return { session: personalOnly(boot.userText) };
@@ -203,7 +218,7 @@ async function loadConfig(boot: ConfigBoot): Promise<{ session: LoadedSession; h
       const why = typeof reply.error === 'string' ? reply.error : 'unreadable reply';
       return { ...fallback(`the Murmo helper could not load config (${why})`), helper };
     }
-    return { session, helper };
+    return { session, helper, stamps: reply.stamps };
   } catch (error) {
     return {
       ...fallback(`the Murmo helper could not load config (${error instanceof Error ? error.message : String(error)})`),
@@ -242,6 +257,64 @@ async function rescueOptions(helper: HelperHandle | undefined, cwd: string, cloc
     findOffer(drafts, identity, clock.wallTimeMs()),
   ).catch(() => undefined);
   return { drafts, identity, ...(offer ? { offer } : {}) };
+}
+
+interface ConfigFollow {
+  readonly services: HostServices;
+  readonly helper: HelperHandle;
+  readonly clock: Clock;
+  readonly cwd: string;
+  /** The load the session started with, and its `config.load` stamps. */
+  readonly started: LoadedSession;
+  readonly stamps: unknown;
+  readonly table: PayloadTable | undefined;
+  readonly rescue: RescueOptions;
+  readonly session: Session;
+  readonly runner: PluginHost;
+  readonly everyMs: number | undefined;
+  /** The new startup notices, without the boot ones. */
+  readonly restate: (notices: readonly string[]) => void;
+}
+
+/**
+ * An edited murmo.toml or .murmo.toml, `murmo trust` or `murmo words` applies
+ * without restarting Claude. Claude's runtime can't stat a file, so the helper
+ * re-checks the last load's files (`config.load` with `since`) while idle; on
+ * a change the built-ins it configures reload and the notices follow. A
+ * helper that is down or restarting just misses a round.
+ */
+function followConfig(follow: ConfigFollow): () => void {
+  let current = follow.started;
+  let stamps = follow.stamps;
+  return watchConfig({
+    ...(follow.everyMs === undefined ? {} : { everyMs: follow.everyMs }),
+    after: (ms, callback) => {
+      const handle = follow.services.after(ms, callback);
+      return () => handle.cancel();
+    },
+    check: async () => {
+      const reply = await within(
+        follow.clock,
+        CONFIG_LOAD_MS,
+        'config.load',
+        follow.helper.transport().request({ op: 'config.load', cwd: follow.cwd, since: stamps }),
+      );
+      if (reply.status !== 'ok' || reply.unchanged === true) return;
+      const next = sessionFromJson(reply.session);
+      if (!next) return;
+      const previous = current;
+      current = next;
+      stamps = reply.stamps;
+      const rebuilt = builtinsFromConfig(next, follow.cwd, follow.table, follow.rescue);
+      const changed = new Set(changedBuiltins(previous.effective, next.effective));
+      await reloadPlugins(
+        follow.session,
+        follow.runner,
+        rebuilt.specs.filter((spec) => changed.has(spec.id)),
+      );
+      follow.restate([...restartNotice(restartSettings(follow.started.effective, next.effective)), ...rebuilt.notices]);
+    },
+  });
 }
 
 function builtinsFromConfig(
@@ -335,6 +408,33 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
   let events: EventBroker | undefined;
   let alive = false;
   let startup: readonly string[] = [];
+  let stopWatch = (): void => {};
+
+  /** Starts the idle config re-check when the helper loaded this session's config. */
+  const follows = (
+    booted: Awaited<ReturnType<typeof loadConfig>>,
+    boot: Pick<ConfigFollow, 'clock' | 'cwd' | 'table' | 'rescue' | 'session' | 'runner'> & {
+      readonly services: HostServices | undefined;
+      /** Boot notices, shown before the config's own, and the installed plugins' after them. */
+      readonly notices: readonly string[];
+      readonly installed: readonly string[];
+    },
+  ): (() => void) => {
+    if (options.plugins || !boot.services || !booted.helper || booted.stamps === undefined) return () => {};
+    const { notices, installed, services, ...rest } = boot;
+    return followConfig({
+      ...rest,
+      services,
+      helper: booted.helper,
+      started: booted.session,
+      stamps: booted.stamps,
+      everyMs: options.recheckMs,
+      restate: (next) => {
+        startup = [...notices, ...next, ...installed];
+        boot.session.restateNotices(startup);
+      },
+    });
+  };
 
   return {
     get adapter() {
@@ -381,14 +481,11 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       const config = booted.session.effective;
       // Built-ins (inline teh→the) run in-process; the helper serves config and third-party plugins.
       const executor: Executor = createInProcessExecutor({ clock });
+      const table = payload ? await loadTable(rt, payload) : undefined;
+      const rescue = await rescueOptions(helper, cwd, clock);
       const loaded = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(
-            booted.session,
-            cwd,
-            payload ? await loadTable(rt, payload) : undefined,
-            await rescueOptions(helper, cwd, clock),
-          );
+        : builtinsFromConfig(booted.session, cwd, table, rescue);
       startup = [...notices, ...loaded.notices];
       const runner = createPluginHost({
         specs: loaded.specs,
@@ -409,6 +506,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
+      stopWatch = follows(booted, { services, clock, cwd, table, rescue, session, runner, notices, installed: [] });
       const caps = session.caps();
       if (config.events && caps) {
         const enabled = new Set(
@@ -508,9 +606,10 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
           return isolatedFrom(helper, clock);
         },
       });
+      const rescue = await rescueOptions(helper, input.cwd, clock);
       const builtins = options.plugins
         ? { specs: [...options.plugins], order: options.plugins.map((spec) => spec.id), notices: [] }
-        : builtinsFromConfig(booted.session, input.cwd, table, await rescueOptions(helper, input.cwd, clock));
+        : builtinsFromConfig(booted.session, input.cwd, table, rescue);
       const loaded = withInstalled(
         { specs: builtins.specs, order: builtins.order, grants: {} },
         options.plugins ? EMPTY_SELECTION : (input.installed ?? EMPTY_SELECTION),
@@ -538,9 +637,21 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
         },
       });
       await session.ready;
+      stopWatch = follows(booted, {
+        services: input.services,
+        clock,
+        cwd: input.cwd,
+        table,
+        rescue,
+        session,
+        runner,
+        notices,
+        installed: loaded.notices,
+      });
       alive = true;
     },
     async dispose() {
+      stopWatch();
       alive = false;
       events = undefined;
       await session?.dispose();

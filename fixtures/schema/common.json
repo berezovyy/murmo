@@ -195,6 +195,18 @@
         },
         {
           "type": "object",
+          "required": ["configFile", "text"],
+          "additionalProperties": false,
+          "properties": { "configFile": { "enum": ["user", "project"] }, "text": { "$ref": "#/$defs/textSpec" } }
+        },
+        {
+          "type": "object",
+          "required": ["trust"],
+          "additionalProperties": false,
+          "properties": { "trust": { "const": "approve" } }
+        },
+        {
+          "type": "object",
           "required": ["check"],
           "additionalProperties": false,
           "properties": { "check": { "$ref": "#/$defs/expect" } }

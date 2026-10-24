@@ -42,6 +42,8 @@ STEP_NEEDS = {
     'select': 'an adapter that can select (phases 21–24)',
     'state': 'an adapter that drives host state (phases 21–24)',
     'restart': 'an integration whose drafts outlive the host process (adapter.rescue)',
+    'configFile': "an integration that knows where Murmo's config files are",
+    'trust': 'an integration with murmo trust',
 }
 # Expectation fields and the integration feature that can check them.
 EXPECT_NEEDS = {
@@ -353,6 +355,10 @@ class HostSubject:
             session.driver.drain(step['waitMs'] / 1000)
         elif kind == 'restart':
             session.restart(step['restart'])
+        elif kind == 'configFile':
+            self.integration.write_config(self.host, session.profile, step['configFile'], expand(step['text']))
+        elif kind == 'trust':
+            self.integration.approve_project(self.host, session.profile, run=self.run)
         elif kind == 'check':
             session.driver.settle(quiet=0.3, timeout=5)
             assertions += self._evaluate(session, step['check'], mark, f'check[{index}]')

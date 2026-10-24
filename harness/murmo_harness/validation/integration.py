@@ -25,6 +25,7 @@ from .product import (
     plugin_argv,
     setup_argv,
     trust_argv,
+    user_config,
 )
 
 
@@ -53,7 +54,7 @@ class PackedMurmo(Integration):
     features = frozenset({
         'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
         'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
-        'plugin.shortcuts', 'host.project-config', 'restart', 'host.installed-plugins',
+        'plugin.shortcuts', 'host.project-config', 'restart', 'host.installed-plugins', 'configFile', 'trust',
     })
 
     def __init__(self, product: PackedProduct | None, plugin_set: str = 'b') -> None:
@@ -121,6 +122,12 @@ class PackedMurmo(Integration):
             result = run.sandboxed(profile, plugin_argv(self.product, args), timeout=60)
             if result.code != 0:
                 raise RuntimeError(f'murmo plugin {args[0]} failed: {(result.stdout + result.stderr)[-2000:]}')
+
+    def write_config(self, host, profile, which: str, text: str) -> None:
+        """The personal file where setup put it, or the project file in the profile's repository."""
+        path = user_config(profile) if which == 'user' else profile.project / '.murmo.toml'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
 
     def argv(self, host, install, profile, argv: list[str]) -> list[str]:
         # Stock Pi uses --no-extensions (no discovery). Explicit `-e` still

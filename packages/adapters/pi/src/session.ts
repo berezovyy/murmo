@@ -5,12 +5,14 @@
 
 import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
-import { loadedSession, loadSessionConfig } from '@murmo/config/node';
+import { changedBuiltins, restartNotice, restartSettings, watchConfig } from '@murmo/config';
+import { loadedSession, loadSessionConfig, recheckSessionConfig, type SessionConfig } from '@murmo/config/node';
 import {
   createPluginHost,
   createSession,
   type HostPluginSpec,
   type PluginHost,
+  reloadPlugins,
   type Session,
   withInstalled,
 } from '@murmo/core';
@@ -52,6 +54,15 @@ export interface StartOptions extends PiAdapterOptions {
   readonly thirdParty?: (clock: Clock) => Executor;
   readonly notify?: (message: string) => void;
   readonly pi?: PiHost;
+  /** How often the config files are re-checked; default `RECHECK_MS`. */
+  readonly recheckMs?: number;
+}
+
+/** A timer that never keeps Pi's process alive. */
+function idleTimer(ms: number, callback: () => void): () => void {
+  const handle = setTimeout(callback, ms);
+  handle.unref?.();
+  return () => clearTimeout(handle);
 }
 
 const BUILTIN_GRANTS = {
@@ -108,7 +119,9 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   const cwd = options.cwd ?? (typeof process !== 'undefined' ? process.cwd() : '.');
   const roots = storeRootsFromEnv();
   const store = await openStore({ roots });
-  const config = await loadSessionConfig({ cwd, store });
+  const configOptions = { cwd, store };
+  const started = await loadSessionConfig(configOptions);
+  let config: SessionConfig = started;
   const repo = await findRepositoryRoot(cwd);
   const project = repo ? await projectIdentity(repo) : undefined;
   const sessionId = newDraftSession('pi');
@@ -121,21 +134,26 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     session: sessionId,
   };
   const offer = options.specs ? undefined : await findOffer(store.drafts, rescue);
+  const builtinsOf = (from: SessionConfig, loadLanguagePack: boolean) =>
+    loadBuiltins({
+      config: from.effective,
+      session: loadedSession(from),
+      drafts: store.drafts,
+      identity,
+      rescue: { identity: rescue, ...(offer ? { offer } : {}) },
+      // Rescue outlives config reloads, so it reads the current flag.
+      isPrivate: () => config.effective.private,
+      store,
+      cwd,
+      loadLanguagePack,
+    });
   const builtins = options.specs
     ? {
         specs: [...options.specs],
         order: options.order ?? options.specs.map((spec) => spec.id),
         notices: [] as string[],
       }
-    : loadBuiltins({
-        config: config.effective,
-        session: loadedSession(config),
-        drafts: store.drafts,
-        identity,
-        rescue: { identity: rescue, ...(offer ? { offer } : {}) },
-        store,
-        cwd,
-      });
+    : builtinsOf(config, true);
 
   const loaded = withInstalled(
     { specs: builtins.specs, order: builtins.order, grants: BUILTIN_GRANTS },
@@ -176,6 +194,32 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   });
   await session.ready;
   await session.settle();
+  // An edited murmo.toml, .murmo.toml, `murmo trust` or `murmo words` applies
+  // without a restart: the built-ins it configures reload, the notices follow.
+  const stopWatch = options.specs
+    ? () => {}
+    : watchConfig({
+        ...(options.recheckMs === undefined ? {} : { everyMs: options.recheckMs }),
+        after: idleTimer,
+        check: async () => {
+          const next = await recheckSessionConfig(config, configOptions);
+          if (!next) return;
+          const previous = config;
+          config = next;
+          const rebuilt = builtinsOf(next, false);
+          const changed = new Set(changedBuiltins(previous.effective, next.effective));
+          await reloadPlugins(
+            session,
+            runner,
+            rebuilt.specs.filter((spec) => changed.has(spec.id)),
+          );
+          session.restateNotices([
+            ...restartNotice(restartSettings(started.effective, next.effective)),
+            ...rebuilt.notices,
+            ...loaded.notices,
+          ]);
+        },
+      });
   let events: PiEventsHandle | undefined;
   if (options.pi && config.effective.events) {
     const enabled = new Set(
@@ -210,6 +254,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
     executor,
     ...(events ? { events } : {}),
     async dispose() {
+      stopWatch();
       events?.dispose();
       await session.dispose();
       await adapter.dispose();

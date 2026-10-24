@@ -3,13 +3,22 @@
 
 import type { Clock } from '@murmo/api';
 import type { Executor } from '@murmo/api/adapter';
-import type { EffectiveConfig, LoadedSession } from '@murmo/config';
-import { loadedSession, loadSessionConfig } from '@murmo/config/node';
+import {
+  changedBuiltins,
+  type EffectiveConfig,
+  type LoadedSession,
+  restartNotice,
+  restartSettings,
+  watchConfig,
+} from '@murmo/config';
+import { loadedSession, loadSessionConfig, recheckSessionConfig } from '@murmo/config/node';
 import {
   createMemoryStorage,
   createPluginHost,
   createSession,
   type HostPluginSpec,
+  type PluginHost,
+  reloadPlugins,
   type Session,
   withInstalled,
 } from '@murmo/core';
@@ -51,6 +60,26 @@ export interface SessionStartOptions {
   readonly notify?: (message: string) => void;
   /** Draft rescue on the file store (`prepareRescue`); without it drafts stay in memory (tests). */
   readonly rescue?: RescueOptions;
+  /**
+   * Re-checks the config files: the new load when one changed, else
+   * undefined. Without it the session keeps the config it started with.
+   */
+  readonly recheck?: () => Promise<LoadedSession | undefined>;
+  /** How often `recheck` runs; default `RECHECK_MS`. */
+  readonly recheckMs?: number;
+}
+
+/** A session's config and the re-check that follows its files. */
+export interface FollowedSession {
+  readonly session: LoadedSession;
+  recheck(): Promise<LoadedSession | undefined>;
+}
+
+/** A timer that never keeps OpenCode's process alive. */
+function idleTimer(ms: number, callback: () => void): () => void {
+  const handle = setTimeout(callback, ms);
+  handle.unref?.();
+  return () => clearTimeout(handle);
 }
 
 export interface StartedSession {
@@ -128,13 +157,35 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
   return { specs, notices };
 }
 
-/** User `murmo.toml` plus project file, with project trust. Missing files leave autocorrect off (opt-in). */
+/**
+ * User `murmo.toml` plus project file, with project trust, and the re-check
+ * that reloads them when one changes (an edit, `murmo trust`, `murmo words`).
+ * Missing files leave autocorrect off (opt-in).
+ */
+export async function followHostSession(
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<FollowedSession> {
+  const store = await openStore({ roots: storeRootsFromEnv(env) });
+  const options = { cwd, store, env };
+  let current = await loadSessionConfig(options);
+  return {
+    session: loadedSession(current),
+    async recheck() {
+      const next = await recheckSessionConfig(current, options);
+      if (!next) return undefined;
+      current = next;
+      return loadedSession(next);
+    },
+  };
+}
+
+/** The session's config once, without the re-check. */
 export async function loadHostSession(
   cwd = process.cwd(),
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<LoadedSession> {
-  const store = await openStore({ roots: storeRootsFromEnv(env) });
-  return loadedSession(await loadSessionConfig({ cwd, store, env }));
+  return (await followHostSession(cwd, env)).session;
 }
 
 /** The startup notice for a config that failed to load: built-ins still run, but without the user's shortcuts. */
@@ -151,11 +202,11 @@ export function configLoadNotice(error: unknown): string {
  * still load without it.
  */
 export async function hostSessionOptions(
-  load: () => Promise<LoadedSession>,
-): Promise<Pick<SessionStartOptions, 'config' | 'session' | 'notices'>> {
+  load: () => Promise<FollowedSession>,
+): Promise<Pick<SessionStartOptions, 'config' | 'session' | 'notices' | 'recheck'>> {
   try {
-    const session = await load();
-    return { config: session.effective, session };
+    const { session, recheck } = await load();
+    return { config: session.effective, session, recheck };
   } catch (error) {
     return { notices: [configLoadNotice(error)] };
   }
@@ -184,6 +235,46 @@ export async function prepareRescue(
     ...(isPrivate ? { isPrivate } : {}),
     ...(offer ? { offer } : {}),
   };
+}
+
+/**
+ * An edited config applies without a restart: the built-ins it configures
+ * reload and the startup notices follow (the trust notice goes once the
+ * project file is approved). `installed` are the installed plugins' notices.
+ */
+function follow(
+  session: Session,
+  host: PluginHost,
+  options: SessionStartOptions,
+  installed: readonly string[],
+): () => void {
+  const recheck = options.recheck;
+  const started = options.session && options.config ? { ...options.session, effective: options.config } : undefined;
+  if (!recheck || !started || options.plugins) return () => {};
+  let current: LoadedSession = started;
+  return watchConfig({
+    ...(options.recheckMs === undefined ? {} : { everyMs: options.recheckMs }),
+    after: idleTimer,
+    check: async () => {
+      const next = await recheck();
+      if (!next) return;
+      const previous = current;
+      current = next;
+      const { replacements: _fixed, notices: _failed, ...rest } = options;
+      const rebuilt = builtinPlugins({ ...rest, config: next.effective, session: next, loadLanguagePack: false });
+      const changed = new Set(changedBuiltins(previous.effective, next.effective));
+      await reloadPlugins(
+        session,
+        host,
+        rebuilt.specs.filter((spec) => changed.has(spec.id)),
+      );
+      session.restateNotices([
+        ...restartNotice(restartSettings(started.effective, next.effective)),
+        ...rebuilt.notices,
+        ...installed,
+      ]);
+    },
+  });
 }
 
 function sessionExecutor(thirdParty: SessionStartOptions['thirdParty']): Executor {
@@ -218,9 +309,11 @@ export async function startSession(options: SessionStartOptions): Promise<Starte
     ...(options.notify ? { notify: options.notify } : {}),
   });
   await session.ready;
+  const stopWatch = follow(session, host, options, loaded.notices);
   return {
     session,
     async close() {
+      stopWatch();
       await session.dispose();
       await executor.dispose();
     },

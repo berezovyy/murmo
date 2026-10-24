@@ -1,4 +1,5 @@
-// Claude plugin entry. `hooks/hooks.json` points here. No Node, no reload timer.
+// Claude plugin entry. `hooks/hooks.json` points here. No Node; the idle
+// config re-check asks the helper (session.ts).
 
 import { readPluginSelection } from '@murmo/store';
 import { bytesOf, textOf } from './decode.ts';

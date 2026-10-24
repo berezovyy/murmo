@@ -4,6 +4,8 @@
 export type { Diagnostic, DiagnosticCode, DiagnosticSeverity, Position } from './diagnostics.ts';
 export { formatDiagnostic, makeDiagnostic } from './diagnostics.ts';
 export { CONFIG_LIMITS, FIELD_NAME } from './limits.ts';
+export type { ConfigWatchOptions } from './live.ts';
+export { changedBuiltins, RECHECK_MS, restartNotice, restartSettings, watchConfig } from './live.ts';
 export type { EffectiveConfig, EffectivePlugin, MergeInput } from './merge.ts';
 export { mergeConfig } from './merge.ts';
 export { baseName, configProblemNotices, SHORTCUT_ENTRY_CODES, sessionHint } from './notices.ts';

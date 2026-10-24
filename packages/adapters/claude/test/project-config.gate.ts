@@ -227,3 +227,48 @@ test('an unsent Claude draft reaches the drafts store through the helper, and a 
     'a clean quit leaves no lock, so the next session may offer the draft',
   );
 });
+
+async function until(what: string, ready: () => boolean): Promise<void> {
+  for (let waited = 0; waited < 5000; waited += 10) {
+    if (ready()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+
+test('murmo trust and a murmo.toml edit apply to a running Claude session', async () => {
+  // Catches the real-host bug: after `murmo trust` the footer still said the
+  // project file was unreviewed and ;hp stayed literal, and a shortcut added
+  // to murmo.toml did nothing, all until Claude restarted.
+  const root = repo('live');
+  const userFile = join(env.HOME ?? '', '.config', 'murmo', 'murmo.toml');
+  const host = createClaudeHost({ recheckMs: 10 });
+  await host.bootPacked({
+    payloadRoot: '',
+    integrityJson: JSON.stringify({ version: PLUGIN_VERSION }),
+    cwd: root,
+    services: claudeServices(),
+    helperBinaries: [helperBinary()],
+    tmpdir: dir,
+  });
+  const fake = new FakeClaude();
+  const type = (text: string) => typeChars((event, next) => host.adapter.handleEdit(event, next), fake, text);
+  try {
+    assert.equal(host.notices[0], '.murmo.toml has 1 shortcut. Run "murmo trust" to review.');
+    const store = await openStore({ roots: storeRootsFromEnv(env, env.HOME) });
+    const snapshot = await scanProject(root);
+    assert.equal((await approveProject(store, root, snapshot?.fingerprint ?? '')).status, 'ok');
+    await until('the trust notice to go', () => !host.notices.some((n) => n.includes('murmo trust')));
+    assert.deepEqual(host.notices, ['murmo on · 2 shortcuts · autocorrect off']);
+    await type(';hp ');
+    assert.equal(fake.draft.text, 'harness project shortcut ');
+
+    writeFileSync(userFile, `version = 1\n[replace]\n";me" = 'personal shortcut'\n";new" = 'added live'\n`);
+    await until('the new shortcut', () => host.notices.includes('murmo on · 3 shortcuts · autocorrect off'));
+    await type(';new ');
+    assert.equal(fake.draft.text, 'harness project shortcut added live ');
+  } finally {
+    await host.dispose();
+    writeFileSync(userFile, `version = 1\n[replace]\n";me" = 'personal shortcut'\n`);
+  }
+});
