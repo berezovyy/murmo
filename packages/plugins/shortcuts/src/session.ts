@@ -12,7 +12,6 @@ import type {
   Plugin,
   PluginContext,
   Range,
-  SubmitCommitted,
   SubmitDecision,
   SubmitTransaction,
 } from '@murmo/api';
@@ -347,7 +346,6 @@ export function createShortcutsHooks(
   readonly onChange: NonNullable<Plugin['onChange']>;
   readonly onKey: NonNullable<Plugin['onKey']>;
   readonly onBeforeSubmit: NonNullable<Plugin['onBeforeSubmit']>;
-  readonly onSubmitCommitted: NonNullable<Plugin['onSubmitCommitted']>;
 } {
   const previousFieldKey = options.previousFieldKey ?? DEFAULT_PREVIOUS_FIELD;
   let live: LiveSession | null = null;
@@ -506,6 +504,8 @@ export function createShortcutsHooks(
           if (!draft.text) quiet = false;
           return effects;
         };
+        // An emptied box (a send, a clear) holds no template any more.
+        if (!draft.text) return stop();
         if ((change.deltas ?? []).some((d) => d.origin === 'paste')) return stop();
         if (!remap(live, deltas)) return stop();
         for (const field of live.fields) {
@@ -558,18 +558,14 @@ export function createShortcutsHooks(
       }
       return [];
     },
-    // The draft's clearing after a send reaches no onChange (the send resets the
-    // session first), so the hint and ranges of a sent template go here.
-    onSubmitCommitted(_event: SubmitCommitted, ctx: PluginContext) {
-      const effects = end(ctx.draft.version);
-      quiet = false;
-      return effects;
-    },
+    // A send lets the session be: the box the host empties after it ends the
+    // session in onChange, with its hint, and a send refused later keeps it.
+    // Only the bare record of a warning (no fields) goes.
     onBeforeSubmit(tx: SubmitTransaction): SubmitDecision {
       const names = live?.names ?? uniqueTemplateNames(box.compiled);
       const leftover = unfilledCount(tx.draft.text, names);
       if (leftover === 0) {
-        live = null;
+        if (live && !live.fields.length) live = null;
         return { action: 'send' };
       }
       if (!live?.warned) {
@@ -579,7 +575,7 @@ export function createShortcutsHooks(
         }
         return { action: 'block', reason: unfilledMessage(leftover) };
       }
-      live = null;
+      if (!live.fields.length) live = null;
       return { action: 'send' };
     },
   };

@@ -7,8 +7,7 @@
     { "name": "draft:read", "reason": "Register typed shortcut expansions with the core." },
     { "name": "draft:read:full", "reason": "See expanded template text, including unfilled <field> placeholders." },
     { "name": "draft:write", "reason": "Expand a typed shortcut through the core's inline and deferred path." },
-    { "name": "submit", "reason": "Warn before sending a template with unfilled <field> placeholders." },
-    { "name": "submit:observe", "reason": "End a template's field session once its prompt was sent." }
+    { "name": "submit", "reason": "Warn before sending a template with unfilled <field> placeholders." }
   ],
   "capabilities": {
     "required": {},

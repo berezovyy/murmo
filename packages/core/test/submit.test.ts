@@ -666,3 +666,29 @@ test('every refusal reaches the status line once, whoever refused', async () => 
   await broken.driver.settle();
   assert.match(broken.adapter.status ?? '', /menu state unreadable/);
 });
+
+test('plugins see the draft emptied by a send', async () => {
+  // Pi empties its editor before it confirms the send. The confirmation then
+  // reset the per-draft state, which cancelled the onChange call for the
+  // emptied draft: plugins tracking the draft still thought it held the prompt.
+  const seen: string[] = [];
+  const watcher = builtin('watcher', () => ({
+    name: 'watcher',
+    version: '1',
+    permissions: ['draft:read:full'],
+    onChange(change) {
+      seen.push(change.draft.text);
+    },
+  }));
+  const h = await createHarness({ plugins: [watcher] });
+  await h.driver.type('hi');
+  await h.driver.submit('send');
+  await h.driver.settle();
+  assert.deepEqual(
+    h.adapter.requests.map((r) => r.text),
+    ['hi'],
+  );
+  assert.equal(h.adapter.getDraft().text, '');
+  assert.equal(seen.at(-1), '', `last seen ${JSON.stringify(seen)}`);
+  assert.equal(seen.filter((t) => t === '').length, 1, 'the emptied draft arrives once');
+});

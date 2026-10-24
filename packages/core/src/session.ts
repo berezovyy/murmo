@@ -447,9 +447,15 @@ class CoreSession implements Session {
       track: (work) => this.#track(work),
       seq: () => ++this.#seq,
       setLatest: (id, hook, seq) => this.#latest.set(`${id}\u0000${hook}`, seq),
+      // In the one effects queue, so a committed hook's effects never overtake
+      // those of an onChange that finished before it.
       applyEffects: (plugin, value, ticket: Ticket) => {
         const effects = this.#effects;
-        return effects ? applyEffects(plugin, value, ticket, effects) : Promise.resolve();
+        if (!effects) return Promise.resolve();
+        // The caller still sees a failure (an output limit is the plugin's fault).
+        return new Promise<void>((resolve, reject) => {
+          this.#enqueue(() => applyEffects(plugin, value, ticket, effects).then(resolve, reject));
+        });
       },
       finishWord: (draft) => this.#inline?.finish(draft, view.state()) ?? null,
     });
@@ -1136,7 +1142,12 @@ class CoreSession implements Session {
   #resetOnCommit(): void {
     this.#undo.clear();
     this.#inline?.clear();
-    this.#intake?.bumpEpoch();
+    // Work in flight for the sent draft goes stale. A host that empties its
+    // box before it confirms the send (Pi) already moved past that draft, and
+    // the change that emptied it is still on its way to plugins: they must
+    // see it, or they go on tracking the prompt that was sent.
+    const intake = this.#intake;
+    if (intake && intake.draft.text !== '') intake.bumpEpoch();
     this.#options.menu?.dismiss();
     this.#menu?.dismiss();
     this.#review?.reset();

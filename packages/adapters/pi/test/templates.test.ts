@@ -129,7 +129,14 @@ test('a sent template ends its field session though Pi trims what it sends (real
   // hint stayed on the status line and nothing reached onSubmitCommitted.
   const live = await start(['shortcuts'], REVIEW);
   try {
-    const sent = capture(live);
+    // As Pi does: its editor empties, then the input event follows within a turn.
+    const sent: string[] = [];
+    const original = live.env.editor.onSubmit;
+    live.env.editor.onSubmit = (text) => {
+      sent.push(text);
+      original?.(text);
+      queueMicrotask(() => live.env.host.emit('input', { source: 'interactive', text }));
+    };
     const committed: string[] = [];
     live.adapter.onSubmitCommitted((event) => committed.push(event.text));
     live.type(';rv ');
@@ -138,9 +145,6 @@ test('a sent template ends its field session though Pi trims what it sends (real
     await until(live, () => !live.env.editor.getText().includes('<change>'));
     assert.match(live.adapter.backend.paint.status ?? '', /Template field 1 of 2/);
     live.key('\r');
-    await until(live, () => sent.length > 0);
-    // As Pi does: the input event carries the text its editor sent.
-    live.env.host.emit('input', { source: 'interactive', text: sent[0] });
     await until(live, () => committed.length > 0 && !(live.adapter.backend.paint.status ?? '').includes('Template'));
     assert.equal(committed.length, 1);
     assert.doesNotMatch(live.adapter.backend.paint.status ?? '', /Template field/);
