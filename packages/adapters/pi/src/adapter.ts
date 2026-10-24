@@ -251,11 +251,7 @@ export class PiAdapter implements Adapter {
   showMenu(items: readonly PresentedMenuItem[] | null, selected: number, baseVersion: number): ActionResult {
     return this.#present(this.caps.menu, baseVersion, () => {
       this.backend.showMenu(
-        items?.map((item) => ({
-          label: item.label,
-          ...(item.detail ? { detail: item.detail } : {}),
-          owner: item.owner,
-        })) ?? null,
+        items?.map((item) => ({ label: item.label, ...(item.detail ? { detail: item.detail } : {}) })) ?? null,
         selected,
       );
     });

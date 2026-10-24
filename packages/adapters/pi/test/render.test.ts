@@ -37,7 +37,7 @@ test('OSC 52/8, cursor and bracketed-paste payloads render as literal text (E21)
     80,
     {
       ghost: { text: payload, owner: 'evil' },
-      menu: { items: [{ label: payload, owner: 'evil' }], selected: 0 },
+      menu: { items: [{ label: payload }], selected: 0 },
       status: payload,
     },
     fakeTuiApi,
@@ -55,4 +55,14 @@ test('at 50 columns a long status wraps instead of losing its end, and every row
   const status = rows.slice(1);
   for (const row of rows) assert.ok(visibleWidth(row, fakeTuiApi.visibleWidth) <= 50, `${row} wider than 50`);
   assert.equal(status.join(' '), `${hint} second notice`);
+});
+
+test('built-in menu rows carry no owner tag; the core labels third-party rows itself', () => {
+  const rows = decorateRows(
+    [hostRow(80)],
+    80,
+    { menu: { items: [{ label: ';tst  Run the project test suite only.' }], selected: 0 } },
+    fakeTuiApi,
+  );
+  assert.equal(rows[1]?.trimEnd(), '> ;tst  Run the project test suite only.');
 });

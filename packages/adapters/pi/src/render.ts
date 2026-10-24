@@ -14,7 +14,7 @@ export interface GhostPaint {
 }
 
 export interface MenuPaint {
-  readonly items: readonly { readonly label: string; readonly detail?: string; readonly owner?: string }[];
+  readonly items: readonly { readonly label: string; readonly detail?: string }[];
   readonly selected: number;
 }
 
@@ -124,9 +124,9 @@ function decorateRowsInner(rows: readonly string[], width: number, paint: Render
       const item = paint.menu.items[i];
       if (!item) continue;
       const mark = i === paint.menu.selected ? '> ' : '  ';
-      const owner = item.owner && item.owner !== 'murmo' ? `[plugin ${item.owner}] ` : '';
+      // The core already labels third-party rows `[plugin <id>]`; built-in owners are internal.
       const detail = item.detail ? `  ${item.detail}` : '';
-      out.push(fit(displayText(`${mark}${owner}${item.label}${detail}`), width, api));
+      out.push(fit(displayText(`${mark}${item.label}${detail}`), width, api));
     }
   }
   if (paint.status) {

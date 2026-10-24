@@ -104,7 +104,9 @@ function buildItems(
   for (const { entry } of ranked.slice(0, room)) {
     const insert = table.expansions[entry.name];
     const fieldHint = native && entry.fields.length > 0 ? `fields: ${entry.fields.join(', ')}` : undefined;
-    const detail = fieldHint ?? (entry.description || entry.firstLine || undefined);
+    // A drawn row's label already ends in the first line; repeat only a description that says more.
+    const extra = entry.description && entry.description !== entry.firstLine ? entry.description : undefined;
+    const detail = native ? (fieldHint ?? (entry.description || entry.firstLine || undefined)) : extra;
     const item: MenuItem = {
       id: entry.name,
       label: native ? displayName(entry.name) : formatRow(entry, width, defaultCellMeasure),

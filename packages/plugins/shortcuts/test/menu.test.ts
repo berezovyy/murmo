@@ -168,3 +168,14 @@ test('history option adds a ;? last row (E10)', async () => {
   assert.equal(last?.detail, 'Search prompt history');
   await h.session?.dispose();
 });
+
+test('a drawn row shows its first line once: no detail that repeats the label', async () => {
+  // Pi showed ";tst  Run the project test suite only.  Run the project test ..." on every row.
+  const h = await createHarness({ plugins: [menuOf({ tst: 'Run the project test suite only.' })] });
+  await h.driver.type(';ts');
+  const row = h.adapter.menu?.[0];
+  assert.equal(row?.id, 'tst');
+  assert.ok(row?.label.includes('Run the project test suite only.'));
+  assert.equal(row?.detail, undefined);
+  await h.session?.dispose();
+});
