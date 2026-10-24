@@ -82,6 +82,14 @@ interface Loaded {
   readonly granted: readonly Permission[];
   readonly settings: Readonly<Record<string, unknown>>;
   readonly negotiation?: Negotiation;
+  /** Where the executor runs it: its `runtime.executor`. */
+  readonly placed: RuntimeCapabilities['executor'];
+}
+
+/** Capabilities as one plugin sees them: `runtime.executor` is where it runs. */
+function placedCaps<T extends Capabilities | HostCapabilities>(caps: T, placed: RuntimeCapabilities['executor']): T {
+  const runtime = (caps as Partial<Capabilities>).runtime;
+  return runtime && runtime.executor !== placed ? { ...caps, runtime: { ...runtime, executor: placed } } : caps;
 }
 
 function asPluginSpec(spec: HostPluginSpec): PluginSpec {
@@ -164,9 +172,10 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     const canList = entry.granted.includes('project:list');
     const canNet = entry.granted.includes('network');
     const canGit = entry.granted.includes('project:git');
+    const host = clone(call.snapshot.host) as PluginContext['host'];
     return {
       ...(entry.negotiation ? { negotiation: clone(entry.negotiation) } : {}),
-      host: clone(call.snapshot.host) as PluginContext['host'],
+      host: { ...host, caps: placedCaps(host.caps, entry.placed) },
       draft,
       state: clone(call.snapshot.state),
       ...(call.snapshot.change ? { change: projectChange(call.snapshot.change, entry.granted, evidence) } : {}),
@@ -245,10 +254,11 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       ...(spec.manifest?.capabilities.required ? { requiredCapabilities: spec.manifest.capabilities.required } : {}),
     });
     try {
+      const placed = options.executor.kindOf?.(asPluginSpec(spec)) ?? options.executor.kind;
       let negotiation: Negotiation | undefined;
       let settings: Readonly<Record<string, unknown>> = spec.settings ?? {};
       if (spec.manifest) {
-        if (caps) negotiation = negotiate(spec.manifest, caps as Capabilities);
+        if (caps) negotiation = negotiate(spec.manifest, placedCaps(caps, placed) as Capabilities);
         settings = resolveSettings(spec.manifest, spec.settings);
       }
       // An enabled inline rule set turns the async typo path off (docs/plan/07).
@@ -292,6 +302,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
         granted,
         settings,
         ...(negotiation ? { negotiation } : {}),
+        placed,
       });
       return {
         descriptor: { ...descriptor, guard: descriptor.guard || spec.requiredGuard === true },

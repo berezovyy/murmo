@@ -13,6 +13,7 @@ Additive preview companion, not a prompt-API break:
 - **Event permissions:** `events:read`, `tools:guard`, `tools:rewrite`, `context:write`, `agent:send`, `agent:control`, `messages:rewrite`. Independent of `draft:read`. `tools:rewrite` / `messages:rewrite` / `agent:send` stay explicit and unadvertised in the preview.
 ## 2.0-pre.1 (additive, 2026-10-24)
 
+- **`Executor.kindOf(spec)`** (adapter API, optional): where an executor that routes specs runs each one. A plugin's `runtime.executor` (negotiation and `ctx.host.caps`) is now where it runs, so an installed plugin in a session that keeps built-ins in-process sees `isolated`. Executors without it are unchanged.
 - **`onPause` hook:** `onPause(change, ctx)` runs once the draft has not changed for `LIMITS.pauseMs` (120 ms), at most once per pause, with `DEADLINES.changeMs` and the same `draft:read` gate as `onChange`. The wait for a typing pause moves out of the budgeted hook: a sleep inside `onChange` counts against its budget. Old plugins are unchanged.
 - **`LIMITS.pauseMs`** (120 ms) added.
 - **`Draft.foldedParts`** (optional): ranges of `text` that stand in for host parts the draft does not carry in full, such as a collapsed paste's label or a file mention with its attachment. Adapters set it; a plugin that would replay the text (draft rescue) must not treat such a draft as the prompt. Old plugins and adapters are unchanged.

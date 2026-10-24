@@ -31,6 +31,7 @@ export function createRoutedExecutor(options: RoutedExecutorOptions): Executor {
   return {
     kind: trusted.kind,
     clock: trusted.clock,
+    kindOf: (spec) => (spec.sandbox ? 'isolated' : (trusted.kindOf?.(spec) ?? trusted.kind)),
     async load(spec: PluginSpec): Promise<PluginDescriptor> {
       let side = trusted;
       if (spec.sandbox) {

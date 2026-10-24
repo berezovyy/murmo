@@ -195,6 +195,12 @@ export interface ExecutionOptions {
 export interface Executor {
   readonly kind: 'in-process' | 'isolated';
   readonly clock: Clock;
+  /**
+   * Where this executor runs `spec`, for an executor that routes specs to
+   * more than one place; absent means `kind` for every spec. A plugin's
+   * `runtime.executor` is this, not the session's.
+   */
+  kindOf?(spec: PluginSpec): 'in-process' | 'isolated';
   load(spec: PluginSpec): Promise<PluginDescriptor>;
   run(
     id: string,
