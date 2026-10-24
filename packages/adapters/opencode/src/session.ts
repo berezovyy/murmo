@@ -63,8 +63,11 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
     { ...(options.session ? { session: options.session } : {}), asyncEdits: true },
   );
   const project = options.session?.project;
+  // Where Murmo cannot edit the prompt the adapter says shortcuts and
+  // autocorrect are off; "murmo on · 5 shortcuts" next to it was a false claim.
+  const hint = options.adapter.canEdit();
   const notices = options.config
-    ? sessionNotices({ effective: options.config, ...(project ? { project } : {}) }, compiled)
+    ? sessionNotices({ effective: options.config, ...(project ? { project } : {}) }, compiled, { hint })
     : compiled.notices.map((notice) => notice.text);
   const autocorrect = autocorrectSpec('autocorrect', {
     enabled: options.config?.autocorrect === true,

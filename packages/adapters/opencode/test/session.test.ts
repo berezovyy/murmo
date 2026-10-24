@@ -12,9 +12,10 @@ import { loadEnglishPack } from '@murmo/plugin-autocorrect/node';
 import { compileShortcuts, shortcutsPlugin } from '@murmo/plugin-shortcuts';
 import { openStore, storeRootsFromEnv } from '@murmo/store/node';
 import { OpenCodeAdapter } from '../src/adapter.ts';
+import { DEGRADED_NOTICE } from '../src/capabilities.ts';
 import { hostSessionOptions, loadHostSession, startSession } from '../src/session.ts';
 import { createStatusSurface } from '../src/status.ts';
-import { FakeOpenCode } from './fake-opencode.ts';
+import { FakeOpenCode, setHideMeasureText } from './fake-opencode.ts';
 
 function cfg(autocorrect: boolean): EffectiveConfig {
   return {
@@ -324,4 +325,19 @@ test('a project shortcut that overrides a personal one is said in the footer', a
   });
   assert.match(host.footerText(), /Project shortcut ;rvw overrides your personal one\./);
   await started.close();
+});
+
+test('where the prompt cannot be edited the footer does not claim shortcuts work (OpenCode 2.0.32)', async () => {
+  // OpenCode 2.0.32 has no measureText: the footer said "Shortcuts and
+  // autocorrect are off" and, next to it, "murmo on · 5 shortcuts".
+  setHideMeasureText(true);
+  try {
+    const { host, started } = await footerOf({
+      config: { ...cfg(false), replacements: [{ shortcut: ';tst', text: 'Run the test suite.', origin: 'user' }] },
+    });
+    assert.equal(host.footerText(), DEGRADED_NOTICE);
+    await started.close();
+  } finally {
+    setHideMeasureText(false);
+  }
 });

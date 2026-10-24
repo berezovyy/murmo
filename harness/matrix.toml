@@ -17,6 +17,10 @@ latest = true
 package = "@opencode/cli"
 # 2.1.1: round 14; 2.1.0: round 10 (OpenTUI 0.6.6); 2.0.32: round 8 (OpenTUI 0.5.17).
 versions = ["2.1.1", "2.1.0", "2.0.32"]
+# Still installed and probed (the degraded path must say so), but not supported:
+# OpenTUI 0.5.17 has no measureText, so Murmo cannot edit the prompt there and
+# shortcuts and autocorrect stay off.
+unsupported = ["2.0.32"]
 latest = true
 
 [hosts.claude]

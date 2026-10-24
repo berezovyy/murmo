@@ -22,6 +22,7 @@ export function buildCompat(repoRoot: string): CompatFile {
   }
   const matrix = readFileSync(join(repoRoot, 'harness/matrix.toml'), 'utf8');
   const versions: Record<string, string[]> = {};
+  const unsupported: Record<string, string[]> = {};
   let current = '';
   for (const line of matrix.split('\n')) {
     const host = line.match(/^\[hosts\.(\w+)\]$/);
@@ -29,14 +30,23 @@ export function buildCompat(repoRoot: string): CompatFile {
       current = host[1] as string;
       continue;
     }
-    const list = line.match(/^versions\s*=\s*\[(.*)\]/);
+    const list = line.match(/^(versions|unsupported)\s*=\s*\[(.*)\]/);
     if (list && current) {
-      versions[current] = [...(list[1] as string).matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);
+      const names = [...(list[2] as string).matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);
+      (list[1] === 'versions' ? versions : unsupported)[current] = names;
     }
   }
+  // The harness still probes an unsupported version; the package never claims it.
   for (const [host, list] of Object.entries(versions)) {
     const rec = hosts[host];
-    if (rec && typeof rec === 'object') hosts[host] = { ...rec, matrix: list };
+    const off = unsupported[host] ?? [];
+    if (rec && typeof rec === 'object') {
+      hosts[host] = {
+        ...rec,
+        matrix: list.filter((version) => !off.includes(version)),
+        ...(off.length ? { unsupported: off } : {}),
+      };
+    }
   }
   return {
     generatedFrom: 'harness/matrix.toml + packages/fake-host/records',

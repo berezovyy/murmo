@@ -143,6 +143,7 @@ export class OpenCodeAdapter implements Adapter {
     checkpoints: 0,
     opaqueParts: false,
   };
+  #probed = false;
   #degraded: string | null = null;
   #disposed = false;
   #ownsStatus: boolean;
@@ -187,8 +188,21 @@ export class OpenCodeAdapter implements Adapter {
     );
   }
 
+  /** Whether this OpenCode lets Murmo edit the prompt (it has `measureText`). Probes once. */
+  canEdit(): boolean {
+    return this.#probeOnce().measureText;
+  }
+
+  #probeOnce(): ReturnType<typeof runProbes> {
+    if (!this.#probed) {
+      this.#probe = runProbes(this.#api, this.#core, this.#status);
+      this.#probed = true;
+    }
+    return this.#probe;
+  }
+
   async ready(): Promise<HostCapabilities> {
-    this.#probe = runProbes(this.#api, this.#core, this.#status);
+    this.#probeOnce();
     this.#checkpoints = this.#probe.checkpoints || 2;
     this.caps = capabilitiesFromProbes(this.#probe, this.#api);
     this.#degraded = degradedNotice(this.#probe);

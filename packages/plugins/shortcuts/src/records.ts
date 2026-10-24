@@ -46,17 +46,20 @@ export function compileConfigShortcuts(config: ConfigShortcuts, options: ConfigC
  * the core's startup notices: project trust, config problems with file and
  * line, skipped shortcuts and overrides, and last the line that says Murmo is
  * on and what it loaded. One list for every host, so each says the same.
+ * `hint: false` leaves that last line out, for a host whose own notice says
+ * shortcuts and autocorrect are off there (OpenCode without measureText).
  */
 export function sessionNotices(
   session: Pick<LoadedSession, 'effective' | 'project'>,
   compiled: CompiledShortcuts,
+  options: { readonly hint?: boolean } = {},
 ): string[] {
   const shortcut = (kind: NoticeKind) => compiled.notices.filter((n) => n.kind === kind).map((n) => n.text);
   return [
     ...shortcut('trust'),
     ...configProblemNotices(session.effective.diagnostics),
     ...(['skipped', 'alias', 'claude-size', 'collision', 'override'] as const).flatMap(shortcut),
-    sessionHint(session),
+    ...(options.hint === false ? [] : [sessionHint(session)]),
   ];
 }
 
