@@ -9,6 +9,7 @@
 // results of ./draft.ts as they are, the identity in `draft` (the helper
 // stamps every request with its own numeric `id`); `project.id` names the project a
 // session's directory belongs to (its repository root, else the directory).
+import { isWellFormedText } from './encoding.ts';
 import { LOG_KINDS, type LogKind } from './layout.ts';
 
 /** A draft identity on the wire; the store checks its fields. */
@@ -77,9 +78,24 @@ function draftId(value: unknown): DraftWireId | undefined {
 
 const nowOf = (r: Record<string, unknown>) => (isNumber(r.now) ? { now: r.now } : {});
 
+/**
+ * True when every string in `value`, keys too, is valid Unicode. The wire is
+ * UTF-8 JSON: the Rust store can't parse a lone `\ud800` escape at all, so
+ * Node refuses it the same way.
+ */
+function wellFormedDeep(value: unknown): boolean {
+  if (typeof value === 'string') return isWellFormedText(value);
+  if (Array.isArray(value)) return value.every(wellFormedDeep);
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value).every(([key, item]) => isWellFormedText(key) && wellFormedDeep(item));
+  }
+  return true;
+}
+
 /** The request in `value`, or undefined when it isn't a well-formed one. */
 export function parseStoreRequest(value: unknown): StoreRequest | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  if (!wellFormedDeep(value)) return undefined;
   const r = value as Record<string, unknown>;
   switch (r.op) {
     case 'storage.get':

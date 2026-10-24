@@ -78,6 +78,19 @@ export function sha256Hex(bytes: Uint8Array): string {
   return hex;
 }
 
+/** True when `text` has no unpaired surrogate, so UTF-8 can hold it exactly. */
+export function isWellFormedText(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = text.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      i++;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+  }
+  return true;
+}
+
 /** UTF-8 byte length of `text`, counting an unpaired surrogate as U+FFFD (3 bytes). */
 export function utf8Length(text: string): number {
   let bytes = 0;

@@ -30,6 +30,17 @@ const project = (name: string) => createHash('sha256').update(name).digest('hex'
 const A = project('a');
 const UNICODE = '👨‍👩‍👧‍👦\n🇺🇸\ne\u0301\n你好\n\n';
 
+test('a draft with half an emoji is refused, never saved as U+FFFD', async () => {
+  // UTF-8 can't hold an unpaired surrogate: the file held U+FFFD and the
+  // restore was not the text that was saved. The Rust store refuses it too.
+  const t = fresh();
+  const store = await openStore({ roots: t.roots });
+  const id = { project: A, host: 'fake' as const, session: 'half' };
+  const saved = await store.drafts.save(id, { text: 'half \ud83d', cursorUTF16: 0, revision: 1 });
+  assert.deepEqual(saved, { status: 'error', reason: 'draft text has an unpaired surrogate' });
+  assert.equal(await store.drafts.read(id), undefined);
+});
+
 test('encode/decode is byte-exact for a ZWJ family, flag, decomposed accent, CJK and newlines', () => {
   const id = { project: A, host: 'fake' as const, session: 's1' };
   const header = draftHeader(id, {

@@ -3,7 +3,7 @@
 // (./node/drafts.ts) writes these bytes; a memory backend is for tests and
 // the conformance guest, which has no file system.
 
-import { utf8Decode, utf8Encode, utf8Length } from './encoding.ts';
+import { isWellFormedText, utf8Decode, utf8Encode, utf8Length } from './encoding.ts';
 import { checkDraftHost, checkProjectId, checkSessionId, type DraftHost } from './layout.ts';
 
 /** Maximum UTF-8 bytes of draft text. The envelope may add at most 1 KiB. */
@@ -101,9 +101,14 @@ export function draftHeader(
   return header;
 }
 
-/** Encodes a complete document. Refuses an oversize header or text, or a cursor inside a character. */
+/**
+ * Encodes a complete document. Refuses an oversize header or text, a cursor
+ * inside a character, or an unpaired surrogate (UTF-8 would turn it into
+ * U+FFFD, so the restore would not be the text that was saved).
+ */
 export function encodeDraft(header: DraftHeader, text: string): Uint8Array {
   if (typeof text !== 'string') throw new Error('draft text must be a string');
+  if (!isWellFormedText(text)) throw new Error('draft text has an unpaired surrogate');
   const textBytes = utf8Length(text);
   if (textBytes > DRAFT_MAX_TEXT_BYTES) throw new Error('draft text is larger than 64 KiB');
   if (header.textBytes !== textBytes) throw new Error('draft textBytes does not match the text');

@@ -142,6 +142,11 @@ function draftRequests(cwd) {
     { op: 'drafts.cleanup', now: 'soon' },
     { op: 'drafts.nope', draft: draftId('s-x') },
     { op: 'project.id' },
+    // A lone surrogate (half an emoji) is not UTF-8: both stores refuse the
+    // request whole, so neither saves a draft it would restore as U+FFFD.
+    { op: 'drafts.save', draft: draftId('s-half'), text: 'half \ud83d', cursorUTF16: 0, revision: 1, now: 1 },
+    { op: 'drafts.read', draft: draftId('s-half') },
+    { op: 'storage.set', plugin: 'p', key: 'k\udc00', value: 1 },
   ];
 }
 
