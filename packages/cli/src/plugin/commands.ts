@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { API_VERSION } from '@murmo/api';
+import { API_VERSION, type Permission } from '@murmo/api';
 import {
   assertApiCompatible,
   type InspectedPlugin,
@@ -80,8 +80,9 @@ Install and manage:
   murmo plugin list [--json]
   murmo plugin info|inspect <id|source> [--json]
   murmo plugin add <source|id[@version]> --trust-key PUBLIC.pem --grant <list> [--digest HEX] [--registry URL] [--index URL] [--rotate-statement FILE]
-  murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL] [--rotate-statement FILE]
+  murmo plugin update <source> [--grant <list>] [--digest HEX] [--registry URL] [--rotate-statement FILE | --trust-key NEW.pem --replace-publisher]
   murmo plugin disable|enable|remove|rollback|reinstall <id>
+  murmo plugin grant|revoke-grant <id> <permission,...>
   murmo plugin search <words> [--index URL] [--registry-key PUBLIC.pem] [--json]
   murmo plugin revoke --statement FILE --trust-key PUBLIC.pem
   murmo plugin doctor [--json]
@@ -528,6 +529,15 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
 
   if (command === 'pack') return packCommand(ctx, rest, parsed.flags, json);
 
+  if (command === 'grant' || command === 'revoke-grant') {
+    const [id, list] = rest;
+    if (!id || !list) {
+      ctx.err(`usage: murmo plugin ${command} <id> <permission,...>\n`);
+      return 2;
+    }
+    return changeGrants(ctx, command, id, parseGrantList(list), json);
+  }
+
   if (command === 'revoke') {
     const statementPath = flagString(parsed.flags, '--statement');
     const keyPath = flagString(parsed.flags, '--trust-key');
@@ -568,6 +578,37 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
   return 2;
 }
 
+/**
+ * Give back or take away permissions of an installed plugin, within what it
+ * declares. Built-ins have fixed grants. Open sessions keep theirs; the next
+ * session starts with the new set.
+ */
+async function changeGrants(
+  ctx: PluginCommandContext,
+  command: 'grant' | 'revoke-grant',
+  id: string,
+  names: readonly Permission[],
+  json: boolean,
+): Promise<number> {
+  let manifest = await requireManifest(ctx);
+  const plugin = pluginOf(manifest, id);
+  if (!plugin.distribution) fail('distributed-plugin-absent', { id });
+  const declared = (plugin.distribution.manifest.permissions as Permission[] | undefined) ?? [];
+  for (const name of names) if (!declared.includes(name)) fail('permission-not-declared', { id, permission: name });
+  const grants =
+    command === 'grant'
+      ? declared.filter((name) => plugin.grants.includes(name) || names.includes(name))
+      : plugin.grants.filter((name) => !names.includes(name));
+  manifest = await bumpManifest(ctx.roots, putPlugin(manifest, id, { ...plugin, grants }));
+  await waitForRevision(ctx.roots, manifest.revision, ctx.quiesceMs);
+  return print(
+    ctx,
+    json,
+    { status: command, id, grants, revision: manifest.revision },
+    `${id} keeps ${grants.join(', ') || 'no permissions'}; new sessions apply it`,
+  );
+}
+
 async function lifecycle(ctx: PluginCommandContext, command: string, id: string, json: boolean): Promise<number> {
   let manifest = await requireManifest(ctx);
   const plugin = pluginOf(manifest, id);
@@ -588,7 +629,7 @@ async function lifecycle(ctx: PluginCommandContext, command: string, id: string,
       ctx,
       json,
       { status: 'removed', id, revision: manifest.revision, retained: 'publisher/high-water/digest metadata only' },
-      `removed ${id}`,
+      `removed ${id}; Murmo kept its publisher key and highest version, so adding it again needs the same publisher and no older version`,
     );
   }
 
@@ -783,8 +824,8 @@ async function install(
   if (local) {
     // The user's own key signs only what they add from a folder; it never
     // takes over an ID another publisher holds.
-    if (identity && identity.publisher !== inspected.publisher) {
-      fail('publisher-key-changed', { expected: identity.publisher, actual: inspected.publisher });
+    if (identity && identity.publisher !== inspected.publisher && !flags.has('--replace-publisher')) {
+      fail('publisher-key-changed', { id, expected: identity.publisher, actual: inspected.publisher });
     }
   } else {
     if (rotatePath) {
@@ -799,7 +840,7 @@ async function install(
         fail('publisher-key-changed', { expected: rotationTo, actual: inspected.publisher });
       }
     }
-    assertTrust(inspected, identity, trustKey, rotationTo);
+    assertTrust(inspected, identity, trustKey, rotationTo, flags.has('--replace-publisher'));
     assertPins(inspected, identity, old?.distribution?.digest);
   }
   const sameFiles =
@@ -819,7 +860,10 @@ async function install(
       `unchanged ${id}`,
     );
   }
-  const held = command === 'update' ? old?.grants : undefined;
+  // Permissions the user took back (`revoke-grant`) stay off across updates and need no new review.
+  const oldDeclared = (old?.distribution?.manifest.permissions as Permission[] | undefined) ?? [];
+  const withheld = command === 'update' && old ? oldDeclared.filter((name) => !old.grants.includes(name)) : [];
+  const held = command === 'update' ? [...(old?.grants ?? []), ...withheld] : undefined;
   const additional = missingGrants(inspected.envelope.permissions, held);
   let granted = parseGrantList(flagString(flags, '--grant'));
   const review = reviewText(inspected, resolved.source, local?.key);
@@ -900,7 +944,7 @@ async function install(
     const previous = old ? chainPrevious(old) : undefined;
     const candidate: InstalledPlugin = {
       enabled: old?.enabled ?? true,
-      grants: [...inspected.envelope.permissions],
+      grants: inspected.envelope.permissions.filter((name) => !withheld.includes(name) || granted.includes(name)),
       storageFile: storageRel,
       entry: `${dest}/${inspected.envelope.entry}`,
       distribution: {
@@ -972,7 +1016,12 @@ async function install(
           at: (ctx.now ?? Date.now)(),
         });
       }
-      if (!old || inspected.digest !== old.distribution?.digest) {
+      if (!old?.distribution) {
+        // A first add that failed leaves nothing of the plugin behind.
+        await removePluginTrees(ctx.roots, id);
+        const { rm } = await import('node:fs/promises');
+        await rm(pluginRecordPath(storeLayout(ctx.roots), id), { force: true });
+      } else if (inspected.digest !== old.distribution.digest) {
         await removeGenerationFiles(ctx.roots, id, inspected.digest);
       }
       await clearJournal(ctx.roots);

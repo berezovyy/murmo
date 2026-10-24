@@ -19,7 +19,7 @@ const VALUE = new Set([
   '--key',
   '--out',
 ]);
-const BARE = new Set(['--json', '--offline', '--refresh']);
+const BARE = new Set(['--json', '--offline', '--refresh', '--replace-publisher']);
 
 export function parsePluginArgs(args: readonly string[]): PluginFlags {
   const positional: string[] = [];

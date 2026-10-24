@@ -59,8 +59,9 @@ const SENTENCES: Readonly<Record<string, (d: Readonly<Record<string, unknown>>) 
   'publisher-key-not-approved': (d) =>
     `the --trust-key you passed has fingerprint ${text(d.expected)}, but the plugin is signed by ${text(d.actual)}`,
   'publisher-key-changed': (d) =>
-    `this plugin is now signed by ${text(d.actual)}, not by the publisher you trusted (${text(d.expected)}). ` +
-    'A real key change comes with a rotation statement signed by the old key (--rotate-statement).',
+    `${text(d.id ?? 'this plugin')} is now signed by ${text(d.actual)}, not by the publisher you trusted (${text(d.expected)}). ` +
+    'A real key change comes with a statement signed by the old key (--rotate-statement); ' +
+    'to replace the publisher yourself, pass the new key with --trust-key and --replace-publisher.',
   'already-installed': (d) =>
     `${text(d.id)} is already installed; to install a new version run murmo plugin update with the same source`,
   'distributed-plugin-absent': (d) => `no installed plugin is called ${text(d.id)} (murmo plugin list)`,
@@ -81,6 +82,8 @@ const SENTENCES: Readonly<Record<string, (d: Readonly<Record<string, unknown>>) 
   'digest-pin-mismatch': (d) => `the archive digest is ${text(d.actual)}, not the ${text(d.expected)} you pinned`,
   'project-approval-required': (d) =>
     `review the request first; approve exactly this file with --approve-project ${text(d.digest)}`,
+  'permission-not-declared': (d) =>
+    `${text(d.id)} does not declare ${text(d.permission)}; a plugin only ever gets what its manifest asks for`,
   'invalid-manifest': (d) => `${text(d.file ?? 'the manifest')} is not valid: ${text(d.error ?? d)}`,
   'entry-missing': (d) => `${text(d.file)} is missing from ${text(d.folder ?? 'the plugin')}`,
 };

@@ -44,6 +44,7 @@ export function assertTrust(
   identity: PublisherIdentity | undefined,
   trustKeyPath: string | undefined,
   rotationTo?: string,
+  replacePublisher = false,
 ): void {
   if (!identity) {
     if (!trustKeyPath) {
@@ -56,8 +57,19 @@ export function assertTrust(
   }
   if (identity.publisher === inspected.publisher) return;
   if (rotationTo && rotationTo === inspected.publisher) return;
-  if (trustKeyPath && fingerprintFromKeyFile(trustKeyPath) === inspected.publisher) return;
-  fail('publisher-key-changed', { expected: identity.publisher, actual: inspected.publisher });
+  // A new key alone is what a stolen or swapped archive brings; it takes a
+  // statement signed by the old key, or the user replacing the publisher on
+  // purpose with the new key in hand.
+  if (replacePublisher && trustKeyPath) {
+    const approved = fingerprintFromKeyFile(trustKeyPath);
+    if (approved === inspected.publisher) return;
+    fail('publisher-key-not-approved', { expected: approved, actual: inspected.publisher });
+  }
+  fail('publisher-key-changed', {
+    id: inspected.envelope.id,
+    expected: identity.publisher,
+    actual: inspected.publisher,
+  });
 }
 
 export function assertPins(
