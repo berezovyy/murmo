@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PluginFactory } from '@murmo/api';
+import { LIMITS } from '@murmo/api';
 import { createInProcessExecutor } from '@murmo/executor';
 import { createPluginHost, disabledNotice } from '../src/index.ts';
 import { createHarness, type DirectPluginSpec } from '../src/testing/index.ts';
@@ -59,7 +60,11 @@ test('strikes show nothing; the disable they lead to shows one plain notice', as
   const stats = h.session?.stats();
   assert.deepEqual(stats?.disabled, ['healthy']);
   assert.deepEqual(stats?.notices, [disabledNotice('healthy', 'slow')]);
-  assert.match(stats?.plugins[0]?.reason ?? '', /onChange budget failures: deadline exceeded/);
+  // The reason counts the strikes the limit sets, not a number written into the text.
+  assert.equal(
+    stats?.plugins[0]?.reason,
+    `${LIMITS.faultStrikes} consecutive onChange budget failures: deadline exceeded`,
+  );
   await h.session?.dispose();
 });
 

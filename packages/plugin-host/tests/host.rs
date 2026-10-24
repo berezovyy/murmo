@@ -354,6 +354,26 @@ fn stats_lists_the_hooks_and_services_actually_carried() {
     assert_eq!(stats["services"]["projectRead"], "brokered");
     assert_eq!(stats["services"]["submitCommitted"], true);
     assert_eq!(stats["services"]["projectFileChange"], true);
+    // The list left out onAgentEvent though the guest routes it: a reader of
+    // stats would think agent events never reach plugins.
+    let guest = include_str!("../src/guest.js");
+    let list = guest
+        .split("const HOOKS = [")
+        .nth(1)
+        .and_then(|rest| rest.split("];").next())
+        .expect("HOOKS in guest.js");
+    let routed: Vec<&str> = list
+        .split('\'')
+        .skip(1)
+        .step_by(2)
+        .collect();
+    let listed: Vec<&str> = stats["hooks"]
+        .as_array()
+        .expect("hooks")
+        .iter()
+        .map(|h| h.as_str().expect("hook name"))
+        .collect();
+    assert_eq!(listed, routed);
 }
 
 #[test]

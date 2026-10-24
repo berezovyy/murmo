@@ -540,7 +540,7 @@ impl Supervisor {
             "hooks": [
                 "activate", "onChange", "onPause", "onKey", "onMenuSelect", "onAction",
                 "onBeforeSubmit", "onSubmitCommitted", "onSubmitUnresolved",
-                "onProjectFileChange", "deactivate"
+                "onProjectFileChange", "onAgentEvent", "deactivate"
             ],
         })
     }

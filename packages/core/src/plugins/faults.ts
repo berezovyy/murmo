@@ -64,7 +64,7 @@ export class FaultBook {
         count,
         disable,
         message: disable
-          ? `three consecutive ${hook} budget failures: ${message}`
+          ? `${LIMITS.faultStrikes} consecutive ${hook} budget failures: ${message}`
           : `${plugin.name}: ${hook} budget missed (${count}/${LIMITS.faultStrikes})`,
       };
     }
