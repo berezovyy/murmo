@@ -32,7 +32,8 @@ export type JournalPhase = 'extract' | 'quiesce' | 'snapshot' | 'preflight' | 's
 export type JournalOp = 'add' | 'update';
 
 export interface PluginSource {
-  readonly kind: 'tarball' | 'git' | 'npm';
+  /** `folder`: a local plugin folder signed with the user's development key. */
+  readonly kind: 'tarball' | 'git' | 'npm' | 'folder';
   readonly spec: string;
   readonly path?: string;
   readonly url?: string;
@@ -101,6 +102,8 @@ export interface DistributionLedger {
   readonly identities: Readonly<Record<string, PublisherIdentity>>;
   readonly projects: Readonly<Record<string, ProjectApproval>>;
   readonly revocations?: readonly RevocationRecord[];
+  /** Fingerprint of the local development key, recorded when a folder plugin is first approved. */
+  readonly localPublisher?: string;
 }
 
 export interface UpdateJournal {

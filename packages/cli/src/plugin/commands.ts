@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { API_VERSION } from '@murmo/api';
 import {
   assertApiCompatible,
   type InspectedPlugin,
+  readSigningKey,
   type SignedRevocation,
   type SignedRotation,
   verifyRevocation,
@@ -34,8 +35,10 @@ import {
 } from '@murmo/store/node';
 import { inspectArchive } from './archive.ts';
 import { flagString, parsePluginArgs } from './args.ts';
+import { type DevKey, devKey } from './devkey.ts';
 import { fail } from './errors.ts';
 import { grantReview, HIGH_TRUST, parseGrantList, requireGrants } from './grants.ts';
+import { isPluginFolder, packFolder, readFolderManifest } from './pack.ts';
 import { migrateStorage, preflightActivate } from './preflight.ts';
 import { reviewProjectFile } from './project.ts';
 import {
@@ -49,7 +52,7 @@ import {
   type RegistryLoad,
   searchIndex,
 } from './registry.ts';
-import { type ResolveOptions, resolveSource } from './sources.ts';
+import { type ResolvedSource, type ResolveOptions, resolveSource } from './sources.ts';
 import {
   assertPins,
   assertPublisherGate,
@@ -57,6 +60,7 @@ import {
   FIRST_PARTY_PUBLISHER,
   fingerprintFromKeyFile,
   isRevoked,
+  missingGrants,
   nextIdentity,
   type TrustGate,
 } from './trust.ts';
@@ -68,6 +72,9 @@ Write your own:
   murmo plugin new <name>                  scaffold a plugin folder
   murmo plugin test [folder] [--profile fake|claude|codex|opencode|pi] [--executor in-process|quickjs|helper|all]
   murmo plugin dev [folder] [--profile HOST]   try it in a fake prompt box
+  murmo plugin add <folder>                install it after a review, signed with your local development key
+  murmo plugin update <folder>             install your edits
+  murmo plugin pack <folder> [--key PRIVATE.pem] [--out FILE]   a signed archive to share
 
 Install and manage:
   murmo plugin list [--json]
@@ -97,6 +104,8 @@ export interface PluginCommandContext {
   readonly err: (text: string) => void;
   readonly now?: () => number;
   readonly quiesceMs?: number;
+  /** Asks the review question (`add` without --grant); '' when input ends. Without it, --grant is required. */
+  readonly ask?: (prompt: string) => Promise<string>;
 }
 
 function gateOf(ctx: PluginCommandContext): TrustGate {
@@ -516,6 +525,8 @@ export async function pluginCommand(ctx: PluginCommandContext, args: readonly st
     return install(ctx, command, rest, parsed.flags, json);
   }
 
+  if (command === 'pack') return packCommand(ctx, rest, parsed.flags, json);
+
   if (command === 'revoke') {
     const statementPath = flagString(parsed.flags, '--statement');
     const keyPath = flagString(parsed.flags, '--trust-key');
@@ -632,6 +643,88 @@ async function lifecycle(ctx: PluginCommandContext, command: string, id: string,
   return print(ctx, json, { status: command, id, revision: manifest.revision }, `${command} ${id}`);
 }
 
+/**
+ * A plugin folder, signed now with the local development key. Each local
+ * add or update is a new release of the user's own plugin, so it takes the
+ * next sequence number: editing without bumping the version is the loop.
+ */
+function signFolder(
+  ctx: PluginCommandContext,
+  folder: string,
+  manifest: PluginsManifest,
+  ledger: DistributionLedger,
+): { resolved: ResolvedSource; key: DevKey & { approved: boolean } } {
+  const { manifest: portable } = readFolderManifest(folder);
+  const identity = ledger.identities[portable.name];
+  const installed = manifest.plugins[portable.name]?.distribution?.manifest.storageVersion;
+  const key = devKey(ctx.roots);
+  const { bytes } = packFolder(folder, {
+    privateKey: key.privateKey,
+    sequence: (identity?.highWater ?? 0) + 1,
+    ...(typeof installed === 'number' ? { storageVersion: installed } : {}),
+  });
+  const path = resolve(ctx.cwd, folder);
+  return {
+    resolved: { bytes, source: { kind: 'folder', spec: folder, path } },
+    key: { ...key, approved: ledger.localPublisher === key.fingerprint },
+  };
+}
+
+/** What the user approves: the plugin, where it comes from, who signed it, each permission with its reason. */
+function reviewText(
+  inspected: InspectedPlugin,
+  source: ResolvedSource['source'],
+  local: (DevKey & { approved: boolean }) | undefined,
+): string {
+  const { envelope } = inspected;
+  const review = grantReview(inspected);
+  const head = local
+    ? `${envelope.id}@${envelope.version} from ${source.path ?? source.spec} (a local folder), signed with your local development key ${local.fingerprint.slice(0, 12)}${local.approved ? '' : ' (first use: it signs only plugins you add from a folder on this machine)'}`
+    : `${envelope.id}@${envelope.version} from ${source.spec}\n  publisher ${inspected.publisher}\n  digest ${inspected.digest}`;
+  const permissions = review.permissions.length
+    ? ['It asks for:', ...review.permissions.map((p) => `  ${p.name}: ${p.reason}`)]
+    : ['It asks for no permissions.'];
+  return [head, ...permissions].join('\n');
+}
+
+async function packCommand(
+  ctx: PluginCommandContext,
+  rest: string[],
+  flags: Map<string, string | true>,
+  json: boolean,
+) {
+  const folder = rest[0];
+  if (!folder || !isPluginFolder(folder)) {
+    ctx.err('usage: murmo plugin pack <folder> [--key PRIVATE.pem] [--out FILE]\n');
+    return 2;
+  }
+  const keyPath = flagString(flags, '--key');
+  const local = keyPath ? undefined : devKey(ctx.roots);
+  const privateKey = keyPath ? readSigningKey(resolve(ctx.cwd, keyPath)) : (local as DevKey).privateKey;
+  const { bytes, inspected } = packFolder(folder, { privateKey });
+  const out = resolve(
+    ctx.cwd,
+    flagString(flags, '--out') ?? `${inspected.envelope.id}-${inspected.envelope.version}.tgz`,
+  );
+  writeFileSync(out, bytes, { mode: 0o644 });
+  const share = local
+    ? `signed with your local development key; to add it on another machine pass --trust-key ${local.publicPath}`
+    : `publisher ${inspected.publisher}; others add it with --trust-key and your public key`;
+  return print(
+    ctx,
+    json,
+    {
+      status: 'packed',
+      id: inspected.envelope.id,
+      version: inspected.envelope.version,
+      file: out,
+      digest: inspected.digest,
+      publisher: inspected.publisher,
+    },
+    `packed ${inspected.envelope.id}@${inspected.envelope.version} into ${out}\n  digest ${inspected.digest}\n  ${share}`,
+  );
+}
+
 async function install(
   ctx: PluginCommandContext,
   command: 'add' | 'update',
@@ -645,7 +738,8 @@ async function install(
     return 2;
   }
   let manifest = await requireManifest(ctx);
-  const target = command === 'add' ? parseRegistryTarget(given, ctx.cwd) : undefined;
+  const folder = isPluginFolder(given) ? given : undefined;
+  const target = command === 'add' && !folder ? parseRegistryTarget(given, ctx.cwd) : undefined;
   let source = given;
   let listed: ReturnType<typeof lookupListed> | undefined;
   if (target) {
@@ -653,16 +747,19 @@ async function install(
     if (!loaded) fail('registry-index-unconfigured');
     listed = lookupListed(loaded.index, target);
     source = listed.version.source;
-  } else {
+  } else if (!folder) {
     await ingestRegistry(ctx, flags, false);
   }
   manifest = await requireManifest(ctx);
   const ledger = await readLedger(ctx.roots);
-  const resolved = await resolveSource(source, {
-    registry: flagString(flags, '--registry'),
-    offline: flags.has('--offline'),
-    get: ctx.get,
-  });
+  const local = folder ? signFolder(ctx, folder, manifest, ledger) : undefined;
+  const resolved = local
+    ? local.resolved
+    : await resolveSource(source, {
+        registry: flagString(flags, '--registry'),
+        offline: flags.has('--offline'),
+        get: ctx.get,
+      });
   const inspected = inspectArchive(resolved.bytes);
   if (listed) assertListedArchive(listed, inspected, resolved.source.kind);
   const id = inspected.envelope.id;
@@ -682,21 +779,32 @@ async function install(
   let rotationTo: string | undefined;
   const rotatePath = flagString(flags, '--rotate-statement');
   const trustKey = flagString(flags, '--trust-key');
-  if (rotatePath) {
-    if (!identity || !trustKey) fail('publisher-approval-required', { id, publisher: inspected.publisher });
-    const signed = JSON.parse(readFileSync(rotatePath, 'utf8')) as SignedRotation;
-    rotationTo = verifyRotation(signed, readFileSync(trustKey));
-    if (signed.plugin !== id) fail('publisher-key-changed', { expected: id, actual: signed.plugin });
-    if (fingerprintFromKeyFile(trustKey) !== identity.publisher) {
-      fail('publisher-key-not-approved', { expected: identity.publisher, actual: fingerprintFromKeyFile(trustKey) });
+  if (local) {
+    // The user's own key signs only what they add from a folder; it never
+    // takes over an ID another publisher holds.
+    if (identity && identity.publisher !== inspected.publisher) {
+      fail('publisher-key-changed', { expected: identity.publisher, actual: inspected.publisher });
     }
-    if (rotationTo !== inspected.publisher) {
-      fail('publisher-key-changed', { expected: rotationTo, actual: inspected.publisher });
+  } else {
+    if (rotatePath) {
+      if (!identity || !trustKey) fail('publisher-approval-required', { id, publisher: inspected.publisher });
+      const signed = JSON.parse(readFileSync(rotatePath, 'utf8')) as SignedRotation;
+      rotationTo = verifyRotation(signed, readFileSync(trustKey));
+      if (signed.plugin !== id) fail('publisher-key-changed', { expected: id, actual: signed.plugin });
+      if (fingerprintFromKeyFile(trustKey) !== identity.publisher) {
+        fail('publisher-key-not-approved', { expected: identity.publisher, actual: fingerprintFromKeyFile(trustKey) });
+      }
+      if (rotationTo !== inspected.publisher) {
+        fail('publisher-key-changed', { expected: rotationTo, actual: inspected.publisher });
+      }
     }
+    assertTrust(inspected, identity, trustKey, rotationTo);
+    assertPins(inspected, identity, old?.distribution?.digest);
   }
-  assertTrust(inspected, identity, trustKey, rotationTo);
-  assertPins(inspected, identity, old?.distribution?.digest);
-  if (old?.distribution?.digest === inspected.digest) {
+  const sameFiles =
+    local !== undefined &&
+    JSON.stringify(old?.distribution?.manifest.files) === JSON.stringify(inspected.envelope.files);
+  if (old?.distribution?.digest === inspected.digest || sameFiles) {
     return print(
       ctx,
       json,
@@ -704,17 +812,26 @@ async function install(
         status: 'unchanged',
         id,
         version: inspected.envelope.version,
-        digest: inspected.digest,
+        digest: old?.distribution?.digest ?? inspected.digest,
         revision: manifest.revision,
       },
       `unchanged ${id}`,
     );
   }
-  const granted = parseGrantList(flagString(flags, '--grant'));
-  requireGrants(inspected, granted, command === 'update' ? old?.grants : undefined);
-  if (command === 'add' && !flagString(flags, '--grant') && inspected.envelope.permissions.length) {
-    requireGrants(inspected, [], undefined);
+  const held = command === 'update' ? old?.grants : undefined;
+  const additional = missingGrants(inspected.envelope.permissions, held);
+  let granted = parseGrantList(flagString(flags, '--grant'));
+  const review = reviewText(inspected, resolved.source, local?.key);
+  if (!json && (command === 'add' || additional.length)) ctx.out(`${review}\n`);
+  if (additional.some((name) => !granted.includes(name)) && !flagString(flags, '--grant') && ctx.ask) {
+    const answer = await ctx.ask(
+      additional.length === inspected.envelope.permissions.length
+        ? 'Install it with these permissions? [y/N] '
+        : `Grant the new permissions (${additional.join(', ')})? [y/N] `,
+    );
+    if (/^y(es)?$/i.test(answer.trim())) granted = [...granted, ...additional];
   }
+  requireGrants(inspected, granted, held);
 
   const dest = extensionsDir(ctx.roots, id, inspected.digest);
   const storageRel = `plugin-storage/${id}/${inspected.digest}.json`;
@@ -797,6 +914,7 @@ async function install(
     const nextLedger = {
       ...ledger,
       identities: { ...ledger.identities, [id]: nextIdentity(inspected, identity) },
+      ...(local ? { localPublisher: local.key.fingerprint } : {}),
     };
     await writeLedger(ctx.roots, nextLedger);
     const order = manifest.order.includes(id) ? manifest.order : [...manifest.order, id];
@@ -838,7 +956,7 @@ async function install(
         revision: manifest.revision,
         source: resolved.source,
       },
-      `${command} ${id}@${inspected.envelope.version}`,
+      `${command === 'add' ? 'added' : 'updated'} ${id}@${inspected.envelope.version}, granted ${candidate.grants.join(', ') || 'nothing'}`,
     );
   } catch (error) {
     if (!committed) {

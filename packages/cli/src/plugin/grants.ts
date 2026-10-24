@@ -9,17 +9,18 @@ import { missingGrants } from './trust.ts';
 
 export const HIGH_TRUST = HIGH_TRUST_PERMISSIONS;
 
+/** The reason a review prints after the permission's name, with what a high-trust grant means. */
 export function highTrustPrompt(name: Permission, reason: string, origin?: string): string {
   if (name === 'network') {
-    return `${name} (${origin ?? 'origin required'}): ${reason} Draft text may be sent to this origin.`;
+    return `${reason} It can send draft text to ${origin ?? 'an origin it must declare'}.`;
   }
   if (name === 'draft:read:full') {
-    return `${name}: ${reason} This plugin will see pasted and filled prompt text, not only what you type.`;
+    return `${reason} It will see pasted and filled prompt text, not only what you type.`;
   }
   if (name === 'project:git') {
-    return `${name}: ${reason} This plugin can read branch, status, commit subjects and changed paths.`;
+    return `${reason} It can read branch, status, commit subjects and changed paths.`;
   }
-  return `${name}: ${reason}`;
+  return reason;
 }
 
 export function parseGrantList(value: string | undefined): Permission[] {

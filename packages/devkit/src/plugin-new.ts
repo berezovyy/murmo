@@ -68,6 +68,16 @@ murmo plugin test --profile claude
 murmo plugin dev --profile codex
 \`\`\`
 
+To use it in your agents, from the parent folder:
+
+\`\`\`
+murmo plugin add ./${name}      # review its permissions, then install
+murmo plugin update ./${name}   # after each edit
+murmo plugin pack ./${name}     # a signed archive to share
+\`\`\`
+
+Only \`murmo.plugin.json\` and the entry module are installed.
+
 The module is self-contained and runs in QuickJS and \`murmo-plugin-host\`. Keep
 imports out of \`plugin.mjs\`; \`murmo-api/\` is for editor type-checking only.
 Manifest permissions describe requests, not grants.

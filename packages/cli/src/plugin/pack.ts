@@ -1,8 +1,10 @@
-// Build a signed plugin archive. Tests generate fixtures with this; first-party
-// plugins outside the core package use the same envelope.
+// Build a signed plugin archive: `packFolder` for an author's folder (`murmo
+// plugin pack`, `murmo plugin add ./folder`), `packPlugin` for test fixtures.
 
 import { createPublicKey, generateKeyPairSync, type KeyObject } from 'node:crypto';
-import type { Permission, PluginManifest } from '@murmo/api';
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative } from 'node:path';
+import { type Permission, type PluginManifest, validateManifest } from '@murmo/api';
 import {
   ENVELOPE_FILE,
   type EnvelopeMigration,
@@ -15,6 +17,7 @@ import {
   signEnvelope,
 } from '@murmo/integrity';
 import { packTarGz } from './archive.ts';
+import { fail } from './errors.ts';
 
 export interface PackPluginOptions {
   readonly id?: string;
@@ -147,4 +150,91 @@ export function packPlugin(options: PackPluginOptions = {}): PackedPlugin {
   const digest = sha256Bytes(bytes);
   const inspected = inspectPluginFiles({ ...files }, digest);
   return { bytes, digest, publisher: inspected.publisher, publicPem, privateKey, inspected };
+}
+
+export interface PackFolderOptions {
+  readonly privateKey: KeyObject;
+  /** Release sequence; default from the version, so later versions always sort later. */
+  readonly sequence?: number;
+  /** Keep the installed storage version on a local update (no migration to write). */
+  readonly storageVersion?: number;
+}
+
+/** `MAJOR.MINOR.PATCH` as one increasing number, the default release sequence. */
+export function versionSequence(version: string): number {
+  const [major = 0, minor = 0, patch = 0] = version.split('.').map((part) => Number.parseInt(part, 10));
+  return major * 1_000_000 + Math.min(minor, 999) * 1_000 + Math.min(patch, 999) + 1;
+}
+
+function readFolderFile(folder: string, rel: string): Buffer {
+  const root = realpathSync(folder);
+  let real: string;
+  try {
+    real = realpathSync(join(root, rel));
+  } catch {
+    fail('entry-missing', { folder, file: rel });
+  }
+  const inside = relative(root, real);
+  if (inside.startsWith('..') || isAbsolute(inside)) fail('unsafe-archive-path', { raw: rel });
+  const stat = statSync(real);
+  if (!stat.isFile()) fail('archive-type-denied', { raw: rel });
+  return readFileSync(real);
+}
+
+/** The folder's `murmo.plugin.json`, validated (its name is the plugin ID). */
+export function readFolderManifest(folder: string): { manifest: PluginManifest; bytes: Buffer } {
+  const bytes = readFolderFile(folder, PLUGIN_MANIFEST_FILE);
+  try {
+    return { manifest: validateManifest(JSON.parse(bytes.toString('utf8'))), bytes };
+  } catch (error) {
+    fail('invalid-manifest', {
+      file: join(folder, PLUGIN_MANIFEST_FILE),
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** True when `source` names a plugin folder rather than an archive or a remote source. */
+export function isPluginFolder(source: string): boolean {
+  try {
+    return statSync(source).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sign a plugin folder as written by `murmo plugin new`: its manifest and
+ * its one self-contained entry module, nothing else (tests, types and
+ * README stay out). The envelope repeats the manifest's permissions and
+ * reasons, so what the user reviews is what the author wrote.
+ */
+export function packFolder(folder: string, options: PackFolderOptions): { bytes: Buffer; inspected: InspectedPlugin } {
+  const { manifest, bytes: manifestBytes } = readFolderManifest(folder);
+  const entryBytes = readFolderFile(folder, manifest.entry);
+  const files: Record<string, Uint8Array> = {
+    [PLUGIN_MANIFEST_FILE]: manifestBytes,
+    [manifest.entry]: entryBytes,
+  };
+  const permissions = manifest.permissions.map((entry) => entry.name);
+  const origins = Object.fromEntries(
+    manifest.permissions.flatMap((entry) => (entry.origin ? [[entry.name, entry.origin]] : [])),
+  );
+  const envelope: PluginEnvelope = {
+    format: 'murmo-plugin-v1',
+    id: manifest.name,
+    version: manifest.version,
+    sequence: options.sequence ?? versionSequence(manifest.version),
+    publisher: createPublicKey(options.privateKey).export({ type: 'spki', format: 'pem' }).toString(),
+    entry: manifest.entry,
+    api: manifest.api,
+    permissions,
+    reasons: Object.fromEntries(manifest.permissions.map((entry) => [entry.name, entry.reason])),
+    ...(Object.keys(origins).length ? { origins } : {}),
+    storageVersion: options.storageVersion ?? 1,
+    files: Object.fromEntries(Object.entries(files).map(([name, bytes]) => [name, sha256Bytes(bytes)])),
+  };
+  files[ENVELOPE_FILE] = Buffer.from(`${JSON.stringify(signEnvelope(envelope, options.privateKey))}\n`);
+  const bytes = packTarGz(files);
+  return { bytes, inspected: inspectPluginFiles(files, sha256Bytes(bytes)) };
 }

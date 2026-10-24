@@ -2,6 +2,7 @@
 // against the signed envelope, activate, and return storage. First-party
 // plugins run in-process; the isolated guest is the seam for phase 32.
 
+import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import type { Permission, Plugin, PluginContext, PluginFactory } from '@murmo/api';
 import { createMemoryStorage, createStorageBroker } from '@murmo/core';
@@ -15,10 +16,31 @@ export interface PreflightResult {
 
 const emptyDraft = { text: '', cursor: 0, version: 0, certainty: 'unknown' as const, typedSpans: [] as const };
 
-async function loadFactory(entryPath: string): Promise<PluginFactory> {
+/** An error as text. */
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * A syntax error from `import()` names no line, so ask `node --check`,
+ * whose first output line is `<path>:<line>`.
+ */
+function syntaxLocation(entryPath: string): string | undefined {
+  const check = spawnSync(process.execPath, ['--check', entryPath], { encoding: 'utf8', timeout: 5_000 });
+  const first = check.stderr?.split('\n')[0]?.trim();
+  return first && /:\d+$/.test(first) ? first : undefined;
+}
+
+async function loadFactory(entryPath: string, file: string): Promise<PluginFactory> {
   const href = `${pathToFileURL(entryPath).href}?preflight=${Date.now()}`;
-  const mod = (await import(href)) as { default?: unknown };
-  if (typeof mod.default !== 'function') fail('load-failed', { error: 'plugin entry must default-export a factory' });
+  let mod: { default?: unknown };
+  try {
+    mod = (await import(href)) as { default?: unknown };
+  } catch (error) {
+    const where = error instanceof SyntaxError ? syntaxLocation(entryPath) : undefined;
+    fail('load-failed', { file, error: where ? `${messageOf(error)} at ${where}` : messageOf(error) });
+  }
+  if (typeof mod.default !== 'function') fail('load-failed', { file, error: 'it must default-export a factory' });
   return mod.default as PluginFactory;
 }
 
@@ -33,19 +55,26 @@ export async function preflightActivate(
   data: Record<string, unknown>,
   _grants: readonly Permission[],
 ): Promise<PreflightResult> {
-  const factory = await loadFactory(entryPath);
+  const file = inspected.envelope.entry;
+  const factory = await loadFactory(entryPath, file);
   let plugin: Plugin;
   try {
     plugin = asPlugin(factory({}));
   } catch (error) {
-    fail('load-failed', { error: error instanceof Error ? error.message : String(error) });
+    fail('load-failed', { file, error: messageOf(error) });
   }
   const declared = plugin.permissions ?? [];
   if (declared.some((name) => !inspected.envelope.permissions.includes(name))) {
     fail('descriptor-permissions-mismatch', { declared, envelope: inspected.envelope.permissions });
   }
   if (plugin.name !== inspected.envelope.id || plugin.version !== inspected.envelope.version) {
-    fail('descriptor-version-mismatch', { name: plugin.name, version: plugin.version });
+    fail('descriptor-version-mismatch', {
+      entry: file,
+      name: plugin.name,
+      version: plugin.version,
+      expectedName: inspected.envelope.id,
+      expectedVersion: inspected.envelope.version,
+    });
   }
   const backend = createMemoryStorage();
   await backend.save(inspected.envelope.id, JSON.stringify(data));

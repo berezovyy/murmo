@@ -21,7 +21,8 @@ export async function pluginCommand(argv: string[]): Promise<number> {
       console.log(
         [
           `created ${directory}`,
-          `next: murmo plugin test ${rest[0]}, then murmo plugin dev ${rest[0]} to try it in a fake prompt box`,
+          `next: murmo plugin test ${rest[0]}, murmo plugin dev ${rest[0]} to try it in a fake prompt box,`,
+          `then murmo plugin add ./${rest[0]} to use it in your agents (murmo plugin update ./${rest[0]} after edits)`,
           `guide: ${authoringGuide()}`,
         ].join('\n'),
       );

@@ -16,6 +16,8 @@ const VALUE = new Set([
   '--statement',
   '--index',
   '--registry-key',
+  '--key',
+  '--out',
 ]);
 const BARE = new Set(['--json', '--offline', '--refresh']);
 

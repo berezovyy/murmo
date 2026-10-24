@@ -133,16 +133,18 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
     if (cmd === 'plugin') {
       const verb = rest[0];
       if (verb === 'new' || verb === 'test' || verb === 'dev') {
-        return dispatchMounted(cmd, rest, env, cwd, mounted);
+        return await dispatchMounted(cmd, rest, env, cwd, mounted);
       }
       const packed = existsSync(`${packageRoot()}/${INTEGRITY_FILE}`);
-      return pluginCommand(
+      // Awaited here, so a refusal reaches the catch below and prints its details.
+      return await pluginCommand(
         {
           roots: storeRootsFromEnv(env, env.HOME),
           cwd,
           packed,
           out,
           err,
+          ask: mounted.ask,
         },
         rest,
       );
@@ -166,7 +168,7 @@ export async function main(argv = process.argv.slice(2), options: MainOptions = 
         'shortcuts',
       ].includes(cmd)
     ) {
-      return dispatchMounted(cmd, rest, env, cwd, mounted);
+      return await dispatchMounted(cmd, rest, env, cwd, mounted);
     }
     err(`murmo: unknown command ${cmd}\n${usage}`);
     return 2;
