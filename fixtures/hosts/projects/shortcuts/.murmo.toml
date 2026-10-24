@@ -8,3 +8,8 @@ version = 1
 text = 'Review <change> for correctness.'
 description = "Harness review template"
 fields.change = { default = "this change" }
+
+# fixtures/hosts/template-fields.json: Tab between fields, a default in the second.
+[replace.";hf"]
+text = 'Review <change> for <concern>.'
+fields.concern = { default = "races" }

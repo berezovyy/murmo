@@ -282,6 +282,9 @@ class CoreSession implements Session {
   #inline: InlineStage | undefined;
   /** Phase 37. Cached field ranges for `in-my-field-session`. */
   readonly #fields = new FieldSessions();
+  /** Work started by keys the router already handled, not yet landed. */
+  readonly #keyWork = new Set<Promise<void>>();
+  #submitDeadlineMs = 0;
   #queue: Promise<void> = Promise.resolve();
   #seq = 0;
   #settled = 0;
@@ -405,6 +408,7 @@ class CoreSession implements Session {
       clock: this.#clock,
       guardPolicy: this.#options.guardPolicy ?? (coverage.block ? 'final-boundary' : 'managed'),
     });
+    this.#submitDeadlineMs = submitOpts.deadlineMs;
     // Phase 32: review panel for third-party edits. Hosts without ui.review
     // drop third-party draft:write (reviewCapabilityGate).
     this.#review = new ReviewLog({
@@ -516,11 +520,11 @@ class CoreSession implements Session {
       restore: (record, gesture) => {
         if (record.owner === 'names') counters.nameReverted++;
         const epoch = intake.epoch;
-        this.#enqueue(() => this.#edits?.restore(record, gesture, epoch) ?? Promise.resolve());
+        this.#keyed(this.#enqueue(() => this.#edits?.restore(record, gesture, epoch) ?? Promise.resolve()));
       },
       acceptGhost: (plugin, text) => this.#acceptGhost(plugin, text),
-      dispatch: (plugin, key) => this.#schedule(plugin, 'onKey', key),
-      menuSelect: (plugin, item) => this.#schedule(plugin, 'onMenuSelect', item),
+      dispatch: (plugin, key) => this.#keyed(this.#schedule(plugin, 'onKey', key)),
+      menuSelect: (plugin, item) => this.#keyed(this.#schedule(plugin, 'onMenuSelect', item)),
       render: () => {
         presentation.render();
         menu.render();
@@ -759,7 +763,7 @@ class CoreSession implements Session {
     const seq = ++this.#seq;
     this.#latest.set(`${plugin.id}\u0000onKey`, seq);
     const ticket = issueTicket(plugin.id, 'onKey', seq, view);
-    this.#enqueue(() => edits.commit(plugin, edit, ticket));
+    this.#keyed(this.#enqueue(() => edits.commit(plugin, edit, ticket)));
   }
 
   /** Logical actions (`murmo.undo`, `murmo.menu`); never faked as raw keys. */
@@ -776,7 +780,7 @@ class CoreSession implements Session {
       this.#undo.pop();
       if (record.owner === 'names') this.#counters.nameReverted++;
       const epoch = intake.epoch;
-      this.#enqueue(() => this.#edits?.restore(record, 'undo-key', epoch) ?? Promise.resolve());
+      this.#keyed(this.#enqueue(() => this.#edits?.restore(record, 'undo-key', epoch) ?? Promise.resolve()));
       return;
     }
     if (action === 'murmo.menu') {
@@ -784,7 +788,7 @@ class CoreSession implements Session {
       intake.bumpEpoch();
       for (const plugin of this.#plugins) {
         if (plugin.disabled || !plugin.actions.has('murmo.menu') || !plugin.hooks.has('onAction')) continue;
-        this.#schedule(plugin, 'onAction', 'murmo.menu');
+        this.#keyed(this.#schedule(plugin, 'onAction', 'murmo.menu'));
       }
     }
   }
@@ -798,7 +802,7 @@ class CoreSession implements Session {
     if (!chosen) return;
     intake.bumpEpoch();
     menu.close();
-    this.#schedule(chosen.plugin, 'onMenuSelect', chosen.item);
+    this.#keyed(this.#schedule(chosen.plugin, 'onMenuSelect', chosen.item));
   }
 
   // -------------------------------------------------------------------------
@@ -844,11 +848,14 @@ class CoreSession implements Session {
     this.#cancelPause = clock.setTimer(fire, LIMITS.pauseMs);
   }
 
-  #schedule(plugin: PluginEntry, hook: PluginHook, input: unknown, change?: Change): void {
+  /** Runs one hook; the promise settles once its effects applied (or were dropped). */
+  #schedule(plugin: PluginEntry, hook: PluginHook, input: unknown, change?: Change): Promise<void> {
     const view = this.#view;
     const caps = this.#caps;
     const effects = this.#effects;
-    if (!this.#live || !view || !caps || !effects || plugin.disabled || !plugin.hooks.has(hook)) return;
+    if (!this.#live || !view || !caps || !effects || plugin.disabled || !plugin.hooks.has(hook)) {
+      return Promise.resolve();
+    }
     const seq = ++this.#seq;
     this.#latest.set(`${plugin.id}\u0000${hook}`, seq);
     const ticket = issueTicket(plugin.id, hook, seq, view);
@@ -870,12 +877,12 @@ class CoreSession implements Session {
       },
       snapshot,
     };
-    this.#track(
+    return this.#track(
       this.#runner.run(call).then(
         (value) => {
           if (hook === 'activate') plugin.activated = true;
           this.#faults.success(plugin, hook);
-          this.#enqueue(async () => {
+          return this.#enqueue(async () => {
             try {
               await applyEffects(plugin, value, ticket, effects);
             } catch (error) {
@@ -927,9 +934,41 @@ class CoreSession implements Session {
   }
 
   /** Effects and restores run one at a time, in order, so two commits never interleave. */
-  #enqueue(work: () => Promise<unknown>): void {
+  #enqueue(work: () => Promise<unknown>): Promise<void> {
     const task = this.#track(this.#queue.then(work));
     this.#queue = task;
+    return task;
+  }
+
+  /** Work a key (or a pick in the host's menu) started; a send waits for it (`#afterKeyWork`). */
+  #keyed(work: Promise<void>): void {
+    this.#keyWork.add(work);
+    void work.then(() => this.#keyWork.delete(work));
+  }
+
+  /**
+   * Keys pressed before this send may have started work that has not landed
+   * yet: a menu pick, a jump to a template field, a restore. The send waits for
+   * it, within the submit deadline, so what goes out holds every edit those
+   * keys asked for. True when there was any.
+   */
+  async #afterKeyWork(): Promise<boolean> {
+    if (!this.#keyWork.size) return false;
+    const clock = this.#clock;
+    const until = clock.now() + this.#submitDeadlineMs;
+    while (this.#keyWork.size) {
+      const left = until - clock.now();
+      if (left <= 0) break;
+      let cancel = () => {};
+      const expired = new Promise<boolean>((resolve) => {
+        cancel = clock.setTimer(() => resolve(true), left);
+      });
+      const done = Promise.allSettled([...this.#keyWork]).then(() => false);
+      const timedOut = await Promise.race([done, expired]);
+      cancel();
+      if (timedOut) break;
+    }
+    return true;
   }
 
   /** Tracks a task for `settle`; an error escaping one is a core failure for the guard. */
@@ -963,9 +1002,15 @@ class CoreSession implements Session {
         this.#presentation?.notice(TRANSPORT_UNAVAILABLE, 'draft');
         return { action: 'block', reason: TRANSPORT_UNAVAILABLE };
       }
-      const review = this.#review?.intercept(tx.draft.version);
+      // Sends what the keys before this one made; the adapter's snapshot predates their edits.
+      const waited = await this.#afterKeyWork();
+      const draft = this.#intake?.draft;
+      const moved = waited && draft !== undefined && draft.version !== tx.draft.version;
+      const current: SubmitTransaction = moved ? { ...tx, draft } : tx;
+      const review = this.#review?.intercept(current.draft.version);
       if (review) return review;
-      return await submit.beforeSubmit(tx);
+      const outcome = await submit.beforeSubmit(current);
+      return moved && outcome.action !== 'block' ? { ...outcome, version: current.draft.version } : outcome;
     } catch (error) {
       this.#guard.record(error);
       return { action: 'block', reason: error instanceof Error ? error.message : String(error) };

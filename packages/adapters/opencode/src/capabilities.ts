@@ -58,6 +58,7 @@ export function capabilitiesFromProbes(
       middle: probe.middle && measure,
       multiline: probe.multiline && measure,
       selection: probe.selection && measure,
+      cursor: edit,
       exactRestore: edit && probe.selection,
       certainties: ['authoritative'],
       attributed: true,

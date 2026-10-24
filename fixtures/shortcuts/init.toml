@@ -7,7 +7,9 @@ version = 1
 Review this change for bugs, edge cases and missing tests.
 List issues by severity. Be concise.
 '''
-# Templates: lowercase <field> placeholders. Tab moves between them.
+# Templates: lowercase <field> placeholders; a field with a default shows it.
+# In Pi and OpenCode, Tab moves between fields; elsewhere edit them by hand.
+# Enter with a field still unfilled warns once; Enter again sends anyway.
 # [replace.";review"]
 # text = '''
 # Review <change> for correctness.

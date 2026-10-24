@@ -19,6 +19,8 @@ KEYS: dict[str, tuple[str, str]] = {
     'Enter': ('\r', 'Enter'),
     'Tab': ('\t', 'Tab'),
     'S-Tab': ('\x1b[Z', 'BTab'),
+    # The core's canonical name for it (fixtures' `key` steps).
+    'Shift+Tab': ('\x1b[Z', 'BTab'),
     'Escape': (ESC, 'Escape'),
     'Backspace': ('\x7f', 'BSpace'),
     'Delete': ('\x1b[3~', 'DC'),

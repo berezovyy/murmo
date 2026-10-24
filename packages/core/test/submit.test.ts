@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PluginFactory, SubmitCommitted, SubmitUnresolved } from '@murmo/api';
-import { REWRITE_DIAGNOSTIC, runPipeline } from '../src/index.ts';
+import { DEADLINES } from '@murmo/api';
+import { MENU_DISMISSED, REWRITE_DIAGNOSTIC, runPipeline } from '../src/index.ts';
 import { declaredAccess, noMenu } from '../src/submit/index.ts';
 import { createHarness, createManualClock, type DirectPluginSpec, referenceCaps } from '../src/testing/index.ts';
 
@@ -234,7 +235,10 @@ test('plugin menu at submit dismisses, keeps the draft, and the second send goes
   const h = await createHarness({ draft: { text: 'hello' }, menu });
   const first = await h.driver.submit('send');
   assert.equal(first.action, 'block');
-  if (first.action === 'block') assert.equal(first.reason, 'plugin menu dismissed; submit again');
+  if (first.action === 'block') assert.equal(first.reason, MENU_DISMISSED);
+  // The person sees why nothing went: hosts show refusals only through the core's status line.
+  await h.driver.settle();
+  assert.match(h.adapter.status ?? '', /Menu closed\. Enter again sends your text as typed\./);
   assert.equal(h.adapter.getDraft().text, 'hello');
   assert.equal(h.adapter.requests.length, 0);
   const second = await h.driver.submit('send');
@@ -574,4 +578,54 @@ test('typed-only observers see masked committed text (lesson 80)', async () => {
   await h.driver.settle();
   assert.equal(texts.length, 1);
   assert.equal(texts[0], '██████');
+});
+
+/** A key that rewrites the draft a while after it was pressed, as a template field jump or a menu pick does. */
+function slowKey(delayMs: number): DirectPluginSpec {
+  return builtin('slow-key', () => ({
+    name: 'slow-key',
+    version: '1',
+    permissions: ['draft:read:full', 'draft:write'],
+    keys: [{ key: 'F2', when: ['editable'], action: 'dispatch', consume: true }],
+    async onKey(_key, ctx) {
+      const d = ctx.draft;
+      if (delayMs) await ctx.clock.sleep(delayMs, ctx.signal);
+      return [
+        {
+          type: 'edit' as const,
+          edit: { from: 0, to: d.text.length, insert: `${d.text} done`, baseVersion: d.version, undoable: true },
+        },
+      ];
+    },
+  }));
+}
+
+test('Enter right after a key sends what that key changed (real-host bug)', async () => {
+  // OpenCode got Tab then Enter in one read: Enter made the Tab's edit stale,
+  // so it was dropped and the draft went out without it.
+  const h = await createHarness({ plugins: [slowKey(5)], draft: { text: 'go' } });
+  assert.equal(h.adapter.deliverKey('F2'), 'consume');
+  assert.equal(h.adapter.deliverKey('Enter'), 'pass');
+  const pending = h.driver.submit('send');
+  await h.driver.settle();
+  assert.equal((await pending).action, 'send');
+  assert.deepEqual(
+    h.adapter.requests.map((r) => r.text),
+    ['go done'],
+  );
+});
+
+test('an edit an earlier key started that cannot land in time does not hold the send', async () => {
+  // Waiting for earlier keys must not turn a stuck commit into a send that never goes:
+  // the host holds the edit's commit past the submit deadline, and the typed text goes.
+  const h = await createHarness({ plugins: [slowKey(0)], draft: { text: 'go' }, holdCommits: true });
+  assert.equal(h.adapter.deliverKey('F2'), 'consume');
+  const pending = h.driver.submit('send');
+  await h.driver.settle();
+  await pending;
+  assert.equal(h.clock.now() >= DEADLINES.submitTotalMs, true, 'the send waited for the deadline');
+  assert.deepEqual(
+    h.adapter.requests.map((r) => r.text),
+    ['go'],
+  );
 });

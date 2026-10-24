@@ -14,6 +14,8 @@ Additive preview companion, not a prompt-API break:
 ## 2.0-pre.1 (additive, 2026-10-24)
 
 - **`Executor.kindOf(spec)`** (adapter API, optional): where an executor that routes specs runs each one. A plugin's `runtime.executor` (negotiation and `ctx.host.caps`) is now where it runs, so an installed plugin in a session that keeps built-ins in-process sees `isolated`. Executors without it are unchanged.
+- **`Edit.cursor`** (optional) and **`edit.cursor`** capability (absent means false): an edit can place the cursor, and an empty edit with a `cursor` only moves it. Template fields use it to put the cursor on a field. A host without the capability returns `unsupported` for such an edit. Old plugins and adapters are unchanged.
+- **`SubmitOutcome.version`** (optional, adapter API): on a send or replace, the draft version the answer was made on when edits of keys pressed before the send landed first. Adapters send that draft; absent, the transaction's. Old adapters still work, but refuse such a send as "draft changed".
 - **`onPause` hook:** `onPause(change, ctx)` runs once the draft has not changed for `LIMITS.pauseMs` (120 ms), at most once per pause, with `DEADLINES.changeMs` and the same `draft:read` gate as `onChange`. The wait for a typing pause moves out of the budgeted hook: a sleep inside `onChange` counts against its budget. Old plugins are unchanged.
 - **`LIMITS.pauseMs`** (120 ms) added.
 - **`Draft.foldedParts`** (optional): ranges of `text` that stand in for host parts the draft does not carry in full, such as a collapsed paste's label or a file mention with its attachment. Adapters set it; a plugin that would replay the text (draft rescue) must not treat such a draft as the prompt. Old plugins and adapters are unchanged.

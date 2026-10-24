@@ -58,10 +58,14 @@ export const HOST_CAPS: Record<
 > = {
   pi: { compile: { asyncEdits: true, inlineMaxBytes: 16384 }, caps: {} },
   opencode: { compile: { asyncEdits: true, inlineMaxBytes: 16384 }, caps: {} },
-  codex: { compile: { asyncEdits: true, inlineMaxBytes: 900 }, caps: { inline: { maxBytes: 900 } } },
+  // Neither Codex nor Claude Code can place the cursor without typing, so no field navigation there.
+  codex: {
+    compile: { asyncEdits: true, inlineMaxBytes: 900 },
+    caps: { edit: { cursor: false }, inline: { maxBytes: 900 } },
+  },
   claude: {
     compile: { asyncEdits: false, inlineMaxBytes: 1024 },
-    caps: { edit: { atomic: false }, inline: { maxBytes: 1024 } },
+    caps: { edit: { atomic: false, cursor: false }, inline: { maxBytes: 1024 } },
   },
 };
 

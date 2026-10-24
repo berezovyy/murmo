@@ -126,7 +126,7 @@ function builtinPlugins(options: SessionStartOptions): { specs: HostPluginSpec[]
     enabled: options.config?.autocorrect === true,
     allow: (options.config?.protect ?? []).join(' '),
   });
-  const shortcuts = shortcutsPlugin(compiled);
+  const shortcuts = shortcutsPlugin(compiled, { host: 'opencode' });
   const historyOn = options.config?.historyEnabled === true;
   const menu = menuPlugin(compiled, { history: historyOn });
   // One identity for every built-in: this project and session (`prepareRescue`).

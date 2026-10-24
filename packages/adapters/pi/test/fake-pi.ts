@@ -24,6 +24,7 @@ export type FakeCursorFormat = 'pi:fc' | 'sgr-7m';
 
 function parsePiKey(data: string): string | undefined {
   if (data === '\t') return 'tab';
+  if (data === '\x1b[Z') return 'shift+tab';
   if (data === '\r') return 'enter';
   if (data === '\n') return 'enter';
   if (data === '\x1b') return 'escape';

@@ -42,6 +42,8 @@ export interface EditCapabilities {
     readonly middle: boolean;
     readonly multiline: boolean;
     readonly selection: boolean;
+    /** The host puts the cursor where an edit asks (`Edit.cursor`). Absent means false. */
+    readonly cursor?: boolean;
     /** `restoreDraft` restores text, cursor, selection and typed spans exactly. */
     readonly exactRestore: boolean;
     /** Draft certainties under which an edit may commit. */
@@ -167,4 +169,4 @@ export type CapabilityPath = LeafPath<Capabilities>;
  * newer API's path ("unknown") from a capability this host lacks ("unavailable").
  * A type test keeps it equal to `CapabilityPath`.
  */
-export declare const CAPABILITY_PATHS: readonly ["inputOriginEvidence", "semanticMenuSelection", "actions", "inlineRewrite", "inline.attributed", "inline.middle", "inline.multiline", "inline.observedKeys", "inline.allKeysObserved", "inline.nativeCompletion", "inline.commitReceipt", "inline.maxBytes", "readDraft", "edit.atomic", "edit.end", "edit.middle", "edit.multiline", "edit.selection", "edit.exactRestore", "edit.certainties", "edit.attributed", "ghost", "menu", "highlight", "status", "keys", "undoKeys", "keyPriority", "submit.transform", "submit.block", "submit.gestures", "submit.guardPosition", "submit.committed", "ui.dialogSafe", "ui.anchor", "ui.statusMaxLength", "ui.normalization", "ui.opaqueParts", "ui.namespace", "ui.review", "ui.highlightDiagnostics", "coexistence.editorComposition", "coexistence.keyArbitration", "coexistence.peerUiObservable", "runtime.executor", "runtime.hooks", "runtime.services"];
+export declare const CAPABILITY_PATHS: readonly ["inputOriginEvidence", "semanticMenuSelection", "actions", "inlineRewrite", "inline.attributed", "inline.middle", "inline.multiline", "inline.observedKeys", "inline.allKeysObserved", "inline.nativeCompletion", "inline.commitReceipt", "inline.maxBytes", "readDraft", "edit.atomic", "edit.end", "edit.middle", "edit.multiline", "edit.selection", "edit.cursor", "edit.exactRestore", "edit.certainties", "edit.attributed", "ghost", "menu", "highlight", "status", "keys", "undoKeys", "keyPriority", "submit.transform", "submit.block", "submit.gestures", "submit.guardPosition", "submit.committed", "ui.dialogSafe", "ui.anchor", "ui.statusMaxLength", "ui.normalization", "ui.opaqueParts", "ui.namespace", "ui.review", "ui.highlightDiagnostics", "coexistence.editorComposition", "coexistence.keyArbitration", "coexistence.peerUiObservable", "runtime.executor", "runtime.hooks", "runtime.services"];

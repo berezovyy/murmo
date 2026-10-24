@@ -82,7 +82,7 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
   }
 
   if (ids.has('shortcuts')) {
-    specs.push(shortcutsPlugin(compiled, { asyncEdits: true }));
+    specs.push(shortcutsPlugin(compiled, { asyncEdits: true, host: 'pi' }));
   }
 
   if (ids.has('menu')) {

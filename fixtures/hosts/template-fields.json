@@ -1,0 +1,214 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. In packed Pi and OpenCode, Tab after a template expanded did nothing useful (Pi opened its file picker) and what the user typed landed in front of the placeholder ('Review the patch<change> for ...'); on OpenCode a template with an unfilled field also sent without the warning. `projectTrust` is applied by the harness with `murmo trust` before the host starts",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "project": "hosts/projects/shortcuts"
+  },
+  "cases": [
+    {
+      "id": "pi-tab-walks-template-fields",
+      "tags": ["templates", "project-config"],
+      "requires": ["host=pi", "host.project-config"],
+      "projectTrust": "approved",
+      "note": "Typing replaces the first placeholder, Tab goes to the next field and typing replaces its default, Shift+Tab goes back and typing adds to the first field; Enter sends the filled prompt.",
+      "steps": [
+        {
+          "type": ";hf "
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "type": "the patch"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "type": "locking"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "key": "Shift+Tab"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "type": " and tests"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "Review the patch and tests for locking. "
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": ["Review the patch and tests for locking."],
+        "never": {
+          "status": ["Template field"]
+        }
+      }
+    },
+    {
+      "id": "pi-unfilled-field-warns-once",
+      "tags": ["templates", "project-config"],
+      "requires": ["host=pi", "host.project-config"],
+      "projectTrust": "approved",
+      "note": "Enter with a placeholder left warns beside the field hint and sends nothing; Enter again sends anyway, and the warning leaves with the sent prompt (it once stayed on Pi's status line).",
+      "steps": [
+        {
+          "type": ";hf "
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "check": {
+            "requests": [],
+            "ui": {
+              "statusIncludes": ["template field not filled", "Template field 1 of 2"]
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": ["Review <change> for races."],
+        "never": {
+          "status": ["not filled", "Template field"]
+        }
+      }
+    },
+    {
+      "id": "opencode-tab-walks-template-fields",
+      "tags": ["templates", "project-config"],
+      "requires": ["host=opencode", "host.project-config"],
+      "projectTrust": "approved",
+      "note": "Typing replaces the first placeholder and Tab goes to the next field, where typing replaces the default. Shift+Tab stays OpenCode's agent switch, so the case does not press it. OpenCode sends the prompt as it is, with the space typed after the shortcut.",
+      "steps": [
+        {
+          "type": ";hf "
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "type": "the patch"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "type": "locking"
+        },
+        {
+          "waitMs": 300
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "Review the patch for locking. "
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": ["Review the patch for locking. "],
+        "never": {
+          "status": ["Template field"]
+        }
+      }
+    },
+    {
+      "id": "opencode-unfilled-field-warns-once",
+      "tags": ["templates", "project-config"],
+      "requires": ["host=opencode", "host.project-config"],
+      "projectTrust": "approved",
+      "note": "OpenCode sent a template with a placeholder left without the warning. Enter warns once and sends nothing; Enter again sends anyway.",
+      "steps": [
+        {
+          "type": ";hf "
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "check": {
+            "requests": [],
+            "ui": {
+              "statusIncludes": ["template field not filled"]
+            }
+          }
+        },
+        {
+          "key": "Enter"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": ["Review <change> for races. "],
+        "never": {
+          "status": ["not filled"]
+        }
+      }
+    }
+  ]
+}

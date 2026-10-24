@@ -33,6 +33,13 @@ export interface Edit {
    * the typed separator after it (autocorrect); the undo key keeps the separator.
    */
   readonly rejectSeparator?: boolean;
+  /**
+   * Where the cursor goes, as an offset in the text after the edit. Absent:
+   * where the host puts it (after the insert when it was inside the range).
+   * An empty edit with a cursor only moves the cursor. Needs `edit.cursor`;
+   * elsewhere the edit is `unsupported`.
+   */
+  readonly cursor?: number;
 }
 
 /**

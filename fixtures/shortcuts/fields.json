@@ -1,0 +1,134 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "real-host bug on Pi, OpenCode and Claude Code: after a template expanded, Tab did not move to the next <field> and what the user typed landed in front of the placeholder ('Review the auth patch<change> for ...'); a field session is a flow of cursor moves and typing, so these cases type and press keys as a person does",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "requires": ["core.inline", "plugin.shortcuts=release"],
+    "settings": {
+      "shortcuts": {
+        "previousFieldKey": "F2",
+        "replacements": {
+          "rv": { "text": "Review <change> for <concern>.", "fields": { "concern": { "default": "races" } } },
+          "ty": { "text": "Fix <name>, then say <name> is done." }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "typing-replaces-the-placeholder",
+      "note": "The cursor lands on the first field and the first typed key replaces its placeholder; nothing is left in front of or behind what was typed.",
+      "steps": [{ "type": "rv " }, { "type": "the auth patch" }],
+      "expect": {
+        "draft": { "text": "Review the auth patch for races. ", "cursor": 21 },
+        "never": { "draft": ["<change>"] },
+        "requests": []
+      }
+    },
+    {
+      "id": "tab-moves-to-the-next-field",
+      "note": "Tab puts the cursor on the next field, and typing there replaces its default; the extra Tab after the last field is consumed, so the host's own Tab (Pi's file picker) does not open in the middle of a template.",
+      "steps": [
+        { "type": "rv " },
+        { "type": "the auth patch" },
+        { "key": "Tab", "routing": "consume" },
+        { "check": { "draft": { "text": "Review the auth patch for races. ", "cursor": 26 } } },
+        { "type": "locking" },
+        { "key": "Tab", "routing": "consume" }
+      ],
+      "expect": {
+        "draft": { "text": "Review the auth patch for locking. ", "cursor": 33 },
+        "requests": []
+      }
+    },
+    {
+      "id": "tab-keeps-a-default",
+      "note": "Moving past a field without typing keeps its default, and a filled template sends without the unfilled-field warning.",
+      "steps": [
+        { "type": "rv " },
+        { "type": "this patch" },
+        { "key": "Tab", "routing": "consume" },
+        { "submit": "send" },
+        { "settle": true }
+      ],
+      "expect": {
+        "requests": ["Review this patch for races. "],
+        "notices": ["Shortcut expanded. Backspace or F6 right after undoes it."]
+      }
+    },
+    {
+      "id": "previous-field-key-goes-back",
+      "note": "The previous-field key (Shift+Tab by default, here the configured F2) returns to the filled field with the cursor after its text, so typing adds to it.",
+      "steps": [
+        { "type": "rv " },
+        { "type": "the patch" },
+        { "key": "Tab", "routing": "consume" },
+        { "key": "F2", "routing": "consume" },
+        { "type": " and its tests" }
+      ],
+      "expect": {
+        "draft": { "text": "Review the patch and its tests for races. " }
+      }
+    },
+    {
+      "id": "same-name-fields-fill-together",
+      "note": "Every occurrence of one field name gets what was typed into the first.",
+      "steps": [{ "type": "ty " }, { "type": "the login bug" }],
+      "expect": {
+        "draft": { "text": "Fix the login bug, then say the login bug is done. " },
+        "never": { "draft": ["<name>"] }
+      }
+    },
+    {
+      "id": "field-hint-shows-the-keys-and-leaves-after-send",
+      "note": "While a field session is open the status says which field the cursor is on and which keys move; it is gone once the prompt is sent.",
+      "steps": [
+        { "type": "rv " },
+        { "check": { "ui": { "statusIncludes": "Template field 1 of 2: Tab next, F2 back, Esc done" } } },
+        { "type": "x" },
+        { "key": "Tab", "routing": "consume" },
+        { "check": { "ui": { "statusIncludes": "Template field 2 of 2" } } },
+        { "submit": "send" },
+        { "settle": true }
+      ],
+      "expect": {
+        "requests": ["Review x for races. "],
+        "ui": { "status": null }
+      }
+    },
+    {
+      "id": "escape-ends-the-session",
+      "note": "Escape ends the field session: the next Tab is the host's again.",
+      "steps": [{ "type": "rv " }, { "key": "Escape", "routing": "consume" }, { "key": "Tab", "routing": "pass" }],
+      "expect": {
+        "draft": { "text": "Review <change> for races. " },
+        "ui": { "status": "Shortcut expanded. Backspace or F6 right after undoes it." }
+      }
+    },
+    {
+      "id": "unfilled-field-warns-once",
+      "note": "Sending with a placeholder still in the draft is stopped once with a plain message; the next Enter sends as written.",
+      "steps": [
+        { "type": "rv " },
+        { "submit": "send" },
+        { "settle": true },
+        { "check": { "requests": [] } },
+        { "submit": "send" },
+        { "settle": true }
+      ],
+      "expect": {
+        "requests": ["Review <change> for races. "],
+        "notices": [
+          "Shortcut expanded. Backspace or F6 right after undoes it.",
+          "1 template field not filled; Enter again to send anyway"
+        ]
+      }
+    }
+  ]
+}

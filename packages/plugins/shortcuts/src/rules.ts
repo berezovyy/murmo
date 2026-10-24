@@ -68,11 +68,12 @@ function createPlugin(box: TemplateBox, options: InlineCapOptions = {}): Plugin 
   return {
     name: SHORTCUTS_ID,
     version: SHORTCUTS_VERSION,
-    permissions: ['draft:read', 'draft:read:full', 'draft:write', 'submit'],
+    permissions: ['draft:read', 'draft:read:full', 'draft:write', 'submit', 'submit:observe'],
     keys: fieldClaims(previousFieldKey, host),
     onChange: hooks.onChange,
     onKey: hooks.onKey,
     onBeforeSubmit: hooks.onBeforeSubmit,
+    onSubmitCommitted: hooks.onSubmitCommitted,
   };
 }
 

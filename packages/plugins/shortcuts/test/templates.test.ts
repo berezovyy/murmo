@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHarness, createManualClock, ReferenceAdapter } from '@murmo/core/testing';
 import { compileShortcuts, offerShortcut, parseTemplate, shortcutsPlugin, unfilledMessage } from '../src/index.ts';
+import { spliceBetween } from '../src/session.ts';
 import { HOST_CAPS, seeds } from './helpers.ts';
 
 const PARSE_CASES: {
@@ -194,27 +195,50 @@ async function expandOn(host: 'pi' | 'opencode' | 'codex' | 'claude', entries: R
   return h;
 }
 
-test('field walk: Tab visits every field in order on Pi, OpenCode and Codex (10 templates)', async () => {
-  for (const host of ['pi', 'opencode', 'codex'] as const) {
+test('field walk: Tab puts the cursor on every field in order and typing fills it, on Pi and OpenCode (10 templates)', async () => {
+  // The old walk only moved the highlight: the cursor stayed where it was, so
+  // typed text landed anywhere but the field, and in front of the placeholder
+  // when the cursor sat at the field's start.
+  for (const host of ['pi', 'opencode'] as const) {
     for (const [name, text] of Object.entries(TEMPLATES)) {
       const h = await expandOn(host, { [name]: text }, `${name} `);
       const parsed = parseTemplate(text);
       assert.ok(parsed.names.length > 0, name);
-      const first = parsed.fields[0];
-      assert.ok(first);
-      assert.equal(h.adapter.getDraft().cursor, first.from, `${host} ${name} lands on first field`);
-      for (let i = 1; i < parsed.names.length; i++) {
-        const routing = await h.driver.key('Tab');
-        await h.driver.settle();
-        assert.equal(routing, 'consume', `${host} ${name} tab ${i}`);
-        const field = parsed.fields.find((f) => f.name === parsed.names[i]);
-        assert.ok(field);
-        assert.deepEqual(h.adapter.highlight, [[field.from, field.to]], `${host} ${name} field ${parsed.names[i]}`);
+      assert.equal(h.adapter.getDraft().cursor, parsed.fields[0]?.from, `${host} ${name} lands on the first field`);
+      for (let i = 0; i < parsed.names.length; i++) {
+        if (i > 0) {
+          const routing = await h.driver.key('Tab');
+          await h.driver.settle();
+          assert.equal(routing, 'consume', `${host} ${name} tab ${i}`);
+          // Fields before this one hold "V<index>" now; the cursor is at this one's start.
+          const now = h.adapter.getDraft();
+          assert.ok(
+            now.text.slice(now.cursor).startsWith(`<${parsed.names[i]}>`),
+            `${host} ${name} on ${parsed.names[i]}`,
+          );
+        }
+        await h.driver.type(`V${i}`);
       }
+      const filled = parsed.fields.reduceRight(
+        (out, f) => `${out.slice(0, f.from)}V${parsed.names.indexOf(f.name)}${out.slice(f.to)}`,
+        parsed.expansion,
+      );
+      assert.equal(h.adapter.getDraft().text, `${filled} `, `${host} ${name} filled`);
       const extra = await h.driver.key('Tab');
       assert.equal(extra, 'consume', `${host} ${name} last tab consumed`);
       await h.session?.dispose();
     }
+  }
+});
+
+test('Codex and Claude keep their own Tab: no field claim where Murmo cannot place the cursor', async () => {
+  // Claiming Tab where the jump cannot happen would take the host's own Tab
+  // (Codex's completion, Claude's) and do nothing in its place.
+  for (const host of ['codex', 'claude'] as const) {
+    const h = await expandOn(host, { t: 'Review <change> for <concern>.' }, 't ');
+    assert.equal(await h.driver.key('Tab'), 'pass', host);
+    assert.equal(h.adapter.highlight, null, host);
+    await h.session?.dispose();
   }
 });
 
@@ -225,10 +249,10 @@ test('no send from a session: Enter and last Tab send 0 of 8 tries; multi-line s
     assert.equal(h.adapter.getDraft().text.includes('\n'), true);
     assert.equal(h.adapter.requests.length, 0);
     for (let i = 0; i < 8; i++) {
-      const tab = await h.driver.key('Tab');
-      assert.equal(tab, 'consume');
+      await h.driver.key('Tab');
       await h.driver.settle();
     }
+    assert.equal(h.adapter.requests.length, 0);
     const blocked = await h.driver.submit('send');
     assert.equal(blocked.action, 'block');
     assert.match(String('reason' in blocked ? blocked.reason : ''), /template field/);
@@ -282,4 +306,31 @@ test('immediate Backspace restores the shortcut on all four hosts', async () => 
 test('offerShortcut is a print-only seam and never writes', () => {
   const line = offerShortcut('please review this', 5);
   assert.match(line.status, /Used 5× — save as shortcut\? \(murmo shortcuts save\)/);
+});
+
+test('a missed keystroke is placed at the cursor, not where a text diff guesses', () => {
+  // Pi reports some changes as one whole-text splice, and keys in a burst
+  // cancel the calls that would have seen them, so the field session rebuilds
+  // the splice. Typing "s" into a field that sits before "s" is ambiguous to a
+  // prefix diff, which put the letter after the field and left the field as it was.
+  // "Fix <name>s" with name "bug": the cursor is after the new letter, inside the field.
+  assert.deepEqual(spliceBetween('Fix bugs', 'Fix bugss', 8, 'typed'), {
+    origin: 'typed',
+    from: 7,
+    to: 7,
+    insert: 's',
+  });
+  assert.deepEqual(spliceBetween('Fix bugss', 'Fix bugs', 7, 'typed'), {
+    origin: 'typed',
+    from: 7,
+    to: 8,
+    insert: '',
+  });
+  // A change the cursor cannot explain falls back to the common prefix and suffix.
+  assert.deepEqual(spliceBetween('Review x.', 'Review the patch.', 0, 'unknown'), {
+    origin: 'unknown',
+    from: 7,
+    to: 8,
+    insert: 'the patch',
+  });
 });

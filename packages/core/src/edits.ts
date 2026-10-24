@@ -58,6 +58,7 @@ export function unsupportedReason(edit: Edit, draft: Draft, caps: HostCapabiliti
   const atEnd = draft.cursor === draft.text.length && edit.to === draft.text.length;
   if (atEnd ? !e.end : !e.middle) return atEnd ? 'the host cannot edit at the end' : 'the host cannot edit mid-draft';
   if (!e.multiline && edit.insert.includes('\n')) return 'the host cannot insert a newline';
+  if (edit.cursor !== undefined && e.cursor !== true) return 'the host cannot place the cursor';
   return null;
 }
 
@@ -67,6 +68,10 @@ export function invalidReason(edit: Edit, draft: Draft): string | null {
   if (typeof insert !== 'string') return 'insert is not a string';
   if (!Number.isInteger(from) || !Number.isInteger(to)) return 'range is not integer';
   if (from < 0 || to < from || to > draft.text.length) return `range [${from}, ${to}) is outside the draft`;
+  if (edit.cursor !== undefined) {
+    const length = draft.text.length - (to - from) + insert.length;
+    if (!Number.isInteger(edit.cursor) || edit.cursor < 0 || edit.cursor > length) return 'cursor is outside the draft';
+  }
   return null;
 }
 

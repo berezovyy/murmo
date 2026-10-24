@@ -87,7 +87,15 @@ export class KeyRouter {
     const d = this.#deps;
     if (!d.live()) return { result: 'pass', by: 'none' };
     d.counters.keys++;
-    d.bumpEpoch();
+    // Enter that reaches the host is its send (or a newline, which changes the
+    // version anyway): the work earlier keys started stays current through it,
+    // and the send waits for that work. Enter that Murmo takes is a new key.
+    let bumped = false;
+    const bump = () => {
+      if (!bumped) d.bumpEpoch();
+      bumped = true;
+    };
+    if (key !== 'Enter') bump();
     const state = d.state();
     // Native UI owns Tab/Enter/Esc/arrows; the undo window closes (the
     // prototype returned before clearing it).
@@ -102,6 +110,7 @@ export class KeyRouter {
     if (canEdit && interceptable) {
       const record = d.undo.armed(draft);
       if (record && caps.edit.exactRestore && (key === 'Backspace' || caps.undoKeys.includes(key))) {
+        bump();
         d.undo.pop();
         d.restore(record, key === 'Backspace' ? 'backspace' : 'undo-key');
         return this.#count({ result: 'consume', by: 'undo' });
@@ -112,6 +121,7 @@ export class KeyRouter {
     if (!canEdit) d.render();
 
     if (interceptable && d.menu.open) {
+      bump();
       const handled = d.menu.handleKey(key);
       if (handled === 'navigate' || handled === 'close') return this.#count({ result: 'consume', by: 'menu' });
       if (handled === 'native-completion') return this.#count({ result: 'pass', by: 'menu' });
@@ -145,6 +155,7 @@ export class KeyRouter {
       for (const claim of plugin.claims) {
         if (claim.key !== key) continue;
         if (!matches(claim, ctx, interceptable)) continue;
+        bump();
         if (claim.action === 'dispatch') {
           d.dispatch(plugin, key);
           if (claim.consume) return this.#count({ result: 'consume', by: 'claim', pluginId: plugin.id });

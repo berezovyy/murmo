@@ -50,6 +50,8 @@ export interface EditCapabilities {
   readonly middle: boolean;
   readonly multiline: boolean;
   readonly selection: boolean;
+  /** The host puts the cursor where an edit asks (`Edit.cursor`). Absent means false. */
+  readonly cursor?: boolean;
   /** `restoreDraft` restores text, cursor, selection and typed spans exactly. */
   readonly exactRestore: boolean;
   /** Draft certainties under which an edit may commit. */
@@ -206,6 +208,7 @@ export const CAPABILITY_PATHS = [
   'edit.middle',
   'edit.multiline',
   'edit.selection',
+  'edit.cursor',
   'edit.exactRestore',
   'edit.certainties',
   'edit.attributed',

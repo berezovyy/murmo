@@ -9,6 +9,7 @@ const PRINTABLE: readonly KeyId[] = Array.from({ length: 95 }, (_, i) => {
 
 export const OBSERVED_KEYS: readonly KeyId[] = [
   'Tab',
+  'Shift+Tab',
   'Enter',
   'Escape',
   'Up',

@@ -95,6 +95,7 @@ export function referenceCaps(): HostCapabilities {
       middle: true,
       multiline: true,
       selection: true,
+      cursor: true,
       exactRestore: true,
       certainties: ['authoritative', 'tracked'],
       attributed: true,
@@ -698,14 +699,19 @@ export class FakeAdapter implements Adapter {
       if (outcome.action === 'replace') text = outcome.text;
     }
     if (this.#holdSubmit) await new Promise<void>((resolve) => this.#heldSubmit.push(resolve));
-    if (this.#value.version !== initial.version) return { action: 'block', reason: 'draft changed during submit' };
+    // Murmo may answer for a later draft: edits of keys pressed before the send landed first.
+    const decided = outcome.version ?? initial.version;
+    if (this.#value.version !== decided) return { action: 'block', reason: 'draft changed during submit' };
+    if (decided !== initial.version && outcome.action === 'send') {
+      text = position === 'final-boundary' && this.#nativePeer ? this.#nativePeer(this.#value.text) : this.#value.text;
+    }
     if (this.transportFault) {
       this.transportFault = false;
       return { action: 'block', reason: 'transport failure' };
     }
     if (position === 'managed' && this.#nativePeer) text = this.#nativePeer(text);
     this.requests.push({ text, gesture });
-    const typedSpans = copy(initial.typedSpans);
+    const typedSpans = copy(this.#value.typedSpans);
     this.fill('', 'unknown');
     if (this.caps.submit.committed === 'accepted-text') {
       const event: HostSubmitAccepted = {
@@ -766,7 +772,7 @@ export class FakeAdapter implements Adapter {
     if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to > this.#value.text.length) {
       return answer('invalid-range');
     }
-    this.#splice([{ origin: 'plugin', from, to, insert }]);
+    this.#splice([{ origin: 'plugin', from, to, insert }], edit.cursor);
     const committed = this.getDraft();
     this.audit.push({ expected: edit.baseVersion, actual, status: 'applied' });
     this.edits.push({
@@ -935,10 +941,15 @@ export class FakeAdapter implements Adapter {
     for (const callback of [...this.#inlineCommits]) callback(commit);
   }
 
-  /** Applies splices as one change, with typed spans by the shared rules. */
-  #splice(deltas: readonly DraftDelta[]): void {
+  /** Applies splices as one change, with typed spans by the shared rules; `cursor` places the cursor after them. */
+  #splice(deltas: readonly DraftDelta[], cursor?: number): void {
     const before = this.#value;
-    this.#value = applyChange(before, deltas, labeled);
+    const after = applyChange(before, deltas, labeled);
+    if (cursor === undefined) this.#value = after;
+    else {
+      const { selection: _cleared, ...rest } = after;
+      this.#value = { ...rest, cursor };
+    }
     this.#notify(deltas[0]?.origin ?? 'unknown', before, deltas);
   }
 

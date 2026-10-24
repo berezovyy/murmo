@@ -747,11 +747,13 @@ export class PiAdapter implements Adapter {
       const text = restore ? restore.text : d.text.slice(0, edit.from) + edit.insert + d.text.slice(edit.to);
       const cursor = restore
         ? restore.cursor
-        : d.cursor < edit.from
-          ? d.cursor
-          : d.cursor > edit.to
-            ? d.cursor + edit.insert.length - (edit.to - edit.from)
-            : edit.from + edit.insert.length;
+        : edit.cursor !== undefined
+          ? edit.cursor
+          : d.cursor < edit.from
+            ? d.cursor
+            : d.cursor > edit.to
+              ? d.cursor + edit.insert.length - (edit.to - edit.from)
+              : edit.from + edit.insert.length;
       const ok = await this.backend.transaction(before, text, cursor);
       if (ok && op.committed) return { status: 'applied', draft: op.committed };
       return denied(signal?.cancelled ? 'cancelled' : op.expected !== this.#draft.version ? 'stale' : 'error');
@@ -771,20 +773,20 @@ export class PiAdapter implements Adapter {
         if (decision.action === 'block') break;
         if (decision.action === 'replace') draft = { ...draft, text: decision.text, cursor: decision.text.length };
       }
-      if (this.#draft.version !== before.version) return;
-      if (decision.action === 'block') {
-        this.backend.showStatus(decision.reason);
-        return;
-      }
+      // The core shows why a send was refused, with the rest of its status line.
+      if (decision.action === 'block') return;
+      // Murmo may answer for a later draft: edits of keys pressed before Enter landed first.
+      if (this.#draft.version !== (decision.version ?? before.version)) return;
+      const current = copy(this.#draft);
       if (decision.action === 'replace') {
         const ok = await this.backend.transaction(
-          { text: before.text, cursor: before.cursor, version: before.version },
+          { text: current.text, cursor: current.cursor, version: current.version },
           decision.text,
           decision.text.length,
         );
         if (!ok || this.backend.getEditor().getText() !== decision.text) return;
       }
-      const sent = decision.action === 'replace' ? decision.text : before.text;
+      const sent = decision.action === 'replace' ? decision.text : current.text;
       this.#forwarded = {
         text: sent,
         gesture,
@@ -1020,6 +1022,7 @@ export class PiAdapter implements Adapter {
     });
     for (const raw of [
       '\t',
+      '\x1b[Z',
       '\r',
       '\x1b',
       '\x1b[A',
@@ -1065,6 +1068,7 @@ export class PiAdapter implements Adapter {
         middle: atomic && restored,
         multiline,
         selection: false,
+        cursor: atomic && restored,
         exactRestore: restored,
         certainties: ['authoritative'],
         attributed: atomic && restored,

@@ -286,14 +286,21 @@ export interface ReviewPanel {
     readonly remainingMs: number;
 }
 export type ReviewAction = 'approve' | 'dismiss';
-/** The pipeline's final answer for one submit attempt. */
+/**
+ * The pipeline's final answer for one submit attempt. `version`, on a send or
+ * replace, is the draft version the answer was made on when that is later
+ * than the transaction's: edits that keys pressed before the send asked for
+ * landed first, and the adapter sends that draft. Absent, the transaction's.
+ */
 export type SubmitOutcome = {
     readonly action: 'send';
     readonly coverage: SubmitPosition;
+    readonly version?: number;
 } | {
     readonly action: 'replace';
     readonly text: string;
     readonly coverage: SubmitPosition;
+    readonly version?: number;
 } | {
     readonly action: 'block';
     readonly reason: string;

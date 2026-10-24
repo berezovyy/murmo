@@ -515,7 +515,8 @@ export class OpenCodeAdapter implements Adapter {
     return this.#draft;
   }
 
-  splice(from: number, to: number, insert: string, origin: Origin = 'plugin', notify = true): boolean {
+  /** `cursor` places the cursor after the splice; an empty splice with one only moves it. */
+  splice(from: number, to: number, insert: string, origin: Origin = 'plugin', notify = true, cursor?: number): boolean {
     this.sync(false);
     const editor = this.#editor;
     if (!editor) return false;
@@ -524,22 +525,33 @@ export class OpenCodeAdapter implements Adapter {
     const b = toCells(editor, before.text, to);
     if (rangeTouchesPart(editor, a, b)) return false;
     const caret =
-      before.cursor < from
+      cursor ??
+      (before.cursor < from
         ? before.cursor
         : before.cursor >= to
           ? before.cursor + insert.length - (to - from)
-          : from + insert.length;
+          : from + insert.length);
     this.#pendingNative = null;
     this.#muting++;
     try {
-      if (a === b) {
+      if (from === to && !insert) {
+        // Only a cursor move: no undo checkpoint, so a later restore still undoes the last real edit.
         editor.clearSelection();
-        editor.cursorOffset = a;
-      } else editor.setSelection(a, b);
-      editor.insertText(insert);
-      const text = before.text.slice(0, from) + insert + before.text.slice(to);
-      editor.cursorOffset = toCells(editor, text, caret);
-      this.#lastTxn = { before, afterText: text, checkpoints: from === to ? 1 : insert.length ? this.#checkpoints : 1 };
+        editor.cursorOffset = toCells(editor, before.text, caret);
+      } else {
+        if (a === b) {
+          editor.clearSelection();
+          editor.cursorOffset = a;
+        } else editor.setSelection(a, b);
+        editor.insertText(insert);
+        const text = before.text.slice(0, from) + insert + before.text.slice(to);
+        editor.cursorOffset = toCells(editor, text, caret);
+        this.#lastTxn = {
+          before,
+          afterText: text,
+          checkpoints: from === to ? 1 : insert.length ? this.#checkpoints : 1,
+        };
+      }
       this.sync(false, origin);
     } finally {
       this.#muting--;
@@ -905,9 +917,11 @@ export class OpenCodeAdapter implements Adapter {
       .then((decision) => {
         this.sync();
         const now = this.#state();
+        // Murmo may answer for a later draft: edits of keys pressed before Enter landed first.
+        const decided = decision.action === 'block' ? original.version : (decision.version ?? original.version);
         if (
           this.#inputEpoch !== born ||
-          this.#draft.version !== original.version ||
+          this.#draft.version !== decided ||
           now.popup ||
           now.dialog ||
           this.#api.renderer.currentFocusedEditor !== this.#editor
@@ -915,8 +929,8 @@ export class OpenCodeAdapter implements Adapter {
           return;
         }
         if (decision.action === 'block') {
+          // The core shows why, with the rest of its status line.
           if (gesture === 'queue' && this.#api.keymap.pending().length) this.#cancelPrefix();
-          this.#status.set(decision.reason);
           return;
         }
         if (decision.action === 'replace') {
@@ -972,7 +986,9 @@ export class OpenCodeAdapter implements Adapter {
     ) {
       return result('invalid-range');
     }
-    if (!this.splice(edit.from, edit.to, edit.insert)) return result('unsupported', 'native virtual part');
+    if (!this.splice(edit.from, edit.to, edit.insert, 'plugin', true, edit.cursor)) {
+      return result('unsupported', 'native virtual part');
+    }
     return { status: 'applied', draft: clone(this.#draft) };
   }
 

@@ -185,6 +185,12 @@
       "variants": 1
     },
     {
+      "file": "hosts/template-fields.json",
+      "owner": "20, 37",
+      "cases": 4,
+      "variants": 4
+    },
+    {
       "file": "hosts/stock-canary.json",
       "owner": "20",
       "cases": 5,
@@ -315,6 +321,12 @@
       "file": "shortcuts/templates.json",
       "owner": "37",
       "cases": 40
+    },
+    {
+      "file": "shortcuts/fields.json",
+      "owner": "37",
+      "cases": 8,
+      "variants": 8
     },
     {
       "file": "stress/huge-paste.json",
