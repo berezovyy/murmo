@@ -1,0 +1,24 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. In Claude Code `tommorow. It ` stayed as typed while `,` and `?` worked and Pi, Codex and OpenCode gave `tomorrow. It `: the fix waits on `.` for the next key, and Claude's adapter dropped it between keys",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["autocorrect"],
+    "requires": ["plugin.autocorrect=release"],
+    "settings": { "autocorrect": { "enabled": true } }
+  },
+  "cases": [
+    {
+      "id": "typo-before-full-stop-fixed-by-next-word",
+      "tags": ["autocorrect", "pending-dot"],
+      "note": "A known typo right before `.` is fixed once the next key shows the `.` ends a sentence (phase 07 pending fix).",
+      "steps": [{ "type": "tommorow. It " }],
+      "expect": { "draft": { "text": "tomorrow. It " }, "requests": [] }
+    }
+  ]
+}

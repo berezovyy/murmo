@@ -143,6 +143,12 @@
       "variants": 6
     },
     {
+      "file": "hosts/sentence-end.json",
+      "owner": "07, 13",
+      "cases": 1,
+      "variants": 1
+    },
+    {
       "file": "hosts/stock-canary.json",
       "owner": "20",
       "cases": 5,

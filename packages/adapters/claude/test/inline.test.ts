@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { installTestPolicy } from '@murmo/plugin-autocorrect';
 import { createClaudeHost } from '../src/session.ts';
 import { boot, type } from './boot.ts';
-import { FakeClaude, paste, typeChars } from './fake-runtime.ts';
+import { FakeClaude, liveServices, paste, payloadFiles, typeChars } from './fake-runtime.ts';
 
 test('bootPacked primitives rewrite keyed teh without passing $ (Claude analyzer)', async () => {
   const fake = new FakeClaude({
@@ -58,6 +58,29 @@ test('packed builtins without user enabled leave teh (opt-in)', async () => {
     await host.start(fake.$);
     await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'teh ');
     assert.equal(fake.draft.text, 'teh ');
+  } finally {
+    await host.dispose();
+    installTestPolicy();
+  }
+});
+
+test('a typo before a full stop is fixed once the next key confirms the sentence end', async () => {
+  // The fix waits on `.` (it may be `e.g.`); Claude acknowledged only keys the
+  // rules rewrote, so the waiting fix was dropped and `tommorow. It` was sent.
+  const fake = new FakeClaude({ files: payloadFiles([['tommorow', 'tomorrow']]) });
+  const host = createClaudeHost({ skipProbes: true });
+  try {
+    await host.bootPacked({
+      payloadRoot: '/data/murmo/package',
+      integrityJson: fake.files.get('/data/murmo/package/integrity.json') as string,
+      tableRaw: await fake.$.fs.read('/data/murmo/package/data/en/english.bin', { as: 'bytes' }),
+      userToml: '[autocorrect]\nenabled = true\n',
+      cwd: '/project',
+      services: liveServices(),
+    });
+    await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, 'tommorow. It ');
+    assert.equal(fake.draft.text, 'tomorrow. It ');
+    assert.equal(fake.draft.cursor, 13);
   } finally {
     await host.dispose();
     installTestPolicy();

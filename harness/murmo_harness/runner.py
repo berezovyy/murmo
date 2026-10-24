@@ -172,7 +172,9 @@ class HostSubject:
             'integration': self.integration.name,
         }
         for feature in self.integration.features:
-            features[feature] = True
+            # `plugin.autocorrect=release` is a valued feature, as cases require it.
+            name, valued, value = feature.partition('=')
+            features[name] = value if valued else True
         return features
 
     # --- planning ---------------------------------------------------------

@@ -141,6 +141,24 @@ class FunctionalNotLoaded(unittest.TestCase):
         text = (paths.FIXTURES / approved['project'] / '.murmo.toml').read_text()
         self.assertEqual(recording.calls, [('prepare', False), ('approve', text, True)])
 
+    def test_valued_integration_feature_meets_a_valued_requirement(self):
+        """Catches every autocorrect case skipping on the packed product: the
+        integration says `plugin.autocorrect=release` and cases require exactly
+        that, but the feature was stored under the whole string."""
+
+        class Autocorrect(Integration):
+            name = 'autocorrect'
+            features = frozenset({'plugins', 'plugin.autocorrect=release'})
+
+        with scratch() as folder, stub_host():
+            sub = subject(new_run(folder), folder / 'a', Autocorrect())
+            case = {'id': 'a', 'steps': [{'type': 'teh '}], 'expect': {'requests': []}}
+            self.assertIsNone(sub.unsupported({**case, 'requires': ['plugin.autocorrect=release']}, case['expect']))
+            self.assertEqual(
+                sub.unsupported({**case, 'requires': ['plugin.autocorrect=sample']}, case['expect']),
+                'requires plugin.autocorrect=sample',
+            )
+
     def test_project_approval_without_trust_support_skips(self):
         """An integration that cannot run `murmo trust` must skip, never run the
         approved case against an unreviewed file and report its result."""

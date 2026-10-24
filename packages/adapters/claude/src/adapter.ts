@@ -398,6 +398,9 @@ export class ClaudeAdapter implements Adapter {
     } else {
       result = await next(event);
       this.#observedEdit(event, result, key);
+      // A native key still ends a transaction: the receipt carries what the
+      // rules planned across it (a fix pending on `.` waits for the next key).
+      if (plan) this.#ack(plan.id, 'applied', result, this.#draft.version);
     }
     return { ...result, decorations: this.decorations() };
   }
