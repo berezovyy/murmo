@@ -314,6 +314,7 @@ export function liveServices(): HostServices {
     async fetch() {
       return { text: JSON.stringify({ status: 'error', error: 'no helper' }) };
     },
+    repaint() {},
   };
 }
 

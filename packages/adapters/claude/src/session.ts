@@ -35,7 +35,7 @@ import { createMemoryDrafts } from '@murmo/store';
 import { ClaudeAdapter, type ClaudeAdapterOptions } from './adapter.ts';
 import { bytesOf } from './decode.ts';
 import { createClaudeBroker } from './events.ts';
-import { type HelperHandle, socketDir, startHelper } from './helper.ts';
+import { type HelperHandle, type HelperWatch, socketDir, superviseHelper } from './helper.ts';
 import {
   helperPaths,
   type IntegrityFile,
@@ -53,6 +53,7 @@ const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 
 /** Bounds on session start: the helper is ready in ~4–10 ms and loads config in a few more. */
 export const HELPER_READY_MS = 1500;
 export const CONFIG_LOAD_MS = 1000;
+export const HELPER_DOWN_NOTICE = 'Murmo helper stopped and did not restart; restart Claude Code (murmo doctor)';
 
 export interface ClaudeSessionOptions extends ClaudeAdapterOptions {
   readonly plugins?: readonly HostPluginSpec[];
@@ -92,6 +93,7 @@ function servicesOf(rt: ClaudeRuntime): HostServices {
     after: (ms, callback) => rt.clock.after(ms, callback),
     spawn: (argv) => rt.process.spawn({ argv }),
     fetch: (url, init) => rt.http.fetch(url, init),
+    repaint: () => rt.ui.invalidate('ui.render'),
   };
 }
 
@@ -133,6 +135,20 @@ interface ConfigBoot {
   readonly cwd: string;
   readonly clock: Clock;
   readonly notices: string[];
+  readonly watch: HelperWatch;
+}
+
+/** A helper that dies mid-session is restarted; one that stays down says so in the status tail. */
+function helperWatch(adapter: ClaudeAdapter, services: HostServices | undefined): HelperWatch {
+  return {
+    onExit: () => adapter.noteHelper(false),
+    onRestart: () => adapter.noteHelper(true),
+    onGiveUp: () => {
+      if (adapter.notices.includes(HELPER_DOWN_NOTICE)) return;
+      adapter.notices.push(HELPER_DOWN_NOTICE);
+      services?.repaint();
+    },
+  };
 }
 
 /**
@@ -149,7 +165,14 @@ async function loadConfig(boot: ConfigBoot): Promise<{ effective: EffectiveConfi
   if (boot.binaries.length === 0) return fallback('the Murmo helper is missing from this install (murmo doctor)');
   let helper: HelperHandle;
   try {
-    helper = await startHelper(boot.services, boot.binaries, socketDir(boot.tmpdir), boot.clock, HELPER_READY_MS);
+    helper = await superviseHelper(
+      boot.services,
+      boot.binaries,
+      socketDir(boot.tmpdir),
+      boot.clock,
+      HELPER_READY_MS,
+      boot.watch,
+    );
   } catch (error) {
     return fallback(`the Murmo helper did not start (${error instanceof Error ? error.message : String(error)})`);
   }
@@ -308,6 +331,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
             cwd,
             clock,
             notices: adapter.notices,
+            watch: helperWatch(adapter, services),
           });
       helper = booted.helper;
       adapter.noteHelper(helper !== undefined);
@@ -402,6 +426,7 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
             cwd: input.cwd,
             clock,
             notices: adapter.notices,
+            watch: helperWatch(adapter, input.services),
           });
       helper = booted.helper;
       adapter.noteHelper(helper !== undefined);

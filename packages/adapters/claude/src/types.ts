@@ -149,6 +149,8 @@ export interface HostServices {
   after(ms: number, callback: () => void): ClockHandle;
   spawn(argv: readonly string[]): SpawnStream;
   fetch(url: string, init: ClaudeFetchInit): Promise<ClaudeFetchResult>;
+  /** Draws Murmo's status tail again: Claude keeps a render's answer until its props change. */
+  repaint(): void;
 }
 
 /** The `$` object Claude injects into every hook. */

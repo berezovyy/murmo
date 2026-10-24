@@ -53,6 +53,7 @@ function claudeServices(): HostServices & { spawned: string[][]; exits: Promise<
   return {
     spawned,
     exits,
+    repaint() {},
     after: (ms, callback) => {
       const id = setTimeout(callback, ms);
       return { cancel: () => clearTimeout(id) };

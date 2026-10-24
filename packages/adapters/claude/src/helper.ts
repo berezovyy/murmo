@@ -11,9 +11,31 @@ const SHUTDOWN_MS = 500;
 
 export interface HelperHandle {
   readonly socketPath: string;
-  readonly pid?: number;
+  readonly pid?: number | undefined;
   transport(): HelperTransport;
   dispose(): Promise<void>;
+}
+
+/** One helper process: `exited` settles when it ends, however it ends. */
+export interface HelperProcess extends HelperHandle {
+  readonly exited: Promise<void>;
+}
+
+/**
+ * Waits before each restart of a helper that died mid-session. Three in all:
+ * a helper that keeps dying stays down instead of respawning forever. The
+ * first wait also outlasts Claude's exit, which SIGTERMs the helper a few
+ * milliseconds before `session.end` disposes it.
+ */
+export const HELPER_RESTART_DELAYS_MS: readonly number[] = [500, 2000, 8000];
+
+export interface HelperWatch {
+  /** The helper ended on its own (killed or crashed); a restart follows while the bound allows. */
+  readonly onExit?: () => void;
+  /** A restarted helper is ready. */
+  readonly onRestart?: () => void;
+  /** No restart is left: the helper stays down for the rest of the session. */
+  readonly onGiveUp?: (why: string) => void;
 }
 
 /** `sun_path` holds 104 bytes on macOS (108 on Linux), the terminating NUL included. */
@@ -40,7 +62,7 @@ export async function spawnHelper(
   dir: string,
   clock: Clock,
   readyMs = READY_MS,
-): Promise<HelperHandle> {
+): Promise<HelperProcess> {
   const socketPath = `${dir}/murmo-${shortId()}.sock`;
   const stream = services.spawn([binary, '--http', '--socket', socketPath]);
   let settled = false;
@@ -95,6 +117,7 @@ export async function spawnHelper(
   return {
     socketPath,
     ...(info.pid === undefined ? {} : { pid: info.pid }),
+    exited: ended,
     transport: () => transport,
     async dispose() {
       // `shutdown` lets the helper stop its workers and remove its socket, so
@@ -118,7 +141,7 @@ export async function startHelper(
   dir: string,
   clock: Clock,
   readyMs = READY_MS,
-): Promise<HelperHandle> {
+): Promise<HelperProcess> {
   let last: unknown = new Error('no helper binary in the payload');
   for (const binary of binaries) {
     try {
@@ -128,6 +151,66 @@ export async function startHelper(
     }
   }
   throw last;
+}
+
+/**
+ * `startHelper`, then a restart whenever the helper ends on its own, within
+ * `delays`. The handle always talks to the helper that is running now, so
+ * whoever holds it keeps working across a restart.
+ */
+export async function superviseHelper(
+  services: HostServices,
+  binaries: readonly string[],
+  dir: string,
+  clock: Clock,
+  readyMs: number,
+  watch: HelperWatch = {},
+  delays: readonly number[] = HELPER_RESTART_DELAYS_MS,
+): Promise<HelperHandle> {
+  let current = await startHelper(services, binaries, dir, clock, readyMs);
+  let disposed = false;
+  let restarts = 0;
+  const follow = (child: HelperProcess): void => {
+    void child.exited.then(() => {
+      if (!disposed && child === current) void restart();
+    });
+  };
+  const restart = async (): Promise<void> => {
+    watch.onExit?.();
+    let why = 'it exited';
+    while (restarts < delays.length) {
+      await clock.sleep(delays[restarts++] ?? 0);
+      if (disposed) return;
+      try {
+        const child = await startHelper(services, binaries, dir, clock, readyMs);
+        if (disposed) {
+          await child.dispose();
+          return;
+        }
+        current = child;
+        follow(child);
+        watch.onRestart?.();
+        return;
+      } catch (error) {
+        why = error instanceof Error ? error.message : String(error);
+      }
+    }
+    watch.onGiveUp?.(why);
+  };
+  follow(current);
+  return {
+    get socketPath() {
+      return current.socketPath;
+    },
+    get pid() {
+      return current.pid;
+    },
+    transport: () => current.transport(),
+    async dispose() {
+      disposed = true;
+      await current.dispose();
+    },
+  };
 }
 
 export function isolatedFrom(handle: HelperHandle, clock: Clock) {
