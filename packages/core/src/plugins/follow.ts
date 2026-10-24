@@ -5,7 +5,6 @@
 // or disabled is unloaded, a built-in turns off or on. Every other plugin
 // keeps its in-memory state (E5), and key handling never waits for this.
 
-import type { Permission } from '@murmo/api';
 import type { PluginActivation, Session } from '../session.ts';
 import type { HostPluginSpec, PluginHost } from './host.ts';
 import { type InstalledSelection, type PluginTables, withInstalled } from './installed.ts';
@@ -45,13 +44,12 @@ function installedOf(
   selection: InstalledSelection,
   builtins: readonly HostPluginSpec[],
   tables: PluginTables,
-): Map<string, { readonly spec: HostPluginSpec; readonly grants: readonly Permission[]; readonly key: string }> {
+): Map<string, { readonly spec: HostPluginSpec; readonly key: string }> {
   const plan = withInstalled({ specs: builtins, order: [], grants: {} }, selection, tables);
-  const out = new Map<string, { spec: HostPluginSpec; grants: readonly Permission[]; key: string }>();
+  const out = new Map<string, { spec: HostPluginSpec; key: string }>();
   for (const spec of plan.specs) {
     if (spec.builtin) continue;
-    const grants = plan.grants[spec.id] ?? [];
-    out.set(spec.id, { spec, grants, key: JSON.stringify([spec.source, grants, spec.settings ?? null]) });
+    out.set(spec.id, { spec, key: JSON.stringify([spec.source, spec.reviewed ?? [], spec.settings ?? null]) });
   }
   return out;
 }
@@ -70,8 +68,8 @@ export function followPlugins(started: InstalledSelection, options: PluginFollow
       const errors: Record<string, string> = {};
       const order = next.order ?? [];
       const runs = (id: string) => session.stats().plugins.some((plugin) => plugin.id === id);
-      const start = async (spec: HostPluginSpec, grants?: readonly Permission[]) => {
-        const loaded = await host.loadOne(spec, session.caps(), grants);
+      const start = async (spec: HostPluginSpec) => {
+        const loaded = await host.loadOne(spec, session.caps());
         changed[spec.id] = await session.applyPlugin({ action: 'replace', plugin: loaded, order });
         if (loaded.loadError !== undefined) errors[spec.id] = loaded.loadError;
       };
@@ -86,7 +84,7 @@ export function followPlugins(started: InstalledSelection, options: PluginFollow
         if (running.get(id) === entry.key) continue;
         // Off first, so no hook reaches the old copy while the new one loads.
         if (running.has(id)) await session.applyPlugin({ action: 'disable', id });
-        await start(entry.spec, entry.grants);
+        await start(entry.spec);
       }
       running = new Map([...wanted].map(([id, entry]) => [id, entry.key] as const));
 

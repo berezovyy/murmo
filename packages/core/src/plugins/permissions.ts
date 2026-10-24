@@ -38,6 +38,15 @@ export function isGranted(plugin: GrantSubject, permission: Permission, grants?:
   return false;
 }
 
+/**
+ * What an installed plugin holds: exactly what the user granted at review
+ * (`murmo plugin add`, `grant`, `revoke-grant`) of what it declares. No
+ * declared default applies; leaving a permission out is a refusal.
+ */
+export function reviewedPermissions(declared: readonly Permission[], reviewed: readonly Permission[]): Permission[] {
+  return declared.filter((permission) => listed(reviewed, permission));
+}
+
 export function grantedPermissions(plugin: GrantSubject, grants?: GrantMap): Permission[] {
   return plugin.declared.filter((permission) => isGranted(plugin, permission, grants));
 }

@@ -33,7 +33,7 @@ import type { HookCall, HookRunner, LoadedPlugin, RunnerHealth } from '../hooks.
 import { uniquePluginIds } from '../order.ts';
 import { type AdmissionLimits, admit } from './admission.ts';
 import { ChangeCoalescer } from './coalesce.ts';
-import { type GrantMap, grantedPermissions } from './permissions.ts';
+import { type GrantMap, grantedPermissions, reviewedPermissions } from './permissions.ts';
 import { projectChange, projectDraft } from './projection.ts';
 
 const hookNames = Object.keys(HOOKS) as PluginHook[];
@@ -54,6 +54,8 @@ export interface HostPluginSpec {
   readonly assets?: Readonly<Record<string, ArrayBuffer>>;
   /** Built-in inline rule sets (phase 07). Refused on third-party specs at registration. */
   readonly inline?: readonly InlineRules[];
+  /** An installed plugin's reviewed grants: it holds exactly these, never a declared default. */
+  readonly reviewed?: readonly Permission[];
 }
 
 export interface PluginHostOptions {
@@ -133,20 +135,11 @@ export interface PluginHost extends HookRunner {
   readonly executor: Executor;
   storage(): Readonly<Record<string, string>>;
   grantOf(pluginId: string): readonly Permission[];
-  /**
-   * Load one extra spec without touching plugins already in memory (E5).
-   * `grants` replaces the grants this plugin was given, as `murmo plugin
-   * grant` and `revoke-grant` change them.
-   */
-  loadOne(
-    spec: HostPluginSpec,
-    caps?: Capabilities | HostCapabilities,
-    grants?: readonly Permission[],
-  ): Promise<LoadedPlugin>;
+  /** Load one extra spec without touching plugins already in memory (E5). */
+  loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin>;
 }
 
 export function createPluginHost(options: PluginHostOptions): PluginHost {
-  const grants: Record<string, readonly Permission[]> = { ...options.grants };
   const local = options.broker ? undefined : createStorageBroker(options.storage);
   const storage: PluginStorageBroker = options.broker ?? (local as PluginStorageBroker);
   const coalescer = new ChangeCoalescer();
@@ -296,10 +289,13 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
         await options.executor.unload(spec.id);
         throw new Error('manifest metadata or permissions do not match plugin descriptor');
       }
-      const granted = grantedPermissions(
-        { id: spec.id, builtin: spec.builtin, declared: descriptor.permissions },
-        grants,
-      );
+      const granted =
+        spec.reviewed && !spec.builtin
+          ? reviewedPermissions(descriptor.permissions, spec.reviewed)
+          : grantedPermissions(
+              { id: spec.id, builtin: spec.builtin, declared: descriptor.permissions },
+              options.grants,
+            );
       const routes = routesFor(granted);
       if (routes.services.includes('project.read') && !services.includes('project.read')) {
         await options.executor.unload(spec.id);
@@ -337,13 +333,8 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       return specs.map((spec) => spec.id);
     },
 
-    async loadOne(
-      spec: HostPluginSpec,
-      caps?: Capabilities | HostCapabilities,
-      granted?: readonly Permission[],
-    ): Promise<LoadedPlugin> {
+    async loadOne(spec: HostPluginSpec, caps?: Capabilities | HostCapabilities): Promise<LoadedPlugin> {
       if (disposed) throw new Error('disposed');
-      if (granted) grants[spec.id] = granted;
       if (loaded.has(spec.id)) await this.unload(spec.id);
       if (!specs.some((item) => item.id === spec.id)) specs.push(spec);
       else {

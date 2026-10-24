@@ -127,3 +127,15 @@ test('plugin add and disable apply to an open Pi session, which acknowledges eac
   }
   assert.deepEqual(await listLiveSessions(roots), [], 'a closed session leaves no acknowledgement to wait on');
 });
+
+test('an installed plugin gets only the permissions the user granted, never a declared default', async () => {
+  // A permission granted by default when declared (submit, draft:write) was
+  // granted to an installed plugin even when the user left it out at review
+  // or took it back with `murmo plugin revoke-grant`.
+  const roots = storeRootsFromEnv();
+  rmSync(roots.data, { recursive: true, force: true });
+  installForTest(roots, sendHold, { grants: ['draft:read'] });
+  const result = await sendInNewSession('fix zzhold');
+  assert.deepEqual(result.grants, ['draft:read']);
+  assert.deepEqual(result.sent, ['fix zzhold'], 'without submit the plugin cannot hold a send');
+});

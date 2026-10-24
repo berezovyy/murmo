@@ -54,7 +54,14 @@ export function withInstalled(
     const table = tables[plugin.id];
     if (table?.enabled === false) continue;
     const settings = table?.settings && Object.keys(table.settings).length ? { settings: table.settings } : {};
-    installed.push({ id: plugin.id, builtin: false, source: plugin.source, manifest: plugin.manifest, ...settings });
+    installed.push({
+      id: plugin.id,
+      builtin: false,
+      source: plugin.source,
+      manifest: plugin.manifest,
+      reviewed: plugin.grants,
+      ...settings,
+    });
     grants[plugin.id] = plugin.grants;
   }
   const specs = [...builtins.specs.filter((spec) => !off.has(spec.id)), ...installed];
