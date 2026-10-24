@@ -1,0 +1,66 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "real-host test round 4 (r4e4c-6, r4e4c-8, r4e4g-7, r4e4g-8): common typos left as typed, a trailing emoji and one non-English word blocking fixes",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "plugins": ["autocorrect"],
+    "requires": ["plugin.autocorrect=release"],
+    "trust": "builtin",
+    "settings": {
+      "autocorrect": {
+        "enabled": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "level-95-misspellings",
+      "note": "Authored typos that SCOWL lists only at level 95 (its misspellings) or the 1934 dictionary keeps were dropped as real words.",
+      "steps": [{ "type": "accomodate the enviroment untill succesful and refered " }],
+      "expect": {
+        "draft": { "text": "accommodate the environment until successful and referred " },
+        "stats": { "corrections": 5 }
+      }
+    },
+    {
+      "id": "emoji-after-word",
+      "note": "An emoji after a word separates it like one before it (`recieve🔥` stayed while `🔥recieve` was fixed).",
+      "steps": [{ "type": "recieve🔥 🔥recieve " }],
+      "expect": { "draft": { "text": "receive🔥 🔥receive " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "one-cyrillic-word",
+      "note": "One Cyrillic word leaves the English words on the line correctable.",
+      "steps": [{ "type": "привіт recieve teh " }],
+      "expect": { "draft": { "text": "привіт receive the " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "one-accented-loanword",
+      "note": "One accented word is a loanword or a name, not a foreign line.",
+      "steps": [{ "type": "über recieve " }],
+      "expect": { "draft": { "text": "über receive " }, "stats": { "corrections": 1 } }
+    },
+    {
+      "id": "one-accented-name",
+      "note": "The same for a Spanish title before English words.",
+      "steps": [{ "type": "señor recieve teh " }],
+      "expect": { "draft": { "text": "señor receive the " }, "stats": { "corrections": 2 } }
+    },
+    {
+      "id": "foreign-sentence-protected",
+      "note": "Control: two accented words make the line German, and its ASCII words stay as typed.",
+      "steps": [{ "type": "Prüfe die Größe von teh " }],
+      "expect": { "draft": { "text": "Prüfe die Größe von teh " }, "stats": { "corrections": 0 } }
+    },
+    {
+      "id": "unspaced-script-protected",
+      "note": "Control: a Japanese run on the line keeps its ASCII words as typed.",
+      "steps": [{ "type": "日本語の説明 teh " }],
+      "expect": { "draft": { "text": "日本語の説明 teh " }, "stats": { "corrections": 0 } }
+    }
+  ]
+}

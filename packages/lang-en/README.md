@@ -8,7 +8,7 @@ node packages/lang-en/src/cli.ts verify     # independent verifier over the pack
 node packages/lang-en/src/cli.ts gate       # evaluation gate; exits 1 on a regression
 ```
 
-`pnpm test` builds a fresh pack and checks it against `expected.json` (round 13's table, SHA-256 `731f6d7c…aaf27a`), runs the verifier and the gate. The pack is not committed: it is rebuilt from `inputs/` wherever it is needed.
+`pnpm test` builds a fresh pack and checks it against `expected.json` (SHA-256 `7a9cfed9…c59419`), runs the verifier and the gate. The pack is not committed: it is rebuilt from `inputs/` wherever it is needed.
 
 ## What goes in
 
@@ -27,7 +27,7 @@ node packages/lang-en/src/cli.ts gate       # evaluation gate; exits 1 on a regr
 ## Add a typo
 
 1. Add `typo correction category` to the end of `authored.txt` (categories: `transpose`, `misspelling`, `programming`, `phone`). Write it yourself; do not copy from a list.
-2. If the typo is a real word or a protected term, or its correction is not a known word, the build drops the line and lists the reason in its report (`authored.rejected`). A name or abbreviation that should still be corrected when typed in lowercase (`teh`) goes in `case-policy.json`, with a note in `exceptionNotes` of `authored-review.json`.
+2. If the typo is a valid word (any SCOWL list up to level 80) or a protected term, or its correction is not made of known words, the build drops the line and lists the reason in its report (`authored.rejected`). A name or abbreviation that should still be corrected when typed in lowercase (`teh`) goes in `case-policy.json`, with a note in `exceptionNotes` of `authored-review.json`.
 3. If the generated base maps the key to another word, the build stops: veto the base key or reject your line.
 4. `node packages/lang-en/src/cli.ts pin`, then build, verify and gate. Update `expected.json` with the new hashes and paste the gate table in the PR.
 

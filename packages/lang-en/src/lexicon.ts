@@ -18,8 +18,17 @@ export interface Lexicon {
   readonly targets: ReadonlyMap<string, Target>;
   /** Word → SCOWL level, for words at levels ≤ 80 and protected terms (as level 35). */
   readonly guard: ReadonlyMap<string, number>;
-  /** Every lowercase ASCII word in any SCOWL list or the system dictionary: a key that is one is dropped. */
+  /** Every lowercase ASCII word in any SCOWL list or the system dictionary: a generated key that is one is dropped. */
   readonly realWords: ReadonlySet<string>;
+  /**
+   * Lowercase ASCII words of any SCOWL list at levels ≤ 80: the words SCOWL
+   * calls valid English. A hand-reviewed authored key is vetoed only by these.
+   * Level 95 "will probably not be considered valid English words by most
+   * people" (SCOWL README) and holds the common misspellings themselves
+   * (`accomodate`, `wierd`); the 1934 system dictionary keeps archaic spellings
+   * (`untill`). Both stay a filter for generated keys, which nobody reviewed.
+   */
+  readonly validWords: ReadonlySet<string>;
   /** SCOWL abbreviations, project terms and programming terms: a key that is one is dropped. */
   readonly protectedTerms: ReadonlySet<string>;
 }
@@ -37,6 +46,7 @@ export function buildLexicon(inputs: Inputs): Lexicon {
   const targets = new Map<string, Target>();
   const guard = new Map<string, number>();
   const realWords = new Set<string>();
+  const validWords = new Set<string>();
   const abbreviations = new Set<string>();
 
   // Sorted file order decides which file a target's provenance names when it
@@ -53,6 +63,7 @@ export function buildLexicon(inputs: Inputs): Lexicon {
       const lower = word.toLowerCase();
       if (lowercaseWord.test(lower)) {
         realWords.add(lower);
+        if (level <= GUARD_MAX_LEVEL) validWords.add(lower);
         if (isAbbreviations) abbreviations.add(lower);
       }
       if (!correctionList || !guardWord.test(word)) continue;
@@ -73,5 +84,5 @@ export function buildLexicon(inputs: Inputs): Lexicon {
   for (const term of protectedTerms) {
     if (guardWord.test(term)) guard.set(term, Math.min(PROTECTED_GUARD_LEVEL, guard.get(term) ?? 100));
   }
-  return { targets, guard, realWords, protectedTerms };
+  return { targets, guard, realWords, validWords, protectedTerms };
 }

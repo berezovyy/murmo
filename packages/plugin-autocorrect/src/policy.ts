@@ -6,7 +6,7 @@ import { ENGLISH_POLICY, type WordPolicy, type WordPolicyQuery, type WordProposa
 import { normalizeKey } from '@murmo/lang';
 import { isGraphemeBoundary } from '@murmo/text';
 import { codeContext, inCode } from './code.ts';
-import { editRangeIsSafe, hasForeignLetters, leadingDecorations, trailingDecorations } from './unicode.ts';
+import { editRangeIsSafe, isForeignLine, leadingDecorations, trailingDecorations } from './unicode.ts';
 
 export { inCode };
 
@@ -42,7 +42,7 @@ function proposeEnglish(query: WordPolicyQuery, lowercaseOnly: ReadonlySet<strin
   const lineStart = prefix.lastIndexOf('\n') + 1;
   const nextNewline = query.text.indexOf('\n', query.cursor);
   const line = query.text.slice(lineStart, nextNewline < 0 ? query.text.length : nextNewline);
-  if (hasForeignLetters(line)) return null;
+  if (isForeignLine(line)) return null;
   // Tokens are ≤ 64 units plus wrappers; do not scan a 1.1M-character prefix (E8).
   const window = prefix.length > 256 ? prefix.slice(-256) : prefix;
   const raw = /\S+$/.exec(window)?.[0];

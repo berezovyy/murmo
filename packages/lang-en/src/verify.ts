@@ -169,8 +169,8 @@ export function verifyPack(packDir: string, inputsDir = defaultInputsDir): Verif
         fail(`"${key}": authored.txt line ${row.line} does not say "${key} ${value} ${row.category}"`);
       }
       if (inputs.authoredReview.rejected[key] !== undefined) fail(`"${key}" was rejected in review`);
-      if (!lowercaseOnly.has(key) && (lexicon.realWords.has(key) || lexicon.protectedTerms.has(key))) {
-        fail(`"${key}" is a real word or protected term and not a reviewed exception`);
+      if (!lowercaseOnly.has(key) && (lexicon.validWords.has(key) || lexicon.protectedTerms.has(key))) {
+        fail(`"${key}" is a valid word or protected term and not a reviewed exception`);
       }
     } else {
       overrideRows++;

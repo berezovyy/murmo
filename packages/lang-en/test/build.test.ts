@@ -13,6 +13,7 @@ import { type BuildReport, buildPack } from '../src/build.ts';
 import { r6Dictionary, readGateConfig, runGate } from '../src/gate/index.ts';
 import { fixturesDir } from '../src/gate/streams.ts';
 import { loadInputs, packageDir } from '../src/inputs.ts';
+import { buildLexicon } from '../src/lexicon.ts';
 import { parseProvenance } from '../src/provenance.ts';
 import { verifyPack } from '../src/verify.ts';
 
@@ -29,7 +30,7 @@ before(() => {
 });
 after(() => rmSync(root, { recursive: true, force: true }));
 
-test('a clean build reproduces rounds 7, 8 and 13 byte for byte', () => {
+test('a clean build reproduces the pinned tables byte for byte', () => {
   // Catches unpinned inputs (system dictionary, vocab caches) and a port that changes the data (E3, E6).
   const summary = ({ entries, bytes, sha256 }: { entries: number; bytes: number; sha256: string }) => ({
     entries,
@@ -37,11 +38,11 @@ test('a clean build reproduces rounds 7, 8 and 13 byte for byte', () => {
     sha256,
   });
   assert.deepEqual(summary(report.base), expected.base, 'strict base (r7 strict.bin)');
-  assert.deepEqual(report.combined, expected.combined, 'base + authored (r8 strict-common.bin)');
-  assert.deepEqual(report.table, expected.table, 'shipped table (r13 inline-typos.bin)');
+  assert.deepEqual(report.combined, expected.combined, 'base + authored');
+  assert.deepEqual(report.table, expected.table, 'shipped table');
   assert.deepEqual([...new Uint32Array(table.keyOffsets.buffer, 0, 8)], expected.header);
-  assert.equal(report.authored.kept, 493);
-  assert.equal(report.authored.newKeys, 353);
+  assert.equal(report.authored.kept, 519);
+  assert.equal(report.authored.newKeys, 379);
   assert.equal(report.provenanceRows, expected.provenanceRows);
 });
 
@@ -108,7 +109,7 @@ test('every entry maps to a SCOWL file and line, an authored.txt line, or an ove
   const rows = parseProvenance(readFileSync(join(packDir, manifest.provenance.file), 'utf8'));
   const origins = new Map<string, number>();
   for (const r of rows) origins.set(r.origin, (origins.get(r.origin) ?? 0) + 1);
-  assert.deepEqual(Object.fromEntries(origins), { 'scowl-generated': 88170, authored: 493, 'inline-override': 2 });
+  assert.deepEqual(Object.fromEntries(origins), { 'scowl-generated': 88170, authored: 519, 'inline-override': 2 });
   for (const r of rows) {
     if (r.origin === 'scowl-generated')
       assert.match(r.file, /^scowl-2020\.12\.07\/final\/(english|american)-words\.(10|20)$/);
@@ -132,8 +133,8 @@ test('the evaluation gate on the built table matches round 8 within its limits',
   assert.equal(result.clean.wrong, 0);
   assert.equal(result.heldOut.events, config.round8.heldOut.events);
   assert.equal(result.heldOut.wrong, 29);
-  // The shipped table adds wich→which and i→I to round 8's combined table: 3 more held-out fixes, 35 on round 6.
-  assert.equal(result.heldOut.applied, config.round8.heldOut.applied + 3);
+  // wich→which and i→I add 3 held-out fixes to round 8's table; the authored typos kept since add 1.
+  assert.equal(result.heldOut.applied, config.round8.heldOut.applied + 4);
   assert.equal(result.round6.events, config.round6.draws * 4);
   assert.equal(result.round6.wrong, 3);
   assert.deepEqual(
@@ -142,16 +143,36 @@ test('the evaluation gate on the built table matches round 8 within its limits',
   );
 });
 
-test('the gate numbers on the combined table are exactly round 8’s', () => {
+test('the gate numbers on round 8’s combined table are exactly round 8’s', () => {
   // The same gate code on r8's own table: proves the streams and scoring are r8's, not near it.
+  // Round 8's table is today's minus the two overrides and the authored keys its review
+  // dropped as real words because they sit only at SCOWL level 95 or in web2 (round 8
+  // kept only its three lowercase-only names of that kind).
+  const round8Names = new Set(['adn', 'teh', 'thier']);
   const config = readGateConfig();
+  const lexicon = buildLexicon(loadInputs());
+  const manifest = parseManifest(JSON.parse(readFileSync(join(packDir, 'manifest.json'), 'utf8')));
+  const rows = parseProvenance(readFileSync(join(packDir, manifest.provenance.file), 'utf8'));
+  const since = new Set(
+    rows
+      .filter(
+        (r) =>
+          r.origin === 'inline-override' ||
+          (r.origin === 'authored' &&
+            lexicon.realWords.has(r.key) &&
+            !lexicon.validWords.has(r.key) &&
+            !round8Names.has(r.key)),
+      )
+      .map((r) => r.key),
+  );
+  assert.equal(since.size, 2 + 26);
   const without = new Map<string, string>();
   for (let i = 0; i < table.entries; i++) {
     const key = keyAt(table, i);
-    if (key !== 'wich' && key !== 'i') without.set(key, lookup(table, key) as string);
+    if (!since.has(key)) without.set(key, lookup(table, key) as string);
   }
   const bytes = encodeTable(without);
-  assert.equal(sha256(bytes), expected.combined.sha256);
+  assert.equal(sha256(bytes), expected.round8Combined.sha256);
   const combined = mapTable(bytes);
   const result = runGate(combined, r6Dictionary(loadInputs()));
   const counts = ({
@@ -214,7 +235,7 @@ test('the case policy ships and r8’s policy fixtures pass against the shipped 
   const manifest = parseManifest(JSON.parse(readFileSync(join(packDir, 'manifest.json'), 'utf8')));
   assert.equal(manifest.casePolicy.file, 'case-policy.json');
   const policy = parseCasePolicy(JSON.parse(readFileSync(join(packDir, manifest.casePolicy.file), 'utf8')), table);
-  assert.deepEqual([...policy.lowercaseOnly], ['adn', 'teh', 'thier']);
+  assert.deepEqual([...policy.lowercaseOnly], ['adn', 'lamba', 'teh', 'thier']);
   const fixture = JSON.parse(readFileSync(join(fixturesDir, 'case-policy-r8.json'), 'utf8')) as { cases: PolicyCase[] };
   assert.equal(fixture.cases.length, 27, '11 required examples and 16 policy cases');
   for (const c of fixture.cases) {

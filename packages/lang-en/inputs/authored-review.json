@@ -1,6 +1,7 @@
 {
   "rejected": {
     "achive": "active and archive can yield this key; achieve is not dominant",
+    "alot": "a slip of slot or allot as often as a lot; the round-6 gate stream counts slot",
     "assignt": "not a convincing frequent assignment typo",
     "calender": "legitimate machine/verb",
     "complier": "legitimate word: one who complies",
@@ -33,9 +34,11 @@
     "sorucecode": "would create nonstandard sourcecode rather than source code",
     "successfull": "successful/successfully ambiguity; an extra l versus missing y",
     "thred": "thread omission competes with three neighboring substitution",
+    "toher": "to her with a missed space is as likely as an other transposition",
     "ture": "true/sure/pure/tune ambiguity is substantial",
     "typof": "typo/typos compete with typeof; do not infer a code operator in prose",
     "waht": "what transposition competes with want neighboring substitution",
+    "wierd": "a wired transposition as often as a weird misspelling; the round-6 gate stream counts wired",
     "wasntt": "contraction policy outside this list"
   },
   "programmingTargets": [
@@ -60,6 +63,7 @@
     "hte": "Classic the transposition; hoe/hue/ate are alternative one-edit intentions.",
     "improt": "Classic import transposition; impart/impost may be alternatives depending on neighborhood.",
     "jsut": "Classic just transposition; no phonetic replacement is inferred.",
+    "lamba": "Common lambda omission in coding prose; SCOWL lists Lamba as a name, so lowercase only.",
     "recieve": "Canonical receive misspelling; author-written orthographic correction, not copied from an oracle.",
     "retrun": "Classic return letter-order error; rerun is a plausible competing word in coding prompts.",
     "taht": "Classic that transposition; tart/tact/taut are possible but context-independent certainty is unavailable.",

@@ -2,8 +2,9 @@
 // the author's frozen draft, one `typo correction category` per line; this
 // keeps a line unless review rejected it. Kept lines are deliberate exceptions
 // to the base list's filters (including its 5-letter minimum), but still never
-// a real word or a protected term, except the lowercase-only keys whose SCOWL
-// matches are names or abbreviations (`teh`, `adn`, `thier`).
+// a valid word (SCOWL ≤ 80) or a protected term, except the lowercase-only keys
+// whose SCOWL matches are names or abbreviations (`teh`, `adn`, `thier`). A
+// correction may be several words (`alot` → `a lot`), each a known word.
 
 import type { AuthoredReview } from './inputs.ts';
 import type { Lexicon } from './lexicon.ts';
@@ -96,7 +97,7 @@ export function reviewAuthored(
       continue;
     }
     if (!lowercaseOnly.has(key)) {
-      if (lexicon.realWords.has(key)) {
+      if (lexicon.validWords.has(key)) {
         reject('real word: no automatic lexical normalization');
         continue;
       }
@@ -104,7 +105,8 @@ export function reviewAuthored(
         reject('identifier, extension, abbreviation or project term');
         continue;
       }
-      if (!lexicon.realWords.has(value.toLowerCase()) && !programmingTargets.has(value)) {
+      const known = value.split(' ').every((word) => lexicon.realWords.has(word.toLowerCase()));
+      if (!known && !programmingTargets.has(value)) {
         reject('correction is not a known word; rejected rather than inventing one');
         continue;
       }

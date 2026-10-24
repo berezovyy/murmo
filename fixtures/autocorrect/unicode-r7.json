@@ -2,7 +2,7 @@
   "kind": "editor-ops/v1",
   "offsets": "utf16",
   "provenance": {
-    "source": "experiments/engine-v2/unicode.test.ts (fixed cases of \"adjacent emoji separate words; CJK and combining-letter lines remain protected\")",
+    "source": "experiments/engine-v2/unicode.test.ts (fixed cases of \"adjacent emoji separate words; CJK and combining-letter lines remain protected\"); emoji after a word changed by real-host round 4",
     "license": "Apache-2.0 OR MIT",
     "author": "murmo"
   },
@@ -32,6 +32,7 @@
     },
     {
       "id": "emoji-grin-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh😀 "
@@ -39,7 +40,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh😀 "
+          "text": "the😀 "
         }
       }
     },
@@ -58,6 +59,7 @@
     },
     {
       "id": "emoji-technologist-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh👩\u200d💻 "
@@ -65,7 +67,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh👩\u200d💻 "
+          "text": "the👩\u200d💻 "
         }
       }
     },
@@ -84,6 +86,7 @@
     },
     {
       "id": "emoji-flag-ua-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh🇺🇦 "
@@ -91,7 +94,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh🇺🇦 "
+          "text": "the🇺🇦 "
         }
       }
     },
@@ -110,6 +113,7 @@
     },
     {
       "id": "emoji-thumb-tone-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh👍🏽 "
@@ -117,7 +121,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh👍🏽 "
+          "text": "the👍🏽 "
         }
       }
     },
@@ -136,6 +140,7 @@
     },
     {
       "id": "emoji-family-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh👨\u200d👩\u200d👧\u200d👦 "
@@ -143,7 +148,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh👨\u200d👩\u200d👧\u200d👦 "
+          "text": "the👨\u200d👩\u200d👧\u200d👦 "
         }
       }
     },
@@ -162,6 +167,7 @@
     },
     {
       "id": "emoji-keycap-after-word",
+      "note": "An emoji after a word separates it as one before it does (round 4: recieve🔥 stayed).",
       "steps": [
         {
           "type": "teh1\ufe0f\u20e3 "
@@ -169,7 +175,7 @@
       ],
       "expect": {
         "draft": {
-          "text": "teh1\ufe0f\u20e3 "
+          "text": "the1\ufe0f\u20e3 "
         }
       }
     },

@@ -8,6 +8,12 @@
       "variants": 16
     },
     {
+      "file": "autocorrect/coverage.json",
+      "owner": "13",
+      "cases": 7,
+      "variants": 7
+    },
+    {
       "file": "autocorrect/round4.json",
       "owner": "13",
       "cases": 50,

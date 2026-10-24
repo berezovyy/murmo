@@ -1,21 +1,26 @@
 {
-  "about": "What a clean build from inputs/ must produce, byte for byte (docs/plan/12, Reproducible build). The base and combined tables are round 7's strict.bin and round 8's strict-common.bin; the table is round 13's inline-typos.bin. A data change updates these with the gate report in the same PR.",
+  "about": "What a clean build from inputs/ must produce, byte for byte (docs/plan/12, Reproducible build). The base table is round 7's strict.bin; round8Combined is round 8's strict-common.bin, which the build test rebuilds from today's table. Round 13's inline-typos.bin (731f6d7c…aaf27a) gained the authored typos that sit only at SCOWL level 95 or in web2. A data change updates these with the gate report in the same PR.",
   "base": {
     "entries": 88170,
     "bytes": 2097148,
     "sha256": "1a5d6da0d6d16b37c8e406ea5204ed46197b4fac1afe55ff3e32d1a12428d888"
   },
   "combined": {
+    "entries": 88549,
+    "bytes": 2105703,
+    "sha256": "a7b9cfed6e8174aef5e576e53966306e281f115034bc034d915aec0675fe97c1"
+  },
+  "table": {
+    "entries": 88551,
+    "bytes": 2105730,
+    "sha256": "7a9cfed90593d8b4ee3d2c96f4bb824cc0d283c7510b42a10dc6df5394c59419"
+  },
+  "round8Combined": {
     "entries": 88523,
     "bytes": 2105020,
     "sha256": "07ea99660b4cf49bb5c5cce73437b99d1ae187da49982deecadcb5c829731fc2"
   },
-  "table": {
-    "entries": 88525,
-    "bytes": 2105047,
-    "sha256": "731f6d7cb121fea556589617b3b4d283abfd8b05ca9884503009c77aaacaf27a"
-  },
-  "header": [1297437261, 88525, 708240, 1396807, 0, 0, 0, 0],
-  "provenanceRows": 88665,
-  "entryAssertions": 177052
+  "header": [1297437261, 88551, 708448, 1397282, 0, 0, 0, 0],
+  "provenanceRows": 88691,
+  "entryAssertions": 177104
 }

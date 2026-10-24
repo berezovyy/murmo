@@ -86,10 +86,15 @@ test('fences and inline code skip (r4-06, r4-07, r4-42)', () => {
   assert.equal(fix('Then explain teh'), 'the');
 });
 
-test('a line with non-ASCII letters is skipped; emoji is not a letter (E7)', () => {
-  assert.equal(fix('Перевір teh'), null);
+test('a foreign line is skipped, one foreign word is not; emoji is not a letter (E7, round 4)', () => {
+  // Catches one loanword blocking a line (`über recieve`) and a foreign sentence losing its protection.
+  assert.equal(fix('Перевір teh'), 'the');
+  assert.equal(fix('Перевір цей teh'), null);
+  assert.equal(fix('説明 teh'), null);
   assert.equal(fix('😀teh'), 'the');
-  assert.equal(fix('teh😀'), null);
+  assert.equal(fix('teh😀'), 'the');
+  assert.equal(fix('(teh)😀'), 'the');
+  assert.equal(fix('teh_😀'), null);
 });
 
 test('generic edit-distance fallback is off: unparseable stays (lesson 14)', () => {

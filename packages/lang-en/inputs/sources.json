@@ -10,7 +10,7 @@
       "url": "https://downloads.sourceforge.net/project/wordlist/SCOWL/2020.12.07/scowl-2020.12.07.tar.gz",
       "license": "SCOWL collective permissive notice plus component notices (scowl-2020.12.07/Copyright in the archive; shipped verbatim as licenses/SCOWL-Copyright)",
       "role": "correction-source",
-      "use": "English and American words at levels 10-20 are the correction targets; every final/ list is the real-word guard; levels up to 80 are the reverse-ambiguity guard; abbreviation lists are protected"
+      "use": "English and American words at levels 10-20 are the correction targets; every final/ list is the real-word guard for generated keys; any list at levels up to 80 vetoes an authored key and is the reverse-ambiguity guard; abbreviation lists are protected"
     },
     {
       "name": "web2",
@@ -22,7 +22,7 @@
       "license": "public domain: web2-README says the 1934 copyright of Webster's Second International has lapsed",
       "notice": "web2-README",
       "role": "guard",
-      "use": "real-word guard only (a key that is a word here is dropped); never a correction source. Frozen copy of the system dictionary round 7 read, so Linux and macOS builds agree"
+      "use": "real-word guard for generated keys only (a generated key that is a word here is dropped); never a correction source. Frozen copy of the system dictionary round 7 read, so Linux and macOS builds agree"
     },
     {
       "name": "project-terms",
@@ -58,8 +58,8 @@
     {
       "name": "authored",
       "file": "authored.txt",
-      "bytes": 15852,
-      "sha256": "ee7adbaa953629b5c929c5c1967055d33c4e1463e0a53c159b17654406026a28",
+      "bytes": 15881,
+      "sha256": "797f70b2dab5966d6ed35f45ee29d5bfd7045904df6ca1e3ff5fc5c45885703e",
       "version": "round 8 author draft, frozen 2026-10-19 before any public typo list was read",
       "license": "Apache-2.0 OR MIT (Murmo): written from general knowledge, not copied or derived from any list",
       "role": "correction-source",
@@ -68,8 +68,8 @@
     {
       "name": "authored-review",
       "file": "authored-review.json",
-      "bytes": 3924,
-      "sha256": "dbc34bdffa62ceb994f3127ebf3f568bb7b1ab1d4ee0427d7fbf6cef37aa3cae",
+      "bytes": 4312,
+      "sha256": "9d6c7282bf5cb8ea3a617570412b40ac13346c801b128b4ac6abc7ee8181176e",
       "version": "round 8 audit",
       "license": "Apache-2.0 OR MIT (Murmo)",
       "role": "review",
@@ -78,8 +78,8 @@
     {
       "name": "case-policy",
       "file": "case-policy.json",
-      "bytes": 264,
-      "sha256": "e51896784d4bdfc95335707db1116feb8315b56a3b8b847eee25d1ad02ca4b51",
+      "bytes": 280,
+      "sha256": "9cabaa838ce1e5ad47c19fb16f1058ecfa22d8ed63c453dd8a630926652f9cea",
       "version": "round 8",
       "license": "Apache-2.0 OR MIT (Murmo)",
       "role": "policy",
