@@ -807,7 +807,8 @@ export class PiAdapter implements Adapter {
 
   #onPiInput(event: { source?: string; text?: string }): void {
     const forwarded = this.#forwarded;
-    if (!forwarded || event.source !== 'interactive' || event.text !== forwarded.text) return;
+    // Pi's editor trims what it sends; the input event carries that text.
+    if (!forwarded || event.source !== 'interactive' || event.text !== forwarded.text.trim()) return;
     const accepted: HostSubmitAccepted = {
       text: forwarded.text,
       gesture: forwarded.gesture,

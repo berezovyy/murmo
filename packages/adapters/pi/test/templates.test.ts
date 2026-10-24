@@ -79,7 +79,7 @@ test('template fields: typing replaces the placeholder, Tab and Shift+Tab move b
     assert.equal(text(), 'Review the patch and its tests for locking. ');
     live.key('\r');
     await until(live, () => sent.length > 0);
-    assert.deepEqual(sent, ['Review the patch and its tests for locking. ']);
+    assert.deepEqual(sent, ['Review the patch and its tests for locking.']);
   } finally {
     await live.dispose();
   }
@@ -117,6 +117,33 @@ test('Tab then Enter in one read sends what the Tab picked from the ; menu', asy
     live.key('\r');
     await until(live, () => sent.length > 0);
     assert.deepEqual(sent, ['Review this change.']);
+  } finally {
+    await live.dispose();
+  }
+});
+
+test('a sent template ends its field session though Pi trims what it sends (real-host bug)', async () => {
+  // Pi trims the prompt it sends, and its input event carries the trimmed
+  // text. The adapter matched it against the untrimmed draft, so a prompt
+  // ending in the space after an expansion was never confirmed: the field
+  // hint stayed on the status line and nothing reached onSubmitCommitted.
+  const live = await start(['shortcuts'], REVIEW);
+  try {
+    const sent = capture(live);
+    const committed: string[] = [];
+    live.adapter.onSubmitCommitted((event) => committed.push(event.text));
+    live.type(';rv ');
+    await until(live, () => live.env.editor.getText().startsWith('Review'));
+    live.type('the patch');
+    await until(live, () => !live.env.editor.getText().includes('<change>'));
+    assert.match(live.adapter.backend.paint.status ?? '', /Template field 1 of 2/);
+    live.key('\r');
+    await until(live, () => sent.length > 0);
+    // As Pi does: the input event carries the text its editor sent.
+    live.env.host.emit('input', { source: 'interactive', text: sent[0] });
+    await until(live, () => committed.length > 0 && !(live.adapter.backend.paint.status ?? '').includes('Template'));
+    assert.equal(committed.length, 1);
+    assert.doesNotMatch(live.adapter.backend.paint.status ?? '', /Template field/);
   } finally {
     await live.dispose();
   }
