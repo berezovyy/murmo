@@ -173,3 +173,23 @@ test('dispose finishes when OpenCode returns nothing from keymap.layer (quit-tim
   assert.doesNotThrow(() => adapter.dispose());
   assert.equal(host.keypressHandlers().length, 0);
 });
+
+test('a collapsed paste is reported as a folded part, and typing beside it keeps it folded', async () => {
+  // OpenCode shows a big paste as `[Pasted ~1 lines]` under a virtual mark.
+  // The adapter reported the label as the whole prompt, so draft rescue saved
+  // it and, after a crash, offered to type the label back instead of the paste.
+  const { host, adapter } = await ready();
+  host.prompt.replaceText('see [Pasted ~1 lines]');
+  host.prompt.addVirtual(4, 21);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(adapter.getDraft().foldedParts, [[4, 21]]);
+  host.type(' ok');
+  await Promise.resolve();
+  await Promise.resolve();
+  const draft = adapter.getDraft();
+  assert.equal(draft.text, 'see [Pasted ~1 lines] ok');
+  assert.deepEqual(draft.foldedParts, [[4, 21]]);
+  assert.equal(draft.certainty, 'authoritative', 'the typed text around it still counts');
+  adapter.dispose();
+});

@@ -133,6 +133,37 @@ test('a stray key typed and deleted is not saved over an older crash draft (r3pi
   await next.session?.dispose();
 });
 
+test('a draft holding a folded paste is never saved, and the last whole draft stays the one offered', async () => {
+  // OpenCode folds a big paste into `[Pasted ~1 lines]`: rescue saved the
+  // label and, after a crash, offered to type it back instead of the paste.
+  const t = fresh();
+  const store = await t.store;
+  const id = identity('folded');
+  const h = await withRescue(store, 'folded');
+  await h.driver.type('review this log: ');
+  await idleSave(h, store, id);
+  await h.driver.pasteFolded('[Pasted ~1 lines]');
+  await h.driver.type(' thanks');
+  await h.driver.wait(IDLE_MS * 2);
+  await h.driver.settle();
+  await new Promise((r) => setTimeout(r, 50)); // let a save, if one was queued, reach the disk
+  assert.equal((await store.drafts.read(id))?.text, 'review this log: ', 'the whole draft before the paste stays');
+  await h.driver.wait(EMPTY_DELETE_MS * 2);
+  await h.driver.settle();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal((await store.drafts.read(id))?.text, 'review this log: ', 'a folded draft is not an empty one');
+
+  const other = identity('folded-only');
+  const only = await withRescue(store, 'folded-only');
+  await only.driver.pasteFolded('[Pasted ~40 lines]');
+  await only.driver.wait(IDLE_MS * 2);
+  await only.driver.settle();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(await store.drafts.read(other), undefined, 'the label alone is never saved');
+  await only.session?.dispose();
+  await h.session?.dispose();
+});
+
 test('no offer where Tab never reaches plugins (Claude routes Tab natively); the draft is still kept', async () => {
   // An offer that says "(Tab)" where Tab can't restore would be a lie.
   const t = fresh();

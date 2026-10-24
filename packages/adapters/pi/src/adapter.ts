@@ -88,6 +88,26 @@ function graphemeBefore(text: string, at: number): number {
   return at - (point > 0xffff ? 2 : 1);
 }
 
+/**
+ * Where Pi's text folds collapsed pastes (`[paste #1 +40 lines]`): the span
+ * between the first and last place the text and its expansion differ. Pi keeps
+ * no marker positions, so this one range covers every marker.
+ */
+function foldedRegion(text: string, expanded: string): Range[] {
+  if (text === expanded) return [];
+  let from = 0;
+  while (from < text.length && from < expanded.length && text[from] === expanded[from]) from++;
+  let tail = 0;
+  while (
+    tail < text.length - from &&
+    tail < expanded.length - from &&
+    text[text.length - 1 - tail] === expanded[expanded.length - 1 - tail]
+  ) {
+    tail++;
+  }
+  return [[from, Math.max(from, text.length - tail)]];
+}
+
 export class PiAdapter implements Adapter {
   readonly host: { readonly name: 'pi'; readonly version: string };
   caps: HostCapabilities = offCaps();
@@ -404,12 +424,14 @@ export class PiAdapter implements Adapter {
     const opaque = text !== editor.getExpandedText();
     const owned = this.backend.ownsEditor && !this.#ownershipLost;
     const certainty = owned && !opaque && editor.focused !== false ? 'authoritative' : 'unknown';
+    const foldedParts = opaque ? foldedRegion(text, editor.getExpandedText()) : [];
     const next: Draft = {
       text,
       cursor,
       version: this.#draft.version,
       certainty,
       typedSpans: certainty === 'authoritative' ? (spans ?? this.#draft.typedSpans) : [],
+      ...(foldedParts.length > 0 ? { foldedParts } : {}),
     };
     this.#draft =
       origin === 'history' || origin === 'unknown' || origin === 'native-menu'

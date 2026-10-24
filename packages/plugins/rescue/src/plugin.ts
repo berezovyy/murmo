@@ -137,7 +137,13 @@ function canOffer(ctx: PluginContext): boolean {
   return caps.ghost !== 'none' && caps.keys.includes('Tab');
 }
 
+/**
+ * A draft rescue can put back exactly. Not one whose text folds host parts
+ * (a collapsed paste's label): restoring would type the label, not the paste.
+ * Such a draft keeps the last whole save rather than replacing or deleting it.
+ */
 function savable(draft: Draft): boolean {
+  if ((draft.foldedParts?.length ?? 0) > 0) return false;
   return draft.certainty === 'authoritative' || draft.certainty === 'tracked';
 }
 

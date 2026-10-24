@@ -40,7 +40,7 @@ import { clone } from './clone.ts';
 import { bindingMatches, canonicalKey, isPrintableTyped } from './keys.ts';
 import { fromCells, representable, toCells, toHighlightRange } from './offsets.ts';
 import { Overlay } from './overlay.ts';
-import { rangeTouchesPart } from './parts.ts';
+import { rangeTouchesPart, virtualMarks } from './parts.ts';
 import { registerPrioritize } from './prioritize.ts';
 import { runProbes } from './probes.ts';
 import { createStatusSurface, type StatusSurface } from './status.ts';
@@ -449,7 +449,8 @@ export class OpenCodeAdapter implements Adapter {
       next.text === this.#draft.text &&
       next.cursor === this.#draft.cursor &&
       String(next.selection) === String(this.#draft.selection) &&
-      next.certainty === this.#draft.certainty
+      next.certainty === this.#draft.certainty &&
+      String(next.foldedParts ?? []) === String(this.#draft.foldedParts ?? [])
     ) {
       return this.#draft;
     }
@@ -981,6 +982,13 @@ export class OpenCodeAdapter implements Adapter {
     const cursor = editor ? fromCells(editor, editor.cursorOffset) : 0;
     const sel = editor?.getSelection();
     const selection = sel && editor ? ([fromCells(editor, sel.start), fromCells(editor, sel.end)] as Range) : undefined;
+    // File mentions and collapsed pastes: the text is a label for a part
+    // OpenCode keeps elsewhere (`virtual` extmarks).
+    const foldedParts = editor
+      ? virtualMarks(editor)
+          .map((mark): Range => [fromCells(editor, mark.start), fromCells(editor, mark.end)])
+          .sort((a, b) => a[0] - b[0])
+      : [];
     return {
       text,
       cursor,
@@ -988,6 +996,7 @@ export class OpenCodeAdapter implements Adapter {
       certainty: 'authoritative',
       typedSpans: clone(this.#draft.typedSpans),
       ...(selection ? { selection } : {}),
+      ...(foldedParts.length > 0 ? { foldedParts } : {}),
     };
   }
 

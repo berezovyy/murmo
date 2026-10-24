@@ -37,3 +37,20 @@ test('typed after a paste does not pull the paste into a typed span (N4)', async
   assert.equal(fake.draft.text, 'teh ');
   await host.dispose();
 });
+
+test('a long paste Claude folds into a label is reported as a folded part, and the draft stays authoritative', async () => {
+  // Claude shows a long paste as `[Pasted text #1 +39 lines]`; the draft held
+  // only that label, so draft rescue saved it and offered it back after a crash.
+  const { fake, host } = await boot();
+  await type(host, fake, 'see ');
+  await pasteText(host, fake, '[Pasted text #1 +39 lines]');
+  await type(host, fake, ' and [Image #2]');
+  const draft = host.adapter.getDraft();
+  assert.equal(draft.text, 'see [Pasted text #1 +39 lines] and [Image #2]');
+  assert.deepEqual(draft.foldedParts, [
+    [4, 30],
+    [35, 45],
+  ]);
+  assert.equal(draft.certainty, 'authoritative');
+  await host.dispose();
+});

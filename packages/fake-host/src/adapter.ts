@@ -574,6 +574,25 @@ export class FakeAdapter implements Adapter {
     this.#inlineTransaction('Text', [{ origin: 'paste', from, to, insert: text }], 'paste');
   }
 
+  /**
+   * A paste the host folds into `label` (OpenCode `[Pasted ~3 lines]`, Pi
+   * `[paste #1 65537 chars]`): the draft holds the label, not the pasted text,
+   * and reports it in `foldedParts`.
+   */
+  pasteFolded(label: string): void {
+    const before = this.#value;
+    const [from, to] =
+      before.selection && before.selection[0] !== before.selection[1]
+        ? before.selection
+        : [before.cursor, before.cursor];
+    const deltas: DraftDelta[] = [{ origin: 'paste', from, to, insert: label }];
+    const applied = applyChange(before, deltas, labeled);
+    const parts: Range[] = [...(applied.foldedParts ?? []), [from, from + label.length]];
+    parts.sort((a, b) => a[0] - b[0]);
+    this.#value = { ...applied, foldedParts: parts };
+    this.#notify('paste', before, deltas);
+  }
+
   ime(text: string): void {
     const d = this.#value;
     const [from, to] = d.selection && d.selection[0] !== d.selection[1] ? d.selection : [d.cursor, d.cursor];

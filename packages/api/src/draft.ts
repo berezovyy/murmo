@@ -41,6 +41,14 @@ export interface Draft {
    * input origin (`Capabilities.inputOriginEvidence` is not `host-labeled`).
    */
   readonly typedSpans: readonly Range[];
+  /**
+   * Ranges of `text` that stand in for host parts the draft does not carry in
+   * full: a collapsed paste shown as a label (`[Pasted ~3 lines]`), a file
+   * mention with its attachment. Typing the text back would not bring the parts
+   * back. Absent or empty when `text` is the whole prompt. Edits never cross
+   * them (`ui.opaqueParts`); the typed text around them works as usual.
+   */
+  readonly foldedParts?: readonly Range[];
 }
 
 /** One splice, in the order the host applied it. */

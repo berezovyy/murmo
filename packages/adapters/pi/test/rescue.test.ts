@@ -114,3 +114,20 @@ test('a sent typed prompt is recorded in history, filed under its folder outside
     [await projectIdOfCwd(folder)],
   );
 });
+
+test('a collapsed Pi paste is reported as a folded part of the draft', async () => {
+  // Pi shows a big paste as `[paste #1 +40 lines]`; restoring that label would
+  // not bring the paste back, so the draft must say it folds a part.
+  const { env, started } = await start();
+  try {
+    const big = Array.from({ length: 41 }, (_, i) => `line ${i}`).join('\n');
+    for (const ch of 'see ') env.editor.handleInput(ch);
+    env.editor.handleInput(`\x1b[200~${big}\x1b[201~`);
+    await started.session.settle();
+    const draft = started.adapter.getDraft();
+    assert.equal(draft.text, 'see [paste #1 +40 lines]');
+    assert.deepEqual(draft.foldedParts, [[4, draft.text.length]]);
+  } finally {
+    await started.dispose();
+  }
+});

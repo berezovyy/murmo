@@ -42,6 +42,22 @@ function withSelection(draft: Omit<Draft, 'selection'>, selection: Range | undef
   return hasSelection(selection) ? { ...draft, selection } : draft;
 }
 
+/**
+ * Folded host parts after a splice: a part the splice touches is gone (the host
+ * unfolds or drops it), one after it shifts. Absent when none are left.
+ */
+function foldedAfter(parts: readonly Range[] | undefined, from: number, to: number, shift: number): Range[] {
+  const kept: Range[] = [];
+  for (const [a, b] of parts ?? []) {
+    if (b <= from) kept.push([a, b]);
+    else if (a >= to) kept.push([a + shift, b + shift]);
+  }
+  return kept;
+}
+
+const withFolded = (draft: Draft, parts: readonly Range[]): Draft =>
+  parts.length > 0 ? { ...draft, foldedParts: parts } : draft;
+
 export interface NextDraftOptions extends TypingRules {
   /** How much the version grows; 0 for every delta of a change but the last. Default 1. */
   readonly versionStep?: number;
@@ -64,15 +80,18 @@ export function nextDraft(draft: Draft, delta: DraftDelta, options: NextDraftOpt
     if (to < a) selection = [a + shift, b + shift];
     else if (from <= b) selection = undefined;
   }
-  return withSelection(
-    {
-      text,
-      cursor,
-      version: draft.version + (options.versionStep ?? 1),
-      certainty: draft.certainty,
-      typedSpans: splice(draft.typedSpans, from, to, insert.length, addsCoverage(delta, options)),
-    },
-    selection,
+  return withFolded(
+    withSelection(
+      {
+        text,
+        cursor,
+        version: draft.version + (options.versionStep ?? 1),
+        certainty: draft.certainty,
+        typedSpans: splice(draft.typedSpans, from, to, insert.length, addsCoverage(delta, options)),
+      },
+      selection,
+    ),
+    foldedAfter(draft.foldedParts, from, to, shift),
   );
 }
 
@@ -111,14 +130,17 @@ export function moveCursor(draft: Draft, cursor: number, selection?: Range): Dra
 export function restoreDraft(current: Draft, saved: Draft): Draft {
   const spans: Spans = saved.typedSpans;
   if (!validSpans(spans, saved.text.length)) throw new RangeError('saved typed spans are not valid for the saved text');
-  return withSelection(
-    {
-      text: saved.text,
-      cursor: saved.cursor,
-      version: current.version + 1,
-      certainty: current.certainty,
-      typedSpans: spans,
-    },
-    saved.selection,
+  return withFolded(
+    withSelection(
+      {
+        text: saved.text,
+        cursor: saved.cursor,
+        version: current.version + 1,
+        certainty: current.certainty,
+        typedSpans: spans,
+      },
+      saved.selection,
+    ),
+    saved.foldedParts ?? [],
   );
 }

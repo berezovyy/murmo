@@ -154,6 +154,11 @@ export class Driver {
     return this.#input(() => this.#adapter.paste(text));
   }
 
+  /** A paste the host folds into a label it shows instead (`foldedParts`). */
+  pasteFolded(label: string): Promise<void> {
+    return this.#input(() => this.#adapter.pasteFolded(label));
+  }
+
   ime(text: string): Promise<void> {
     return this.#input(() => this.#adapter.ime(text));
   }

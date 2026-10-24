@@ -39,6 +39,25 @@ test('a selection shifts with an edit before it, stays for one after it, and is 
   assert.equal(nextDraft(d, plugin(11, 11, '!'), rules).selection, undefined, 'an insert at its edge touches it');
 });
 
+test('a folded host part shifts with an edit before it, stays for one after it, and is gone once an edit enters it', () => {
+  // Typing around a collapsed paste must keep saying the draft folds it, or
+  // rescue would save the label as if it were the prompt.
+  const d = draft('see [Pasted ~1 lines] ok', { foldedParts: [[4, 21]] });
+  assert.deepEqual(nextDraft(d, plugin(0, 0, '>> '), rules).foldedParts, [[7, 24]]);
+  assert.deepEqual(
+    nextDraft(d, plugin(4, 4, 'x'), rules).foldedParts,
+    [[5, 22]],
+    'an insert at its start goes before it',
+  );
+  assert.deepEqual(
+    nextDraft(d, plugin(21, 21, '!'), rules).foldedParts,
+    [[4, 21]],
+    'an insert at its end goes after it',
+  );
+  assert.equal(nextDraft(d, plugin(10, 11, ''), rules).foldedParts, undefined, 'an edit inside it unfolds it');
+  assert.equal(nextDraft(draft('plain'), plugin(0, 0, 'a'), rules).foldedParts, undefined);
+});
+
 test('a rebased range survives edits outside it and inserts at its edges, and is dropped by any edit inside (inline-rewrite rebase)', () => {
   const deltas = [plugin(0, 2, 'xyz'), plugin(9, 9, '!'), plugin(4, 4, '<')];
   assert.deepEqual(mapRange([4, 9], deltas.slice(0, 1)), [5, 10]);

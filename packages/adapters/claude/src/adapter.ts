@@ -72,6 +72,21 @@ const emptyDraft = (): Draft => ({
   typedSpans: [],
 });
 
+/**
+ * Claude Code folds a long paste into `[Pasted text #1 +39 lines]` and an
+ * image into `[Image #1]`; the prompt text holds only the label. The hook
+ * runtime gives no part list, so the labels are found by their shape.
+ */
+const FOLDED_LABEL = /\[(?:Pasted text #\d+(?: \+\d+ lines?)?|Image #\d+)\]/g;
+
+/** The draft with its folded labels in `foldedParts` (none: the field is absent). */
+function withFolded(draft: Draft): Draft {
+  const { foldedParts: _old, ...rest } = draft;
+  const parts: Range[] = [];
+  for (const match of draft.text.matchAll(FOLDED_LABEL)) parts.push([match.index, match.index + match[0].length]);
+  return parts.length > 0 ? { ...rest, foldedParts: parts } : rest;
+}
+
 const emptyState = (): HostState => ({
   mode: 'prose',
   popup: null,
@@ -698,7 +713,7 @@ export class ClaudeAdapter implements Adapter {
     const deltas: DraftDelta[] = [{ origin, from: event.start, to: event.end, insert: event.inputText }];
     const before = this.#draft;
     const next = applyChange(before, deltas, typing);
-    this.#draft = { ...next, text: result.text, cursor: result.cursor, version: before.version + 1 };
+    this.#draft = withFolded({ ...next, text: result.text, cursor: result.cursor, version: before.version + 1 });
     this.#emit(origin, before, deltas);
   }
 
@@ -717,13 +732,13 @@ export class ClaudeAdapter implements Adapter {
       return;
     }
     const deltas = replay?.deltas ?? [{ origin, from: 0, to: before.text.length, insert: box.text }];
-    this.#draft = {
+    this.#draft = withFolded({
       text: box.text,
       cursor: box.cursor,
       version: this.#draft.version + 1,
       certainty: 'authoritative',
       typedSpans: typedSpans.length ? copy(typedSpans) : applyChange(before, deltas, typing).typedSpans,
-    };
+    });
     this.#emit(origin, before, deltas);
   }
 
@@ -775,7 +790,7 @@ export class ClaudeAdapter implements Adapter {
     const before = await rt.prompt.read();
     this.probes.base64Fs = typeof (Uint8Array as { fromBase64?: unknown }).fromBase64 === 'function';
     if (before.text) {
-      this.#draft = { ...emptyDraft(), text: before.text, cursor: before.cursor };
+      this.#draft = withFolded({ ...emptyDraft(), text: before.text, cursor: before.cursor });
       return;
     }
     try {
