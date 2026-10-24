@@ -1,0 +1,62 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host check. Claude Code 2.1.302-2.1.306 give plugins no Tab, Shift+Tab or Escape, so a template's fields can't be moved between there; fields with a default are filled at expansion, and the rest stay as visible placeholders the user edits. The one-time unfilled-field warning is what keeps `<issue>` from reaching the model",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "requires": ["host=claude", "host.project-config"]
+  },
+  "cases": [
+    {
+      "id": "claude-unfilled-field-warns-once",
+      "tags": ["templates", "submit"],
+      "note": "Claude shows the block as 'Prompt dropped by a hook: 2 template fields not filled; Enter again to send anyway' and keeps the draft; the second Enter sends it as it is. Catches a warning that loses the draft, repeats forever, or never comes.",
+      "steps": [
+        {
+          "configFile": "user",
+          "text": "version = 1\n[replace.\";bug\"]\ntext = 'Fix <issue> in <file> now'\n"
+        },
+        {
+          "waitMs": 3000
+        },
+        {
+          "type": ";bug "
+        },
+        {
+          "waitMs": 500
+        },
+        {
+          "submit": "send"
+        },
+        {
+          "waitMs": 800
+        },
+        {
+          "check": {
+            "draft": {
+              "text": "Fix <issue> in <file> now "
+            },
+            "requests": []
+          }
+        },
+        {
+          "submit": "send"
+        },
+        {
+          "waitMs": 1000
+        }
+      ],
+      "expect": {
+        "requests": ["Fix <issue> in <file> now"],
+        "draft": {
+          "text": ""
+        }
+      }
+    }
+  ]
+}

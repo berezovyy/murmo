@@ -179,6 +179,12 @@
       "variants": 2
     },
     {
+      "file": "hosts/claude-template-fields.json",
+      "owner": "24, 37",
+      "cases": 1,
+      "variants": 1
+    },
+    {
       "file": "hosts/stock-canary.json",
       "owner": "20",
       "cases": 5,
