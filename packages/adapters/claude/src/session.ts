@@ -406,7 +406,8 @@ export function createClaudeHost(options: ClaudeSessionOptions = {}): ClaudeHost
       alive = true;
     },
     async bootPacked(input: PackedBoot) {
-      adapter = new ClaudeAdapter({ ...options, skipProbes: true });
+      const repaint = input.services?.repaint;
+      adapter = new ClaudeAdapter({ ...options, skipProbes: true, ...(repaint ? { repaint } : {}) });
       const clock = clockOf(input.services, options.clock);
       const notices: string[] = [];
       let payload: LocatedPayload | undefined;

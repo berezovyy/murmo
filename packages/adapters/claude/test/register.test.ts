@@ -85,6 +85,32 @@ test('the prompt hint tail says murmo is on and what it loaded, until the first 
   resetHost();
 });
 
+test('a status change asks Claude to redraw the prompt hint (real-host bug)', async () => {
+  // On Claude 2.1.304 "Shortcut expanded. Backspace right after undoes it."
+  // never appeared: the tail is read only when Claude renders PromptHint, and
+  // nothing asked it to, so the startup lines stayed after every later key.
+  resetHost();
+  const fake = new FakeClaude({
+    files: { '/config/murmo/murmo.toml': 'version = 1\n[replace]\n";hi" = \'Hello\'\n' },
+  });
+  register(fake.on);
+  const start = fake.hooks.get('session.start')?.[0]?.handler as (
+    $: unknown,
+    event: unknown,
+    next: (event: unknown) => unknown,
+  ) => Promise<unknown>;
+  await start(fake.$, {}, (event) => event);
+  const host = debugHost();
+  assert.ok(host);
+  fake.invalidated.length = 0;
+  await typeChars((event, next) => host.adapter.handleEdit(event, next), fake, ';hi ');
+  await host.session?.settle();
+  assert.equal(fake.draft.text, 'Hello ');
+  assert.match(host.adapter.statusLine(), /^Shortcut expanded\./);
+  assert.ok(fake.invalidated.includes('ui.render'), 'the new status is drawn without waiting for a host render');
+  resetHost();
+});
+
 test('the tail keeps the trust notice whole beside a long host hint (real-host bug)', async () => {
   // On the auto-mode footer Claude cut the untrusted-project notice before the
   // command: `.murmo.toml: 1 shortcut stays off … run "murmo tr…`.

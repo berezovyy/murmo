@@ -80,6 +80,8 @@ export class FakeClaude {
   readonly blocked: string[] = [];
   readonly files: Map<string, string | Uint8Array>;
   readonly env: Record<string, string>;
+  /** Every `$.ui.invalidate` call: Claude redraws PromptHint only on one. */
+  readonly invalidated: string[] = [];
   readonly hooks = new Map<string, { options?: object; handler: (...args: never[]) => unknown }[]>();
   hint = 'Esc to clear · ';
   working = false;
@@ -169,7 +171,9 @@ export class FakeClaude {
         },
       },
       ui: {
-        invalidate() {},
+        invalidate: (name: string) => {
+          this.invalidated.push(name);
+        },
         resolve() {
           return {
             Box: (props: Record<string, unknown>) => ({ type: 'Box', props }),

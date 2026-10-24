@@ -116,6 +116,8 @@ export interface ClaudeAdapterOptions {
   readonly hideAutocomplete?: boolean;
   readonly hideVirtualText?: boolean;
   readonly skipProbes?: boolean;
+  /** `HostServices.repaint`: Claude renders PromptHint again; see `#redrawHint`. */
+  readonly repaint?: () => void;
 }
 
 interface OwnedEdit {
@@ -265,8 +267,24 @@ export class ClaudeAdapter implements Adapter {
 
   showStatus(text: string | null, baseVersion: number): ActionResult {
     return this.#present(baseVersion, this.caps.status, () => {
+      if (this.#status === text) return;
       this.#status = text;
+      this.#redrawHint();
     });
+  }
+
+  /**
+   * Claude reads the PromptHint tail only when it renders that component, and
+   * typing does not re-render it (live on 2.1.304: the first-fix line never
+   * showed). Ask for a render whenever the tail's content changes.
+   */
+  #redrawHint(): void {
+    try {
+      if (this.#options.repaint) this.#options.repaint();
+      else this.rt?.ui.invalidate('ui.render');
+    } catch {
+      // A runtime without invalidate keeps the tail for the next host render.
+    }
   }
 
   showHighlightMarks(marks: readonly HighlightMark[] | null, baseVersion: number): ActionResult {
