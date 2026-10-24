@@ -2,18 +2,29 @@
 import { pluginDev } from './plugin-dev.ts';
 import { pluginNew } from './plugin-new.ts';
 import { PROFILES, pluginTest } from './plugin-test.ts';
+import { authoringGuide } from './types-copy.ts';
 
 const usage =
   'murmo plugin new <name> | test [directory] [--profile fake|claude|codex|opencode|pi] [--executor in-process|quickjs|helper|all] | dev [directory] [--profile HOST]';
 
 export async function pluginCommand(argv: string[]): Promise<number> {
   const [noun, verb, ...rest] = argv;
+  if (rest.includes('--help') || rest.includes('-h')) {
+    console.log(`usage: ${usage}\nguide: ${authoringGuide()}`);
+    return 0;
+  }
   try {
     if (noun !== 'plugin' || !['new', 'test', 'dev'].includes(verb ?? '')) throw new Error(usage);
     if (verb === 'new') {
       if (rest.length !== 1) throw new Error(usage);
       const directory = await pluginNew(rest[0] as string);
-      console.log(JSON.stringify({ command: 'new', directory }));
+      console.log(
+        [
+          `created ${directory}`,
+          `next: murmo plugin test ${rest[0]}, then murmo plugin dev ${rest[0]} to try it in a fake prompt box`,
+          `guide: ${authoringGuide()}`,
+        ].join('\n'),
+      );
       return 0;
     }
     let directory = '.';

@@ -8,6 +8,7 @@ export { evaluate, forTrust, type MenuRow, type Observation } from './expect.ts'
 export { coreSuites, type GuestRequest, runCore, runPure } from './guest.ts';
 export { type DriverDelta, interpretEditorCase, type KeyTiming, namedStates, type StepDriver } from './interpreter.ts';
 export {
+  editorOpsSuite,
   type FixtureSource,
   indexFile,
   type Loaded,

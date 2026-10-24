@@ -22,11 +22,34 @@ export async function loadFactory(source: string): Promise<PluginFactory> {
   return loaded.default;
 }
 
+type QuickJSModule = typeof import('quickjs-emscripten');
+
+/** QuickJS-in-Node comes from a dev dependency; the packed CLI ships the real helper instead. */
+async function quickjsModule(): Promise<QuickJSModule | undefined> {
+  try {
+    return await import('quickjs-emscripten');
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why an executor can't run here, or undefined when it can. */
+export async function executorUnavailable(name: ExecutorName): Promise<string | undefined> {
+  if (name === 'helper' && !helperPath()) {
+    return 'murmo-plugin-host is not built for this platform; helper route skipped (phase 26)';
+  }
+  if (name === 'quickjs' && !(await quickjsModule())) {
+    return 'QuickJS-in-Node is a development tool and is not shipped; the helper runs the same QuickJS engine';
+  }
+  return undefined;
+}
+
 export async function createNamedExecutor(name: ExecutorName): Promise<Executor> {
   if (name === 'in-process') return createInProcessExecutor({ pressure: () => 1 });
   if (name === 'helper') return createNodeIsolatedExecutor({ pressure: () => 1 });
-  const { getQuickJS } = await import('quickjs-emscripten');
-  return createQuickJSExecutor({ QuickJS: await getQuickJS() });
+  const quickjs = await quickjsModule();
+  if (!quickjs) throw new Error(await executorUnavailable('quickjs'));
+  return createQuickJSExecutor({ QuickJS: await quickjs.getQuickJS() });
 }
 
 /** Locate the real helper; `undefined` means this platform has no binary yet (phase 26). */

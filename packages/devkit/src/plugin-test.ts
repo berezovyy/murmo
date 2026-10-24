@@ -7,7 +7,7 @@ import { ManifestError } from '@murmo/api';
 import { makeAdapter } from '@murmo/fake-host';
 import { capabilityCases, cloneCaps, missingValue, setPath } from './capabilities.ts';
 import { runAuthorConformance } from './conformance.ts';
-import { createNamedExecutor, type ExecutorName, helperPath, parseExecutors } from './executors.ts';
+import { createNamedExecutor, type ExecutorName, executorUnavailable, parseExecutors } from './executors.ts';
 import { preparePlugin } from './loader.ts';
 import { assertExecutorRoutes, MissingRouteError, ROUTE_PARITY_SOURCE, routesOf } from './routes.ts';
 import { startPlugin } from './session.ts';
@@ -218,11 +218,9 @@ export async function pluginTest(directory: string, options: PluginTestOptions =
   let authorTests = 0;
 
   for (const name of selected) {
-    if (name === 'helper' && !helperPath()) {
-      skipped.push({
-        executor: 'helper',
-        reason: 'murmo-plugin-host is not built for this platform; helper route skipped (phase 26)',
-      });
+    const unavailable = await executorUnavailable(name);
+    if (unavailable) {
+      skipped.push({ executor: name, reason: unavailable });
       continue;
     }
     try {

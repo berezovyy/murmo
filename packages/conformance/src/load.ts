@@ -136,6 +136,16 @@ function withDefaults(file: EditorOpsFile): EditorCase[] {
   return file.cases.map((c) => ({ ...defaults, ...c }));
 }
 
+/**
+ * One editor-ops file a bundle carries, without the fixtures folder (the
+ * packed `murmo plugin test`). `check` validates the same file from disk.
+ */
+export function editorOpsSuite(file: string, owner: string, data: EditorOpsFile): LoadedSuite {
+  const cases = withDefaults(data);
+  const variants = cases.reduce((n, c) => n + variantsOf(c).length, 0);
+  return { kind: 'editor-ops', file, owner, declared: { cases: cases.length, variants }, cases };
+}
+
 function pureCases(path: string, file: PureFnFile, src: FixtureSource, problems: string[]): PureCase[] {
   if (file.cases) return file.cases.map((c) => (file.fn && !c.fn ? { ...c, fn: file.fn } : c));
   const table = file.table;

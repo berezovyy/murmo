@@ -7,7 +7,8 @@
     ".": "./index.ts",
     "./generators": "./generators/index.ts",
     "./menu": "./menu/generate.ts",
-    "./plugins/*": "./plugins/*.js"
+    "./plugins/*": "./plugins/*.js",
+    "./core/conformance/cases.json": "./core/conformance/cases.json"
   },
   "murmo": {
     "runtime": "portable"

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import type { LoadedSuite, Verdict } from '@murmo/conformance';
-import { createCoreSubject, runSuites } from '@murmo/conformance';
-import { loadFixtureDir } from '@murmo/conformance/node';
+import type { Verdict } from '@murmo/conformance';
+import { createCoreSubject, editorOpsSuite, runSuites } from '@murmo/conformance';
 import { createMemoryStorage, createPluginHost, createSession } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
 import { createFakeDriver, FakeAdapter } from '@murmo/fake-host';
+import type { EditorOpsFile } from '@murmo/fixtures';
+// Bundled into the packed CLI, which ships no fixtures folder.
+import canonical from '@murmo/fixtures/core/conformance/cases.json' with { type: 'json' };
 
 const six = async (): Promise<{ checks: number; passed: true }> => {
   const adapter = new FakeAdapter();
@@ -44,12 +46,6 @@ const six = async (): Promise<{ checks: number; passed: true }> => {
   return { checks: 6, passed: true };
 };
 
-function suite(file: string): LoadedSuite {
-  const found = loadFixtureDir().suites.find((s) => s.file === file);
-  if (!found) throw new Error(`missing fixture suite ${file}`);
-  return found;
-}
-
 export interface ConformanceSummary {
   readonly invariants: { checks: number; passed: true };
   readonly cases: { passed: number; skipped: number; failed: number };
@@ -70,7 +66,8 @@ export async function runAuthorConformance(): Promise<ConformanceSummary> {
   const invariants = await six();
   const options = { runtime: 'node', mode: 'pr' as const, timing: 'report' as const, now: () => performance.now() };
   const subject = createCoreSubject({ now: options.now });
-  const cases = await runSuites([suite('core/conformance/cases.json')], subject, options);
+  const suite = editorOpsSuite('core/conformance/cases.json', '05, 06, 07, 08, 09', canonical as EditorOpsFile);
+  const cases = await runSuites([suite], subject, options);
   // Containment (all-11 + C12) needs the isolated helper; in-process is the
   // declared trusted-CPU skip. The helper subject is packages/conformance's
   // isolated.gate.ts and `--executor helper` route parity.

@@ -17,6 +17,7 @@ import {
 } from '@murmo/integrity';
 import { generatedPackageJson, packAdapters } from './adapters.ts';
 import { npmPack } from './archive.ts';
+import { packAuthoring } from './authoring.ts';
 import { packBinaries } from './binaries.ts';
 import { buildCompat, writeCompat } from './compat.ts';
 import { packLanguageData } from './data.ts';
@@ -66,6 +67,7 @@ export function pack(options: PackOptions = {}): PackResult {
 
   packAdapters(packageDir, repoRoot);
   copyCli(packageDir, repoRoot);
+  packAuthoring(packageDir, repoRoot);
 
   if (!options.skipData) packLanguageData(packageDir, repoRoot);
   packLicenses(packageDir, repoRoot);
