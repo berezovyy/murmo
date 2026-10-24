@@ -7,7 +7,7 @@ import autocorrect from '@murmo/api/examples/autocorrect';
 import snippets from '@murmo/api/examples/semicolon-menu';
 import counter from '@murmo/api/examples/status-counter';
 import todoGuard from '@murmo/api/examples/todo-guard';
-import { Counters, DraftState, MAX_SHOWN_NOTICES, Presentation } from '../src/index.ts';
+import { Counters, DraftState, fitRows, MAX_SHOWN_NOTICES, Presentation, restoreKeys } from '../src/index.ts';
 import { canonicalKey, createHarness, type DirectPluginSpec, ReferenceAdapter } from '../src/testing/index.ts';
 
 test('stats lists a disabled plugin and a dead executor while ready is true (E20, lessons 71, 76)', async () => {
@@ -115,6 +115,44 @@ test('the status shows the newest notices first and drops them when their lifeti
   presentation.expireOnSend();
   assert.equal(adapter.status, null, 'send notices go at the next send');
   assert.deepEqual(presentation.notices, ['n1', 'n2', 'n3', 'n4', 'refused'], 'the session log keeps them all');
+});
+
+test('startup notices show at session start, first given first, and leave at the first send', async () => {
+  // Claude Code and OpenCode showed nothing at start: no sign Murmo was on, no
+  // trust or config problem. Claude's startup lines then stayed all session.
+  const h = await createHarness({ notices: ['.murmo.toml has 1 shortcut. Run "murmo trust" to review.', 'murmo on'] });
+  await h.session?.ready;
+  assert.equal(h.adapter.status, '.murmo.toml has 1 shortcut. Run "murmo trust" to review. | murmo on');
+  await h.driver.type('hi');
+  await h.driver.submit('send');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null);
+  await h.session?.dispose();
+});
+
+test('a narrow status keeps whole rows: the first in full, the rest only if they fit', () => {
+  // Claude cut its trust notice before the command ("run \"murmo tr…").
+  assert.equal(fitRows(['first row', 'second'], 12), 'first row');
+  assert.equal(fitRows(['first row', 'second'], 18), 'first row | second');
+  assert.equal(fitRows(['a very long first row'], 6), 'a very');
+});
+
+test('restore keys name Backspace and only a host undo key the core restores on', () => {
+  // Pi's notice said "Backspace or Undo" though F6 is its undo key; on Claude
+  // Ctrl+Z, the usual "Undo", suspends the agent.
+  const exact = { exactRestore: true } as never;
+  assert.equal(restoreKeys({ undoKeys: ['Undo', 'F6'], edit: exact }), 'Backspace or F6', 'Pi');
+  assert.equal(
+    restoreKeys({ undoKeys: ['Undo'], edit: exact }),
+    'Backspace',
+    'OpenCode: the logical Undo has no key to name',
+  );
+  assert.equal(
+    restoreKeys({ undoKeys: ['F6'], edit: { exactRestore: false } as never }),
+    'Backspace',
+    'no exact restore',
+  );
+  assert.equal(restoreKeys({ undoKeys: [], edit: exact }), 'Backspace', 'Claude');
 });
 
 test('a ghost bound to an older baseVersion is never shown (E8)', async () => {

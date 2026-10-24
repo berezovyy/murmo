@@ -142,10 +142,12 @@ export {
 } from './plugins/index.ts';
 export {
   DEFAULT_STATUS_MAX_LENGTH,
+  fitRows,
   MAX_SHOWN_NOTICES,
   type NoticeLifetime,
   Presentation,
   type PresentationDeps,
+  STATUS_SEPARATOR,
   type VisibleGhost,
 } from './present.ts';
 export {
@@ -162,12 +164,12 @@ export {
 export {
   createSession,
   disabledNotice,
-  FIRST_EXPANSION_NOTICE,
-  FIRST_TYPO_FIX_NOTICE,
+  firstFixNotice,
   KILL_NOTICE,
   newSessionId,
   type PluginActivation,
   type PluginChange,
+  restoreKeys,
   type Session,
   type SessionOptions,
   TRANSPORT_UNAVAILABLE,

@@ -44,6 +44,8 @@ export interface HarnessOptions {
   /** Explicit plugin order; missing/duplicate/unknown IDs refuse the session. */
   readonly order?: readonly string[];
   readonly notify?: (message: string) => void;
+  /** The host's startup notices (`SessionOptions.notices`). */
+  readonly notices?: readonly string[];
   readonly guardPolicy?: SessionOptions['guardPolicy'];
   readonly scaleSubmitDeadline?: boolean;
   readonly pressure?: number;
@@ -292,6 +294,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
         ...(options.failureLimit === undefined ? {} : { failureLimit: options.failureLimit }),
         ...(options.gates ? { gates: options.gates } : {}),
         ...(options.notify ? { notify: options.notify } : {}),
+        ...(options.notices ? { notices: options.notices } : {}),
         ...(options.order ? { order: options.order } : {}),
         ...(options.guardPolicy ? { guardPolicy: options.guardPolicy } : {}),
         ...(options.scaleSubmitDeadline ? { scaleSubmitDeadline: true } : {}),

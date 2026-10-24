@@ -133,8 +133,8 @@
     {
       "file": "hosts/r14-followup.json",
       "owner": "20, 29",
-      "cases": 14,
-      "variants": 14
+      "cases": 17,
+      "variants": 17
     },
     {
       "file": "hosts/semicolon-menu.json",

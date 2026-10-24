@@ -1,10 +1,10 @@
-// Status copy: first fix, disabled reason, bad table, missing host origin.
-// Shown only where `ui.dialogSafe`; otherwise `murmo doctor` prints the same
-// strings (phase 27).
+// Why autocorrect is off: a status row on every host with a status surface,
+// and the same strings in `murmo doctor` (phase 27). Off by choice (`off`, the
+// opt-in default or a project file) is no row: the session's first line says
+// "autocorrect off" until the first send. The first-fix notice is the core's
+// (`firstFixNotice`), which knows the host's restore keys.
 
 import type { AutocorrectSettings } from './settings.ts';
-
-export const FIRST_FIX_STATUS = 'Autocorrect: Backspace or Undo restores the typed word.';
 
 export const STATUS = {
   off: 'Autocorrect is off. Set [autocorrect] enabled = true in murmo.toml to opt in.',
@@ -12,10 +12,14 @@ export const STATUS = {
   origin: 'Autocorrect is off: this host does not label typed input.',
   capability: 'Autocorrect is off: this host cannot apply inline corrections.',
   table: 'Autocorrect is off: the English table failed to load.',
-  firstFix: FIRST_FIX_STATUS,
 } as const;
 
 export type DisabledKind = 'off' | 'language' | 'origin' | 'capability' | 'table';
+
+/** Off because something is wrong, not because the user left it off: worth a status row. */
+export function showsStatus(kind: DisabledKind): boolean {
+  return kind !== 'off';
+}
 
 export function disabledReason(
   settings: AutocorrectSettings,

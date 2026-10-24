@@ -2,13 +2,12 @@
 // an async typo path (lesson 56), an opt-in leak, and the r13 retype gap (E5).
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
-import { InlineRegistrationError, registerRuleSet } from '@murmo/core';
+import { firstFixNotice, InlineRegistrationError, registerRuleSet } from '@murmo/core';
 import { createHarness } from '@murmo/core/testing';
 import { loadEnglishPack } from '../src/node/load.ts';
 import { createAutocorrectPlugin } from '../src/plugin.ts';
 import { englishInlineRules } from '../src/rules.ts';
 import { resolveAutocorrectSettings } from '../src/settings.ts';
-import { FIRST_FIX_STATUS } from '../src/status.ts';
 import { englishPackAsset } from '../src/table-source.ts';
 
 before(() => {
@@ -46,7 +45,8 @@ test('teh space becomes the; default enabled=false gives 0 fixes', async () => {
   await on.driver.type('teh ');
   assert.equal(on.adapter.getDraft().text, 'the ');
   assert.equal(on.session?.stats().inlineCorrections, 1);
-  assert.ok(on.session?.stats().notices.includes(FIRST_FIX_STATUS));
+  const caps = on.session?.caps();
+  assert.ok(caps && on.session?.stats().notices.includes(firstFixNotice('typo', caps)));
 });
 
 test('Teh stays Teh; Recieve becomes Receive (Proposal a, E6)', async () => {

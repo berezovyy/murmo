@@ -12,14 +12,14 @@
   "cases": [
     {
       "id": "expansion-notice-names-the-shortcut",
-      "note": "A shortcut expansion with no autocorrect loaded says it was a shortcut, never 'Autocorrect:'.",
+      "note": "A shortcut expansion with no autocorrect loaded says it was a shortcut, never 'Autocorrect:'. It names the host's own restore key (the fake host's F6) instead of a vague 'Undo' (Ctrl+Z suspends Claude Code), and says 'right after' so the line stays true once the cursor moves on.",
       "plugins": ["shortcuts"],
       "requires": ["core.inline", "plugin.shortcuts=release"],
       "settings": { "shortcuts": { "replacements": { "tst": "Run the test suite." } } },
       "steps": [{ "type": "tst " }],
       "expect": {
         "draft": { "text": "Run the test suite. " },
-        "notices": ["Shortcut expanded: Backspace or Undo restores what you typed."],
+        "notices": ["Shortcut expanded. Backspace or F6 right after undoes it."],
         "never": { "status": ["Autocorrect"] }
       }
     },
@@ -38,7 +38,7 @@
       "expect": {
         "requests": ["Run the test suite. "],
         "ui": { "status": null },
-        "notices": ["Shortcut expanded: Backspace or Undo restores what you typed."]
+        "notices": ["Shortcut expanded. Backspace or F6 right after undoes it."]
       }
     },
     {

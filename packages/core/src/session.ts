@@ -83,6 +83,12 @@ export interface SessionOptions {
   /** Shown once if the session turns itself off; the host decides how (Pi `ui.notify`, a status row...). */
   readonly notify?: (message: string) => void;
   /**
+   * What the host has to say when the session starts (that Murmo is on, config
+   * problems, project trust), most important first. They show once the session
+   * is ready and leave the screen at the first send, like any other notice.
+   */
+  readonly notices?: readonly string[];
+  /**
    * The adapter reports a multi-code-point `typed` delta only for a burst of
    * individual keys (Pi, OpenCode, the Codex wrapper, the reference adapter).
    * Default false: such a delta adds no typed coverage (lesson 64).
@@ -165,11 +171,26 @@ export type PluginChange =
 
 export const KILL_NOTICE = 'Murmo turned itself off after repeated errors in this session';
 
-/** The first typo fix of a session names the keys that restore the typed word. */
-export const FIRST_TYPO_FIX_NOTICE = 'Autocorrect: Backspace or Undo restores the typed word.';
+/**
+ * The keys that put back what a fix or an expansion replaced, as the user
+ * presses them: Backspace on every host, plus a host's own undo key where the
+ * core restores on it (Pi's F6). The logical `Undo` has no single key to name,
+ * and on Claude Ctrl+Z suspends the agent, so it is never offered.
+ */
+export function restoreKeys(caps: Pick<HostCapabilities, 'undoKeys' | 'edit'>): string {
+  const extra = caps.edit.exactRestore ? caps.undoKeys.filter((key) => key !== 'Undo' && key !== 'Backspace') : [];
+  return ['Backspace', ...extra].join(' or ');
+}
 
-/** The first shortcut expansion of a session names the keys that restore the shortcut. */
-export const FIRST_EXPANSION_NOTICE = 'Shortcut expanded: Backspace or Undo restores what you typed.';
+/**
+ * The first typo fix and the first shortcut expansion of a session say what
+ * happened and how to take it back. "Right after" keeps the line true once
+ * the cursor moves on and Backspace no longer restores.
+ */
+export function firstFixNotice(kind: 'typo' | 'expansion', caps: Pick<HostCapabilities, 'undoKeys' | 'edit'>): string {
+  const what = kind === 'typo' ? 'Autocorrect fixed a typo' : 'Shortcut expanded';
+  return `${what}. ${restoreKeys(caps)} right after undoes it.`;
+}
 
 /** The one notice a plugin the session turned off gets; `murmo doctor` has the details. */
 export function disabledNotice(name: string, why: 'slow' | 'failed'): string {
@@ -531,6 +552,8 @@ class CoreSession implements Session {
       if (plugin.hooks.has('activate')) this.#schedule(plugin, 'activate', null);
       else if (!plugin.disabled) plugin.activated = true;
     }
+    // Last, so the host's own startup lines are the newest: the first one given shows first.
+    for (const text of [...(this.#options.notices ?? [])].reverse()) presentation.notice(text);
     presentation.render();
   }
 
@@ -638,14 +661,13 @@ class CoreSession implements Session {
     this.#counters.shortcutUndone += shortcutUndone;
     // `corrections` counts typo fixes and shortcut expansions alike; the notice
     // names what actually happened.
-    if (this.#hostCaps?.ui.dialogSafe) {
-      if (corrections > shortcutExpanded && !this.#firstTypoFix) {
-        this.#firstTypoFix = true;
-        this.#presentation?.notice(FIRST_TYPO_FIX_NOTICE);
-      } else if (shortcutExpanded > 0 && !this.#firstExpansion) {
-        this.#firstExpansion = true;
-        this.#presentation?.notice(FIRST_EXPANSION_NOTICE);
-      }
+    const caps = this.#hostCaps;
+    if (caps && corrections > shortcutExpanded && !this.#firstTypoFix) {
+      this.#firstTypoFix = true;
+      this.#presentation?.notice(firstFixNotice('typo', caps));
+    } else if (caps && shortcutExpanded > 0 && !this.#firstExpansion) {
+      this.#firstExpansion = true;
+      this.#presentation?.notice(firstFixNotice('expansion', caps));
     }
     if (!deferred.length || commit.status !== 'applied') return;
     this.#enqueue(async () => {

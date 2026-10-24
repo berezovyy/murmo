@@ -39,6 +39,6 @@ export {
   correctionEnabled,
   resolveAutocorrectSettings,
 } from './settings.ts';
-export { type DisabledKind, disabledReason, FIRST_FIX_STATUS, STATUS } from './status.ts';
+export { type DisabledKind, disabledReason, STATUS, showsStatus } from './status.ts';
 export { type EnglishPackAsset, englishPackAsset, provideEnglishPack } from './table-source.ts';
 export { editRangeIsSafe, hasForeignLetters, leadingDecorations, trailingDecorations } from './unicode.ts';

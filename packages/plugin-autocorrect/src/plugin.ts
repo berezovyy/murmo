@@ -6,7 +6,7 @@ import type { Effect, Plugin, PluginContext, PluginFactory, PluginManifest } fro
 import { emptyMetrics, formatDoctorMetrics } from './metrics.ts';
 import { englishInlineRules } from './rules.ts';
 import { type AutocorrectSettings, resolveAutocorrectSettings } from './settings.ts';
-import { disabledReason } from './status.ts';
+import { disabledReason, showsStatus } from './status.ts';
 import { englishPackAsset } from './table-source.ts';
 
 export const AUTOCORRECT_MANIFEST = {
@@ -60,7 +60,7 @@ export function createAutocorrectPlugin(settings: Readonly<Record<string, unknow
         else if (reason.kind === 'language') metrics.abstained.language++;
         else if (reason.kind === 'origin') metrics.abstained.origin++;
       }
-      if (!reason || !ctx.host.caps.ui.dialogSafe || !ctx.host.caps.status) return undefined;
+      if (!reason || !showsStatus(reason.kind) || !ctx.host.caps.status) return undefined;
       return [{ type: 'status', text: reason.text, baseVersion: ctx.draft.version }];
     },
   };

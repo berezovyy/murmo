@@ -9,11 +9,14 @@
 // - Highlights: the union of every plugin's ranges at the current version;
 //   clearing one plugin's keeps the others' (lesson 72, draft 1.3).
 // - Status: notices and plugin rows, hidden while a host popup or dialog
-//   shows and unless the host says Murmo status can't cover a dialog
-//   (`ui.dialogSafe`, lesson 74), passed through `displayText` and cut to
-//   `ui.statusMaxLength`. Third-party rows carry `[plugin <id>]`. Notices
-//   come first, newest first, and leave the screen when their lifetime ends
-//   (`NoticeLifetime`); the session log keeps every one for stats.
+//   shows, passed through `displayText` and fitted to `ui.statusMaxLength`
+//   by whole rows. Notices come first, newest first, and leave the screen
+//   when their lifetime ends (`NoticeLifetime`); the session log keeps every
+//   one for stats. Third-party rows carry `[plugin <id>]` and show only where
+//   the host says status can't sit beside an approval it can't report
+//   (`ui.dialogSafe`, lesson 74): there a plugin's text could pass for the
+//   host's own prompt. Murmo's notices and built-in rows are fixed copy in a
+//   host-owned slot, so they show on every host with a status surface.
 //
 // Transient UI never enters host undo (lesson 41): all of it goes through the
 // adapter's presentation calls, never through draft edits.
@@ -87,6 +90,24 @@ function cut(text: string, max: number): string {
   const end =
     max > 0 && isHighSurrogate(text.charCodeAt(max - 1)) && codePointUnits(text, max - 1) === 2 ? max - 1 : max;
   return text.slice(0, end);
+}
+
+export const STATUS_SEPARATOR = ' | ';
+
+/**
+ * Rows joined with ` | `, as many whole rows as fit in `max`: a narrow host
+ * shows its most important notice in full instead of every row cut short.
+ * Only a first row longer than `max` is cut.
+ */
+export function fitRows(rows: readonly string[], max: number): string {
+  let text = '';
+  for (const row of rows) {
+    if (!row) continue;
+    if (!text) text = cut(row, max);
+    else if (text.length + STATUS_SEPARATOR.length + row.length <= max) text += STATUS_SEPARATOR + row;
+    else break;
+  }
+  return text;
 }
 
 export class Presentation {
@@ -291,17 +312,19 @@ export class Presentation {
     let text: string | null = null;
     const nativeUi = state.dialog || state.popup !== null;
     if (!nativeUi) this.#live = this.#live.filter((n) => n.lifetime !== 'native-ui');
-    if (caps.ui.dialogSafe && !nativeUi) {
+    if (!nativeUi) {
       const rows = this.#live
         .slice(-MAX_SHOWN_NOTICES)
         .reverse()
         .map((n) => n.text);
       for (const plugin of this.#deps.plugins()) {
         const status = this.#statuses.get(plugin.id);
-        if (status !== undefined) rows.push(plugin.builtin ? status : `[plugin ${plugin.id}] ${status}`);
+        if (status === undefined) continue;
+        if (plugin.builtin) rows.push(status);
+        else if (caps.ui.dialogSafe) rows.push(`[plugin ${plugin.id}] ${status}`);
       }
       const max = caps.ui.statusMaxLength > 0 ? caps.ui.statusMaxLength : DEFAULT_STATUS_MAX_LENGTH;
-      text = cut(displayText(rows.join(' | ')), max) || null;
+      text = fitRows(rows.map(displayText), max) || null;
     }
     if (text === this.#statusText) return;
     this.#statusText = text;

@@ -610,7 +610,8 @@
     {
       "id": "status-hidden-without-dialog-safe",
       "tags": ["dialog-status"],
-      "note": "OpenCode cannot report its approval dialog, so status stays hidden unless the host proves dialog safety.",
+      "note": "OpenCode cannot report its approval dialog, so a third-party plugin's status stays hidden unless the host proves dialog safety: its text could pass for the host's own prompt.",
+      "trust": "third-party",
       "plugins": [
         {
           "id": "A",
@@ -640,6 +641,110 @@
       "steps": [
         {
           "type": "r14status"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "status": null
+        }
+      },
+      "grants": {
+        "A": ["draft:read:full", "submit"],
+        "B": ["draft:read:full", "submit"],
+        "guard": ["draft:read:full", "submit"]
+      }
+    },
+    {
+      "id": "third-party-status-shown-with-dialog-safe",
+      "tags": ["dialog-status"],
+      "note": "The control for the hidden case: with dialog safety a third-party status shows, under its plugin tag.",
+      "trust": "third-party",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        }
+      ],
+      "host": {
+        "dialogSafe": true
+      },
+      "steps": [
+        {
+          "type": "r14status"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "statusIncludes": "[plugin A] R14_STATUS_A"
+        }
+      },
+      "grants": {
+        "A": ["draft:read:full", "submit"]
+      }
+    },
+    {
+      "id": "builtin-status-shown-without-dialog-safe",
+      "tags": ["dialog-status"],
+      "note": "Real-host bug: OpenCode and Claude Code never showed a single Murmo line (no trust notice, no autocorrect hint) because every status row waited for dialog safety. Murmo's own rows are fixed copy in a host-owned slot and show there.",
+      "trust": "builtin",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        }
+      ],
+      "host": {
+        "dialogSafe": false
+      },
+      "steps": [
+        {
+          "type": "r14status"
+        }
+      ],
+      "expect": {
+        "ui": {
+          "status": "R14_STATUS_A"
+        }
+      }
+    },
+    {
+      "id": "builtin-status-hidden-in-host-dialog-without-dialog-safe",
+      "tags": ["dialog-status"],
+      "note": "Without dialog safety Murmo's own rows still leave while the host reports a dialog or menu.",
+      "trust": "builtin",
+      "plugins": [
+        {
+          "id": "A",
+          "plugin": "conflicts",
+          "settings": {
+            "letter": "A"
+          }
+        }
+      ],
+      "host": {
+        "dialogSafe": false
+      },
+      "steps": [
+        {
+          "type": "r14status"
+        },
+        {
+          "check": {
+            "ui": {
+              "status": "R14_STATUS_A"
+            }
+          }
+        },
+        {
+          "state": {
+            "dialog": true
+          }
         }
       ],
       "expect": {
