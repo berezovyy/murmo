@@ -80,16 +80,21 @@ test('session.start reads the installed plugins through Claude file API and need
   ) => Promise<unknown>;
   await start(fake.$, {}, (event) => event);
   const host = debugHost();
-  assert.ok(host?.alive);
-  const notices = host.session?.stats().notices ?? [];
-  assert.ok(
-    notices.includes(
-      'Plugin send-hold did not start: third-party plugins need the isolated plugin host: the Murmo helper is not running (murmo doctor)',
-    ),
-    JSON.stringify(notices),
-  );
-  await host.dispose();
-  resetHost();
+  try {
+    assert.ok(host?.alive);
+    const notices = host.session?.stats().notices ?? [];
+    assert.ok(
+      notices.includes(
+        'Plugin send-hold did not start: third-party plugins need the isolated plugin host: the Murmo helper is not running (murmo doctor)',
+      ),
+      JSON.stringify(notices),
+    );
+    // Claude shows one line: it was the startup summary, and the reason the
+    // installed plugin was off never reached the screen.
+    assert.match(host.adapter.statusLine(), /^Plugin send-hold did not start: /);
+  } finally {
+    resetHost();
+  }
 });
 
 test('plugin add and disable apply to an open Claude session', async () => {
