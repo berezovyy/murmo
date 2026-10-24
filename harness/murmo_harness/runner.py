@@ -41,6 +41,7 @@ STEP_NEEDS = {
     'move': 'an adapter that maps UTF-16 offsets to cursor keys (phases 21–24)',
     'select': 'an adapter that can select (phases 21–24)',
     'state': 'an adapter that drives host state (phases 21–24)',
+    'restart': 'an integration whose drafts outlive the host process (adapter.rescue)',
 }
 # Expectation fields and the integration feature that can check them.
 EXPECT_NEEDS = {
@@ -345,6 +346,8 @@ class HostSubject:
             session.driver.settle(quiet=0.3, timeout=5)
         elif kind == 'waitMs':
             session.driver.drain(step['waitMs'] / 1000)
+        elif kind == 'restart':
+            session.restart(step['restart'])
         elif kind == 'check':
             session.driver.settle(quiet=0.3, timeout=5)
             assertions += self._evaluate(session, step['check'], mark, f'check[{index}]')
@@ -381,9 +384,19 @@ class HostSubject:
         for needle in never.get('draft', []):
             draft = session.draft() or ''
             out.append(Assertion(f'{where}.never.draft', needle not in draft, f'no {needle!r}', draft, 'screen'))
+        for needle in never.get('status', []):
+            # As drawn: the status line is part of the screen.
+            drawn = session.driver.screen().text
+            out.append(Assertion(f'{where}.never.status', needle not in drawn, f'no {needle!r}', drawn[-600:], 'screen'))
         if 'ui' in expect:
             ui = self.integration.read_ui(self.host, session.driver.screen()) or {}
             for key, wanted in expect['ui'].items():
+                if key == 'statusIncludes':
+                    # As drawn: the status line is part of the screen.
+                    drawn = f"{ui.get('status') or ''}\n{ui.get('screen') or session.driver.screen().text}"
+                    for needle in [wanted] if isinstance(wanted, str) else wanted:
+                        out.append(Assertion(f'{where}.ui.statusIncludes', needle in drawn, needle, drawn[-600:], 'screen'))
+                    continue
                 out.append(Assertion(f'{where}.ui.{key}', ui.get(key) == wanted, wanted, ui.get(key), 'integration'))
         if any(k in expect for k in ('disabled', 'enabled', 'stats', 'notices')):
             state = self.integration.state(self.host, session.profile).as_dict()

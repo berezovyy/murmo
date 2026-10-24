@@ -141,6 +141,41 @@ class FunctionalNotLoaded(unittest.TestCase):
         text = (paths.FIXTURES / approved['project'] / '.murmo.toml').read_text()
         self.assertEqual(recording.calls, [('prepare', False), ('approve', text, True)])
 
+    def test_restart_relaunches_in_the_same_profile_without_setup_again(self):
+        """Catches a restart step that loses the home (where drafts live) or
+        reinstalls Murmo, either of which would hide a lost draft."""
+        needs_sandbox()
+
+        class Recording(Integration):
+            name = 'recording'
+            features = frozenset({'restart'})
+
+            def __init__(self):
+                self.prepared = 0
+                self.homes = []
+
+            def prepare(self, host, profile, run=None):
+                self.prepared += 1
+
+            def argv(self, host, install, profile, argv):
+                self.homes.append(profile.home)
+                return argv
+
+        recording = Recording()
+        case = {
+            'id': 'restarted',
+            'steps': [{'type': 'lost line'}, {'restart': 'kill'}, {'type': 'stub line'}, {'submit': 'send'}],
+            'expect': {'requests': ['stub line']},
+        }
+        with scratch() as folder, stub_host():
+            with new_run(folder) as run:
+                verdict = subject(run, folder / 'a', recording).run_case('t.json', case)
+                launches = run.launches
+        self.assertEqual(verdict['status'], 'pass', verdict)
+        self.assertEqual(launches, 2)
+        self.assertEqual(recording.prepared, 1)
+        self.assertEqual(len(set(recording.homes)), 1)
+
     def test_valued_integration_feature_meets_a_valued_requirement(self):
         """Catches every autocorrect case skipping on the packed product: the
         integration says `plugin.autocorrect=release` and cases require exactly

@@ -189,6 +189,12 @@
         },
         {
           "type": "object",
+          "required": ["restart"],
+          "additionalProperties": false,
+          "properties": { "restart": { "enum": ["kill", "term", "hangup"] } }
+        },
+        {
+          "type": "object",
           "required": ["check"],
           "additionalProperties": false,
           "properties": { "check": { "$ref": "#/$defs/expect" } }

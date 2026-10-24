@@ -56,6 +56,10 @@ class Driver(ABC):
     @abstractmethod
     def close(self) -> None: ...
 
+    def hang_up(self) -> None:
+        """Closes the host's terminal the way a closed window does."""
+        raise DriverRefused(f'the {type(self).__name__} cannot close its terminal without killing the session')
+
     # --- shared behaviour --------------------------------------------------
 
     def key(self, key: str) -> None:

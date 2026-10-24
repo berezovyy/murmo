@@ -12,8 +12,10 @@ folder, and records a cleanup check (rule 11), also after a failure.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import shutil
+import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -384,6 +386,38 @@ class Session:
             shutil.copytree(self.project, self.profile.project, dirs_exist_ok=True)
             if self.project_trust == 'approved':
                 self.integration.approve_project(self.host, self.profile, run=self.run)
+        self._launch()
+
+    def restart(self, how: str) -> None:
+        """Ends the host the way a crash or exit does, then launches it again
+        in the same profile (home, store, project): the draft rescue cases.
+        `kill` and `term` signal the host's whole process group, as a crash
+        or `kill` from another terminal would; `hangup` closes the terminal
+        (the PTY master). The pre-launch check runs again before the relaunch."""
+        driver = self.driver
+        pid = driver.root_pid()
+        if how in ('kill', 'term'):
+            try:
+                os.killpg(pid, signal.SIGKILL if how == 'kill' else signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        elif how == 'hangup':
+            driver.hang_up()
+        else:
+            raise DriverRefused(f'unknown restart {how!r}')
+        deadline = time.monotonic() + 5
+        while driver.alive() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if driver.alive():
+            raise DriverRefused(f'{self.host.name} still running 5 s after {how}')
+        # Anything the host left on its terminal (a helper) goes with it.
+        driver.close()
+        placeholder_screen = self.ready_screen
+        self._launch()
+        # The empty prompt of the first launch: the relaunch may show an offer there.
+        self.ready_screen = placeholder_screen
+
+    def _launch(self) -> None:
         self.argv = self.integration.argv(self.host, self.install, self.profile, self.host.launch_argv(self.install, self.profile))
         self.run.preflight(self.host, self.profile, self.argv)
         wrapped = self.run.sandbox.wrap(self.argv)

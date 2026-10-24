@@ -38,6 +38,8 @@ export interface BurstDelta {
 /** A state step's value: a partial state, a named state, or the variant being run. */
 export type StateValue = Partial<HostState> | StateName | '$variant' | { editorMode: '$variant' };
 
+export type RestartHow = 'kill' | 'term' | 'hangup';
+
 export type Step =
   /** Typed key by key: one change per code point. */
   | { type: TextSpec }
@@ -60,6 +62,13 @@ export type Step =
   /** Waits until every plugin task started so far has settled. */
   | { settle: true }
   | { waitMs: number }
+  /**
+   * The host ends the way a crash or exit does, then the same profile (home,
+   * store, project) is launched again and the case goes on in the new
+   * session. `kill` is SIGKILL, `term` SIGTERM, `hangup` the terminal closing
+   * (PTY master closed). Real hosts only: needs `adapter.rescue`.
+   */
+  | { restart: RestartHow }
   /** A checkpoint: these expectations must hold here. */
   | { check: Expect };
 

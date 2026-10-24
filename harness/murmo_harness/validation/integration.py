@@ -52,7 +52,7 @@ class PackedMurmo(Integration):
     features = frozenset({
         'plugins', 'ui', 'state', 'timing', 'inline', 'submit-guard',
         'adapter.coexist', 'adapter.rescue', 'core.inline', 'core.keys',
-        'plugin.shortcuts', 'host.project-config',
+        'plugin.shortcuts', 'host.project-config', 'restart',
     })
 
     def __init__(self, product: PackedProduct | None, plugin_set: str = 'b') -> None:
@@ -62,6 +62,8 @@ class PackedMurmo(Integration):
         extra = []
         if spec.get('autocorrect'):
             extra.append('plugin.autocorrect=release')
+        if 'rescue' in spec.get('plugins', ()):
+            extra.append('plugin.rescue=release')
         if spec.get('testBuild'):
             extra.append('plugin.test-build')
         self.features = PackedMurmo.features | frozenset(extra)

@@ -126,6 +126,7 @@ export async function interpretEditorCase(run: Run, driver: StepDriver): Promise
     else if ('submit' in step) await driver.submit(step.submit);
     else if ('settle' in step) await driver.settle();
     else if ('waitMs' in step) await driver.wait(step.waitMs);
+    else if ('restart' in step) throw new Error('a restart step needs a real host (adapter.rescue)');
     if (settled) await driver.settle();
   }
 

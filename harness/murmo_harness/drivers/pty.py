@@ -288,14 +288,25 @@ class PtyDriver(Driver):
     def root_pid(self) -> int | None:
         return self.process.pid
 
-    def close(self) -> None:
-        self.registry.kill_session(self.process.pid, self.tty)
+    def hang_up(self) -> None:
+        """Closes the PTY master, as a closed terminal window does: the host gets SIGHUP and EIO."""
         self._closed.set()
         self._reader.join(timeout=2)
         try:
             os.close(self.fd)
         except OSError:
             pass
+        self.fd = -1
+
+    def close(self) -> None:
+        self.registry.kill_session(self.process.pid, self.tty)
+        self._closed.set()
+        self._reader.join(timeout=2)
+        if self.fd >= 0:
+            try:
+                os.close(self.fd)
+            except OSError:
+                pass
         try:
             self.process.wait(timeout=3)
         except subprocess.TimeoutExpired:

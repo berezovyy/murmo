@@ -2,7 +2,7 @@
   "kind": "editor-ops/v1",
   "offsets": "utf16",
   "provenance": {
-    "source": "docs/plan/17 Tests and acceptance (lesson 33, r9 E6); adapters 21–24 drive these on real hosts",
+    "source": "docs/plan/17 Tests and acceptance (lesson 33, r9 E6); run on real hosts through the harness restart step",
     "license": "Apache-2.0 OR MIT",
     "author": "murmo"
   },
@@ -15,81 +15,347 @@
     {
       "id": "sigkill-restore",
       "tags": ["rescue", "crash"],
-      "note": "Lesson 33: kill -9 after an idle save; next start offers the unicode draft (ZWJ family, flag, decomposed accent, CJK, two newlines) and Tab restores it byte-exact.",
-      "steps": [{ "fill": "👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n你好\n\n" }, { "waitMs": 500 }],
-      "expect": { "draft": { "text": "👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n你好\n\n" } }
+      "note": "Lesson 33: SIGKILL after an idle save; the relaunch offers the unicode draft (ZWJ family, flag, decomposed accent, two newlines, CJK) on the empty prompt, Tab restores it, and the model receives it byte-exact (a screen can't show a ZWJ or a combining mark, so the request is the check).",
+      "steps": [
+        {
+          "type": "👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n\n你好"
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "restart": "kill"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "Restore your last draft from"
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        },
+        {
+          "submit": "send"
+        }
+      ],
+      "expect": {
+        "requests": ["👨\u200d👩\u200d👧\u200d👦\n🇺🇸\ne\u0301\n\n你好"]
+      }
     },
     {
       "id": "sigterm-restore",
       "tags": ["rescue", "crash"],
-      "note": "SIGTERM (or Claude forced cleanup) after idle save; next start offers and Tab restores.",
-      "steps": [{ "fill": "term-draft" }, { "waitMs": 500 }],
-      "expect": { "draft": { "text": "term-draft" } }
+      "note": "SIGTERM (or Claude forced cleanup) after an idle save; the relaunch offers and Tab restores.",
+      "steps": [
+        {
+          "type": "term-draft"
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "restart": "term"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "Restore your last draft from"
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "term-draft"
+        }
+      }
     },
     {
       "id": "pty-close-restore",
       "tags": ["rescue", "crash"],
-      "note": "PTY master close after idle save; next start offers and Tab restores.",
-      "steps": [{ "fill": "pty-draft" }, { "waitMs": 500 }],
-      "expect": { "draft": { "text": "pty-draft" } }
+      "note": "The terminal closes (PTY master) after an idle save; the relaunch offers and Tab restores.",
+      "steps": [
+        {
+          "type": "pty-draft"
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "restart": "hangup"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "Restore your last draft from"
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "pty-draft"
+        }
+      }
     },
     {
       "id": "ctrl-c-twice-restore",
       "tags": ["rescue", "exit"],
-      "note": "r9 Codex: first Ctrl+C clears the composer; empty must not delete. Next start offers.",
-      "steps": [{ "fill": "ctrl-c-draft" }, { "waitMs": 500 }, { "fill": "" }],
-      "expect": { "draft": { "text": "" } }
+      "note": "r9 Codex: the composer is emptied right before exit (Ctrl+C clears it first); an empty composer must not delete the save, so the relaunch still offers.",
+      "steps": [
+        {
+          "type": "ctrl-c-draft"
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "key": "Backspace"
+        },
+        {
+          "restart": "term"
+        },
+        {
+          "check": {
+            "ui": {
+              "statusIncludes": "Restore your last draft from"
+            }
+          }
+        },
+        {
+          "key": "Tab"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "ctrl-c-draft"
+        }
+      }
     },
     {
       "id": "submit-no-offer",
       "tags": ["rescue", "submit"],
-      "note": "A crash buffer, not history: after observed/inferred submit the next start offers nothing.",
-      "steps": [{ "fill": "sent prompt" }, { "waitMs": 500 }, { "submit": "send" }],
-      "expect": { "requests": ["sent prompt"], "draft": { "text": "" } }
+      "note": "A crash buffer, not history: after a send the next start offers nothing.",
+      "steps": [
+        {
+          "type": "sent prompt"
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "submit": "send"
+        },
+        {
+          "waitMs": 1000
+        },
+        {
+          "restart": "kill"
+        },
+        {
+          "check": {
+            "never": {
+              "status": ["Restore your last draft"]
+            }
+          }
+        }
+      ],
+      "expect": {
+        "requests": ["sent prompt"],
+        "draft": {
+          "text": ""
+        }
+      }
     },
     {
       "id": "expiry-no-offer",
       "tags": ["rescue", "privacy"],
       "note": "A 25-hour-old snapshot is not offered and is unlinked at start.",
-      "steps": [{ "fill": "expired" }],
-      "expect": { "draft": { "text": "expired" }, "ui": { "status": null } }
+      "skip": [
+        {
+          "executor": "packed",
+          "reason": "a real host can't age a snapshot by 25 hours; packages/plugins/rescue/test/gates.test.ts covers expiry and its cleanup"
+        }
+      ],
+      "steps": [
+        {
+          "fill": "expired"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "expired"
+        },
+        "ui": {
+          "status": null
+        }
+      }
     },
     {
       "id": "foreign-project-no-offer",
       "tags": ["rescue", "privacy"],
       "note": "A snapshot from another projectId is never offered.",
-      "steps": [{ "fill": "" }],
-      "expect": { "draft": { "text": "" }, "ui": { "status": null } }
+      "skip": [
+        {
+          "executor": "packed",
+          "reason": "the harness profile has one project; gates.test.ts and the OpenCode session test cover another project"
+        }
+      ],
+      "steps": [
+        {
+          "fill": ""
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": ""
+        },
+        "ui": {
+          "status": null
+        }
+      }
     },
     {
       "id": "oversize-no-offer",
       "tags": ["rescue", "privacy"],
-      "note": "Over 64 KiB is not saved; next start offers nothing.",
-      "steps": [{ "fill": { "repeat": "x", "times": 65537 } }, { "waitMs": 500 }],
-      "expect": { "ui": { "status": "Draft is over 64 KiB; not saved." } }
+      "note": "Over 64 KiB is never saved, so the relaunch offers nothing (Pi folds such a paste into a marker it keeps in memory; the status note is checked in gates.test.ts).",
+      "steps": [
+        {
+          "paste": {
+            "repeat": "x",
+            "times": 65537
+          }
+        },
+        {
+          "waitMs": 1500
+        },
+        {
+          "restart": "kill"
+        },
+        {
+          "check": {
+            "never": {
+              "status": ["Restore your last draft"]
+            }
+          }
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": ""
+        }
+      }
     },
     {
       "id": "private-no-offer",
       "tags": ["rescue", "privacy"],
       "note": "Private mode saves nothing and removes this session snapshot.",
-      "steps": [{ "fill": "private draft" }, { "waitMs": 500 }],
-      "expect": { "ui": { "status": null } }
+      "skip": [
+        {
+          "executor": "packed",
+          "reason": "needs `murmo private on` in the profile, which the harness integration can't run yet; gates.test.ts covers it"
+        }
+      ],
+      "steps": [
+        {
+          "fill": "private draft"
+        },
+        {
+          "waitMs": 500
+        }
+      ],
+      "expect": {
+        "ui": {
+          "status": null
+        }
+      }
     },
     {
       "id": "two-live-sessions",
       "tags": ["rescue", "liveness"],
       "note": "Two live sessions in one project never see each other's drafts.",
-      "steps": [{ "fill": "session-a" }, { "waitMs": 500 }],
-      "expect": { "draft": { "text": "session-a" }, "ui": { "status": null } }
+      "skip": [
+        {
+          "executor": "packed",
+          "reason": "needs two hosts on one profile at once; lifecycle.test.ts and the helper test cover the liveness lock"
+        }
+      ],
+      "steps": [
+        {
+          "fill": "session-a"
+        },
+        {
+          "waitMs": 500
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "session-a"
+        },
+        "ui": {
+          "status": null
+        }
+      }
     },
     {
       "id": "paired-on-off-latency",
       "tags": ["rescue", "timing"],
       "note": "Principle 1: plain-key p95 with saving on ≤ p95 off + 1 ms, including keys during a save.",
       "control": true,
-      "steps": [{ "type": "abc" }],
-      "expect": { "draft": { "text": "abc" } },
-      "timing": { "keyMs": 1 }
+      "steps": [
+        {
+          "type": "abc"
+        }
+      ],
+      "expect": {
+        "draft": {
+          "text": "abc"
+        }
+      },
+      "timing": {
+        "keyMs": 1
+      }
     }
   ]
 }
