@@ -47,3 +47,12 @@ test('OSC 52/8, cursor and bracketed-paste payloads render as literal text (E21)
   assert.ok(!joined.includes('\x1b[200~'), 'bracketed-paste marker must not reach the TUI');
   assert.ok(joined.includes('\\u001b') || joined.includes('hi'), 'escaped or visible text remains');
 });
+
+test('at 50 columns a long status wraps instead of losing its end, and every row fits', () => {
+  // Pi cut "Autocorrect is off. Set [autocorrect] enabled =..." before the file name.
+  const hint = 'Autocorrect is off. Set [autocorrect] enabled = true in murmo.toml to opt in.';
+  const rows = decorateRows([hostRow(50)], 50, { status: `${hint} | second notice` }, fakeTuiApi);
+  const status = rows.slice(1);
+  for (const row of rows) assert.ok(visibleWidth(row, fakeTuiApi.visibleWidth) <= 50, `${row} wider than 50`);
+  assert.equal(status.join(' '), `${hint} second notice`);
+});

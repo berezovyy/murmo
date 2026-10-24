@@ -40,6 +40,34 @@ function fit(text: string, width: number, api: TuiApi): string {
   return clipVisible(text, width, measure);
 }
 
+/** Rows one status part may take before it is cut; narrow terminals wrap instead of losing the useful end. */
+const STATUS_PART_ROWS = 2;
+/** Status rows under the composer at most. */
+const STATUS_ROWS = 5;
+
+/** Word-wraps a status part into at most `rows` rows of ≤ `width` cells; the last row is cut if it still overflows. */
+function wrapStatus(text: string, width: number, rows: number, api: TuiApi): string[] {
+  const measure = measureOf(api);
+  const out: string[] = [];
+  let rest = text;
+  while (out.length < rows - 1 && visibleWidth(rest, measure) > width) {
+    const words = rest.split(' ');
+    let line = '';
+    let taken = 0;
+    while (taken < words.length) {
+      const next = taken ? `${line} ${words[taken]}` : (words[taken] ?? '');
+      if (visibleWidth(next, measure) > width) break;
+      line = next;
+      taken++;
+    }
+    if (taken === 0) break;
+    out.push(line);
+    rest = words.slice(taken).join(' ');
+  }
+  if (rest) out.push(fit(rest, width, api));
+  return out;
+}
+
 function paintGhost(row: string, hit: CursorHit, ghost: string, width: number, api: TuiApi): string {
   const marker = cursorMarker(api);
   const spaceCell = marker + fakeCursorCell(api, ' ');
@@ -102,9 +130,13 @@ function decorateRowsInner(rows: readonly string[], width: number, paint: Render
     }
   }
   if (paint.status) {
-    for (const part of paint.status.split(' | ').slice(0, 5)) {
-      out.push(fit(displayText(part), width, api));
+    const rows: string[] = [];
+    for (const part of paint.status.split(' | ')) {
+      const room = STATUS_ROWS - rows.length;
+      if (room <= 0) break;
+      rows.push(...wrapStatus(displayText(part), width, Math.min(STATUS_PART_ROWS, room), api));
     }
+    out.push(...rows);
   }
   return out.map((row) => fit(row, width, api));
 }
