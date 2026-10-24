@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { OpenCodeAdapter } from '../src/adapter.ts';
 import { DEGRADED_NOTICE } from '../src/capabilities.ts';
+import { STATUS_COLUMNS } from '../src/types.ts';
 import { FakeOpenCode, setHideMeasureText } from './fake-opencode.ts';
 
 test('successful probes advertise host-labeled origin, footer status, dialogSafe false', async () => {
@@ -45,7 +46,12 @@ test('hidden measureText turns off inline rewrite and highlight with one notice 
   }
 });
 
-test('degraded notice names measureText, not a version check', () => {
+test('degraded notice names measureText, not a version check, and fits one footer row', () => {
+  // OpenCode 2.0.32 showed only "Edits/highlights disabled: measureText
+  // unavailable" (once status was drawn at all): no word on what stopped
+  // working or what to do. A longer row would be cut before the action.
   assert.match(DEGRADED_NOTICE, /measureText/);
   assert.doesNotMatch(DEGRADED_NOTICE, /2\.0|2\.1/);
+  assert.match(DEGRADED_NOTICE, /^Shortcuts and autocorrect are off: .*Update OpenCode\.$/);
+  assert.ok(DEGRADED_NOTICE.length <= STATUS_COLUMNS);
 });

@@ -12,7 +12,8 @@ function printableKeys(): KeyId[] {
   return Array.from({ length: 94 }, (_, i) => String.fromCharCode(33 + i)).filter(isCanonicalKey);
 }
 
-export const DEGRADED_NOTICE = 'Edits/highlights disabled: measureText unavailable';
+// Says what the user loses and what to do; the probe, not a version, decides.
+export const DEGRADED_NOTICE = 'Shortcuts and autocorrect are off: this OpenCode lacks measureText. Update OpenCode.';
 
 export function capabilitiesFromProbes(
   probe: ProbeResult,
