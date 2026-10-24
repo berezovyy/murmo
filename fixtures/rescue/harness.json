@@ -112,7 +112,7 @@
     {
       "id": "ctrl-c-twice-restore",
       "tags": ["rescue", "exit"],
-      "note": "r9 Codex: the composer is emptied right before exit (Ctrl+C clears it first); an empty composer must not delete the save, so the relaunch still offers.",
+      "note": "r9 Codex: the composer is emptied right before exit (Ctrl+C clears it first); an empty composer must not delete the save, so the relaunch still offers. Ctrl+C clears in one change, as users do: twelve Backspaces let a slow host fire the idle save on a partly deleted draft. The wait after it gives an empty-composer save time to run.",
       "steps": [
         {
           "type": "ctrl-c-draft"
@@ -121,40 +121,10 @@
           "waitMs": 1500
         },
         {
-          "key": "Backspace"
+          "key": "Ctrl+c"
         },
         {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
-        },
-        {
-          "key": "Backspace"
+          "waitMs": 1500
         },
         {
           "restart": "term"

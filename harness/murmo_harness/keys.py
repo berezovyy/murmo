@@ -50,6 +50,8 @@ KEYS: dict[str, tuple[str, str]] = {
 }
 for _letter in 'abcdefghijklmnopqrstuvwxyz':
     KEYS[f'C-{_letter}'] = (chr(ord(_letter) - 96), f'C-{_letter}')
+    # The canonical ID a fixture writes (packages/api/src/keys.ts).
+    KEYS[f'Ctrl+{_letter}'] = KEYS[f'C-{_letter}']
 KEYS['C-_'] = ('\x1f', 'C-_')
 
 
