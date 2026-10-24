@@ -59,7 +59,7 @@ function recordingDriver(): StepDriver & { calls: string[] } {
 test('steps reach the driver in order, settled after each, and a failing checkpoint names its step', async () => {
   const suite = loadFixtureDir().suites.find((s) => s.file === 'core/conformance/cases.json');
   assert.ok(suite && suite.kind === 'editor-ops');
-  const c = suite.cases.find((x) => x.id === 'C5-enter-no-expansion') as EditorCase;
+  const c = suite.cases.find((x) => x.id === 'C5-enter-picks') as EditorCase;
   const run: Run = {
     suite: suite.file,
     kind: 'editor-ops',
@@ -73,6 +73,6 @@ test('steps reach the driver in order, settled after each, and a failing checkpo
   const observed = await interpretEditorCase(run, driver);
   assert.deepEqual(driver.calls.slice(0, 4), ['key ;', 'settle', 'key r', 'settle']);
   const failed = observed.assertions.filter((a) => !a.ok).map((a) => a.what);
-  // This driver sends on the first Enter, which C5-enter-no-expansion forbids while the menu is open.
-  assert.deepEqual(failed, ['step 6: draft text', 'end: requests']);
+  // This driver sends on the first Enter, which C5-enter-picks forbids while the menu is open.
+  assert.deepEqual(failed, ['step 6: draft text', 'step 6: requests', 'end: requests']);
 });

@@ -50,7 +50,7 @@ test('typing ;? opens history rows; Tab inserts byte-exact text and never submit
   assert.equal(h.adapter.requests.length, 0);
 });
 
-test('Enter with the history menu open sends 0 requests and keeps the draft', async () => {
+test('Enter with the history menu open sends 0 requests and picks the prompt, as Tab does', async () => {
   const memory = createMemoryStore();
   memory.record([{ text: PROMPT, host: 'pi', project: PROJECT, at: Date.now() }]);
   const h = await withHistory(memory, { enabled: true });
@@ -58,8 +58,9 @@ test('Enter with the history menu open sends 0 requests and keeps the draft', as
   await h.driver.settle();
   assert.ok(h.adapter.menu);
   assert.equal(await h.driver.key('Enter'), 'consume');
+  await h.driver.settle();
   assert.equal(h.adapter.menu, null);
-  assert.equal(h.adapter.getDraft().text, ';?review');
+  assert.equal(h.adapter.getDraft().text, PROMPT);
   assert.equal(h.adapter.requests.length, 0);
 });
 

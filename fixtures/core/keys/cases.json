@@ -45,78 +45,78 @@
     {
       "id": "menu-enter-pi-AB",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (pi, order AB).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (pi, order AB).",
       "plugins": [
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu A" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-pi-BA",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (pi, order BA).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (pi, order BA).",
       "plugins": [
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu B" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-opencode-AB",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (OpenCode profile, order AB).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (OpenCode profile, order AB).",
       "host": { "dialogSafe": false },
       "plugins": [
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu A" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-opencode-BA",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (OpenCode profile, order BA).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (OpenCode profile, order BA).",
       "host": { "dialogSafe": false },
       "plugins": [
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu B" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-codex-AB",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (Codex profile, order AB).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (Codex profile, order AB).",
       "host": { "tabQueues": true },
       "plugins": [
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu A" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-codex-BA",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (Codex profile, order BA).",
+      "note": "Enter with a plugin menu open sends nothing; it picks the first row in plugin order (Codex profile, order BA).",
       "host": { "tabQueues": true },
       "plugins": [
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }
       ],
       "steps": [{ "type": "r14menu " }, { "key": "Enter" }],
-      "expect": { "draft": { "text": "r14menu " }, "requests": [], "ui": { "menu": null } }
+      "expect": { "draft": { "text": "r14menu B" }, "requests": [], "ui": { "menu": null } }
     },
     {
       "id": "menu-enter-claude-AB",
       "tags": ["menu-enter"],
-      "note": "Enter with a plugin menu open sends nothing (Claude profile, order AB). Unadvertised Enter that never reaches the router is the submit-time menu block (phase 08).",
-      "host": { "unadvertisedKeys": ["Tab"] },
+      "note": "Enter with a plugin menu open sends nothing (Claude profile, order AB). Unadvertised Enter that never reaches the router is the submit-time menu block (phase 08): it closes the menu and keeps the draft.",
+      "host": { "unadvertisedKeys": ["Tab", "Enter"] },
       "plugins": [
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } },
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } }
@@ -128,7 +128,7 @@
       "id": "menu-enter-claude-BA",
       "tags": ["menu-enter"],
       "note": "Enter with a plugin menu open sends nothing (Claude profile, order BA).",
-      "host": { "unadvertisedKeys": ["Tab"] },
+      "host": { "unadvertisedKeys": ["Tab", "Enter"] },
       "plugins": [
         { "id": "B", "plugin": "conflicts", "settings": { "letter": "B" } },
         { "id": "A", "plugin": "conflicts", "settings": { "letter": "A" } }

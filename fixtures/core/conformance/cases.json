@@ -332,8 +332,9 @@
       }
     },
     {
-      "id": "C5-enter-no-expansion",
+      "id": "C5-enter-picks",
       "requires": ["core.keys"],
+      "note": "Enter with the menu open picks the row like Tab and sends nothing; the next Enter sends the expansion.",
       "steps": [
         {
           "key": ";"
@@ -353,8 +354,9 @@
         {
           "check": {
             "draft": {
-              "text": ";rvw"
-            }
+              "text": "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly."
+            },
+            "requests": []
           }
         },
         {
@@ -366,7 +368,9 @@
           "text": "",
           "cursor": 0
         },
-        "requests": [";rvw"]
+        "requests": [
+          "Review this change for bugs, edge cases and missing tests.\nList issues by severity. Be concise.\nQuote file paths like `src/app.ts` exactly."
+        ]
       }
     },
     {

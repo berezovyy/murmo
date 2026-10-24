@@ -23,6 +23,7 @@ import {
   createHarness,
   type DirectPluginSpec,
   type Harness,
+  referenceCaps,
   testInlineRules,
 } from '@murmo/core/testing';
 import type { EditorCase, HostSetup, PluginRef } from '@murmo/fixtures';
@@ -73,6 +74,11 @@ export function capsFor(host: HostSetup | undefined): CapsPatch {
   };
   if (Object.keys(submit).length) caps.submit = submit;
   if (host.edit) caps.edit = { ...host.edit };
+  // Before the session starts, so the core never sees these keys either (Claude's Enter goes straight to submit).
+  if (host.unadvertisedKeys) {
+    const hidden = new Set(host.unadvertisedKeys.map(canonicalKey));
+    caps.keys = referenceCaps().keys.filter((k) => !hidden.has(k));
+  }
   return caps;
 }
 

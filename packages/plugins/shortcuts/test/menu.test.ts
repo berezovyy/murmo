@@ -80,8 +80,9 @@ test('Tab inserts each r9 fixture byte-exact; Backspace restores ;query on every
   }
 });
 
-test('Enter with the menu open sends 0 requests and leaves the draft in both plugin orders', async () => {
-  // Catches Claude submitting the raw ;rvw (lessons 32, 74).
+test('Enter with the menu open sends 0 requests and picks the row, or keeps the draft on native rows', async () => {
+  // Catches Claude submitting the raw ;rvw (lessons 32, 74), and Pi closing the
+  // menu on Enter without inserting the row users meant to pick.
   for (const [host, profile] of Object.entries(HOST_CAPS)) {
     for (const order of ['menu-first', 'shortcuts-first'] as const) {
       const compiled = compileShortcuts({ replacements: seeds(SAMPLE_SHORTCUTS) });
@@ -96,8 +97,10 @@ test('Enter with the menu open sends 0 requests and leaves the draft in both plu
       await h.driver.type(';rvw');
       assert.ok(h.adapter.menu);
       assert.equal(await h.driver.key('Enter'), 'consume');
+      await h.driver.settle();
       assert.equal(h.adapter.menu, null, `${host} ${order}`);
-      assert.equal(h.adapter.getDraft().text, ';rvw', `${host} ${order} draft`);
+      const picked = host === 'claude' ? ';rvw' : SAMPLE_SHORTCUTS.rvw;
+      assert.equal(h.adapter.getDraft().text, picked, `${host} ${order} draft`);
       assert.equal(h.adapter.requests.length, 0, `${host} ${order} send`);
       await h.session?.dispose();
     }

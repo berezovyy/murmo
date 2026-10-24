@@ -73,13 +73,13 @@ test('inline boundary, dot, emoji, Enter and degraded-origin cases pass (E4, E6,
   );
 });
 
-test('C4, C5, C5-enter-no-expansion, C6, C7 and C14 pass once core.keys is on (E4, E22)', async () => {
+test('C4, C5, C5-enter-picks, C6, C7 and C14 pass once core.keys is on (E4, E22)', async () => {
   const { verdicts } = await runSuites(
     [suite('core/conformance/cases.json')],
     createCoreSubject({ now: options.now }),
     options,
   );
-  for (const id of ['C4', 'C5', 'C5-enter-no-expansion', 'C6', 'C7', 'C14']) {
+  for (const id of ['C4', 'C5', 'C5-enter-picks', 'C6', 'C7', 'C14']) {
     const runs = byCase(verdicts, id);
     assert.ok(runs.length > 0, `${id} was not planned`);
     for (const v of runs) {

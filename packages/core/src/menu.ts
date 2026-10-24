@@ -1,6 +1,10 @@
 // One merged menu for every plugin's rows. Routing uses owner + opaque id +
 // version, never labels or positions (author clarification 9). Enter in it
-// never sends (r14: Claude submitted in 2/2 orders until this rule).
+// never sends (r14: Claude submitted in 2/2 orders until this rule). Where the
+// core gets Enter it picks the selected row like Tab, because that is what
+// users press to pick (Pi testers, three times in a row); a row the host
+// inserts natively closes instead, since passing Enter on would send. Hosts
+// that never route Enter to the core close the menu at the submit boundary.
 
 import { type Draft, type InlineMenuEdit, LIMITS, type MenuItem, type ResultCode } from '@murmo/api';
 import type { Adapter, HostCapabilities, MenuSelection, PresentedMenuItem } from '@murmo/api/adapter';
@@ -154,7 +158,10 @@ export class Menu {
     this.close();
   }
 
-  /** Up/Down wrap; Tab selects (or passes for native completion); Enter/Escape close. */
+  /**
+   * Up/Down wrap; Tab selects (or passes for native completion); Enter selects
+   * too, but closes on a native-completion row; Escape closes. Never a send.
+   */
   handleKey(key: string): 'navigate' | 'select' | 'native-completion' | 'close' | 'none' {
     if (!this.open) return 'none';
     const rows = this.choices();
@@ -163,18 +170,18 @@ export class Menu {
       this.render();
       return 'navigate';
     }
-    if (key === 'Enter' || key === 'Escape') {
+    if (key === 'Escape') {
       this.close();
       return 'close';
     }
-    if (key === 'Tab') {
+    if (key === 'Tab' || key === 'Enter') {
       const chosen = rows[this.#selected];
-      if (!chosen) {
+      const native = chosen?.item.inlineEdit !== undefined && this.#deps.caps.inline.nativeCompletion;
+      if (!chosen || (native && key === 'Enter')) {
         this.close();
         return 'close';
       }
-      if (chosen.item.inlineEdit && this.#deps.caps.inline.nativeCompletion) return 'native-completion';
-      return 'select';
+      return native ? 'native-completion' : 'select';
     }
     return 'none';
   }

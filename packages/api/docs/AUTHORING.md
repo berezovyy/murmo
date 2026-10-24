@@ -62,7 +62,7 @@ What to know from this example:
 
 ### Menus (`semicolon-menu`)
 
-Return `{type: 'menu', items, baseVersion}` from `onChange`; `items: null` closes your rows. Each row's `id` is yours and comes back unchanged in `onMenuSelect`. You can't name the row's owner: the host shows your real plugin ID. Up and Down move, Tab picks, Escape closes, and Enter with a menu open only closes it, it never sends. In `onMenuSelect`, check that the draft is still the version you computed the menu for before returning an edit.
+Return `{type: 'menu', items, baseVersion}` from `onChange`; `items: null` closes your rows. Each row's `id` is yours and comes back unchanged in `onMenuSelect`. You can't name the row's owner: the host shows your real plugin ID. Up and Down move, Tab and Enter pick, Escape closes, and Enter with a menu open never sends. On a host that inserts rows itself (`inlineEdit` on Claude), Enter only closes the menu. In `onMenuSelect`, check that the draft is still the version you computed the menu for before returning an edit.
 
 ### Waiting for a typing pause
 
