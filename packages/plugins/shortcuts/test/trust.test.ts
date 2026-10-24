@@ -82,11 +82,36 @@ test('--list and --revoke round-trip', async () => {
   assert.match(empty.join('\n'), /No approved/);
 });
 
-test('--yes without --fingerprint is usage', async () => {
-  const { ctx, err } = await setup(starter);
+test('--yes alone reviews the file and prints the exact command, approving nothing', async () => {
+  // `murmo trust --yes` only said "--yes and --fingerprint must be used
+  // together", so a user had no way forward without reading the usage. It
+  // must still never approve a file nobody reviewed.
+  const { ctx, out, err, store, root } = await setup(starter);
   assert.equal(await trustCommand(['--yes'], ctx), 2);
-  assert.match(err.join('\n'), /together/);
+  const { scanProject } = await import('@murmo/config/node');
+  const snapshot = await scanProject(root);
+  assert.ok(snapshot?.fingerprint);
+  assert.match(out.join('\n'), /;rvw/);
+  assert.ok(err.join('\n').includes(`murmo trust --yes --fingerprint ${snapshot.fingerprint}`));
+  assert.equal(await store.trust.find(snapshot.identity.projectId), undefined);
+});
+
+test('--fingerprint without --yes is usage', async () => {
+  const { ctx, err } = await setup(starter);
+  assert.equal(await trustCommand(['--fingerprint', '0'.repeat(64)], ctx), 2);
   assert.ok(err.join('\n').includes(TRUST_USAGE.split('\n')[0] as string));
+});
+
+test('the prompt counts one shortcut in the singular', async () => {
+  // `murmo trust` asked "Trust these 1 shortcut for …?".
+  const { ctx } = await setup(`version = 1\n[replace]\n";rvw" = 'Review it.'\n`);
+  const asked: string[] = [];
+  const ask = async (prompt: string) => {
+    asked.push(prompt);
+    return 'n';
+  };
+  await trustCommand([], { ...ctx, ask });
+  assert.match(asked[0] ?? '', /^Trust this shortcut for /);
 });
 
 test('a named diff reports the changed shortcut without storing expansion text', async () => {

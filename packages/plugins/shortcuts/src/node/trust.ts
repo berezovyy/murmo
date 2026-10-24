@@ -150,10 +150,13 @@ export async function trustCommand(args: readonly string[], context: TrustContex
       return 0;
     }
 
-    const yes = flags.has('--yes');
     const fingerprintFlag = flags.get('--fingerprint');
-    if (yes !== (typeof fingerprintFlag === 'string')) {
-      context.err(`--yes and --fingerprint must be used together\n${TRUST_USAGE}`);
+    // `--yes` approves only a fingerprint the user reviewed. Alone it reviews
+    // and prints the exact command, instead of failing with a usage line.
+    const yes = flags.has('--yes') && typeof fingerprintFlag === 'string';
+    const reviewOnly = flags.has('--yes') && !yes;
+    if (typeof fingerprintFlag === 'string' && !flags.has('--yes')) {
+      context.err(`--fingerprint approves only with --yes\n${TRUST_USAGE}`);
       return 2;
     }
     if (typeof fingerprintFlag === 'string' && !HEX64.test(fingerprintFlag)) {
@@ -213,8 +216,15 @@ export async function trustCommand(args: readonly string[], context: TrustContex
       for (const notice of compiled.notices) if (notice.kind !== 'trust') context.out(notice.text);
       // Scripts approve exactly this snapshot with --yes --fingerprint.
       context.out(`Fingerprint: ${snapshot.fingerprint}`);
+      if (reviewOnly) {
+        context.err(
+          `Not approved: --yes approves only a reviewed file. To approve exactly this one:\n  murmo trust --yes --fingerprint ${snapshot.fingerprint}`,
+        );
+        return 2;
+      }
       const n = snapshot.config.replacements.length;
-      const prompt = `Trust these ${n} shortcut${n === 1 ? '' : 's'} for ${displayText(snapshot.identity.root)}? [y/N] `;
+      const these = n === 1 ? 'this shortcut' : `these ${n} shortcuts`;
+      const prompt = `Trust ${these} for ${displayText(snapshot.identity.root)}? [y/N] `;
       const answer = context.ask ? (await context.ask(prompt)).trim().toLowerCase() : '';
       if (answer !== 'y' && answer !== 'yes') {
         context.out('Not approved.');
