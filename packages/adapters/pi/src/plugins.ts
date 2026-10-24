@@ -20,7 +20,7 @@ import {
   shortcutRecords,
   shortcutsPlugin,
 } from '@murmo/plugin-shortcuts';
-import type { DraftIdentity, Drafts } from '@murmo/store';
+import type { DraftDocument, DraftIdentity, Drafts } from '@murmo/store';
 import type { Store } from '@murmo/store/node';
 
 export const DEFAULT_ORDER = ['autocorrect', 'shortcuts', 'menu', 'rescue', 'phrases', 'history', 'names'] as const;
@@ -38,6 +38,8 @@ export interface BuiltinOptions {
   readonly session?: Pick<LoadedSession, 'trust' | 'project'>;
   readonly drafts?: Drafts;
   readonly identity?: DraftIdentity;
+  /** Draft rescue: its own identity (per project folder, even outside a repository) and the offer found at start. */
+  readonly rescue?: { readonly identity: DraftIdentity; readonly offer?: DraftDocument };
   readonly store?: Store;
   readonly cwd?: string;
   /** Tests pass a subset; the extension loads every built-in. */
@@ -83,12 +85,15 @@ export function loadBuiltins(options: BuiltinOptions = {}): BuiltinLoad {
     specs.push({ id: menu.id, builtin: true, factory: menu.factory });
   }
 
-  if (ids.has('rescue') && options.drafts && options.identity) {
+  const rescueIdentity = options.rescue?.identity ?? options.identity;
+  if (ids.has('rescue') && options.drafts && rescueIdentity) {
+    const offer = options.rescue?.offer;
     specs.push(
       rescuePlugin({
         drafts: options.drafts,
-        identity: options.identity,
+        identity: rescueIdentity,
         isPrivate: async () => config?.private === true,
+        ...(offer ? { offer } : {}),
       }),
     );
   }

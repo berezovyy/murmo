@@ -8,7 +8,9 @@ import { createPluginHost, createSession, type HostPluginSpec, type PluginHost, 
 import { createFileStorage, createProjectFileBroker } from '@murmo/core/node';
 import { createInProcessExecutor } from '@murmo/executor';
 import { createNodeIsolatedExecutor } from '@murmo/executor/node';
-import { findRepositoryRoot, openStore, projectIdentity, storeRootsFromEnv } from '@murmo/store/node';
+import { findOffer } from '@murmo/plugin-rescue';
+import { newDraftSession } from '@murmo/store';
+import { findRepositoryRoot, openStore, projectIdentity, projectIdOfCwd, storeRootsFromEnv } from '@murmo/store/node';
 import { createPiAdapter, type PiAdapter, type PiAdapterOptions } from './adapter.ts';
 import { attachPiEvents, type PiEventsHandle } from './events.ts';
 import { loadBuiltins } from './plugins.ts';
@@ -80,11 +82,16 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
   const config = await loadSessionConfig({ cwd, store });
   const repo = await findRepositoryRoot(cwd);
   const project = repo ? await projectIdentity(repo) : undefined;
-  const identity = {
-    project: project?.projectId ?? '0'.repeat(64),
+  const sessionId = newDraftSession('pi');
+  const identity = { project: project?.projectId ?? '0'.repeat(64), host: 'pi' as const, session: sessionId };
+  // Looked up before the session starts, so the offer is on the empty prompt
+  // at once: a hook can't wait on the file system.
+  const rescue = {
+    project: await projectIdOfCwd(cwd).catch(() => identity.project),
     host: 'pi' as const,
-    session: `pi-${Date.now().toString(16)}`,
+    session: sessionId,
   };
+  const offer = options.specs ? undefined : await findOffer(store.drafts, rescue);
   const loaded = options.specs
     ? {
         specs: [...options.specs],
@@ -96,6 +103,7 @@ export async function startPiSession(options: StartOptions): Promise<StartedPi> 
         session: loadedSession(config),
         drafts: store.drafts,
         identity,
+        rescue: { identity: rescue, ...(offer ? { offer } : {}) },
         store,
         cwd,
       });

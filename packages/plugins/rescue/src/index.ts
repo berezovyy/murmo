@@ -6,9 +6,13 @@ import { rescueFactory } from './plugin.ts';
 export {
   createRescue,
   EMPTY_DELETE_MS,
+  findOffer,
   IDLE_MS,
   MAX_INTERVAL_MS,
+  MIN_SAVE_CHARS,
+  offerGhost,
   offerLine,
+  PREVIEW_CHARS,
   RESCUE_ID,
   RESCUE_VERSION,
   type RescueOptions,

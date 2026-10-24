@@ -54,6 +54,17 @@ function isUtf16Boundary(text: string, at: number): boolean {
   return !(prev >= 0xd800 && prev <= 0xdbff && cur >= 0xdc00 && cur <= 0xdfff);
 }
 
+/**
+ * A new draft session id: unique per process start, so the liveness lock
+ * tells this session's draft from a crashed one's. `<host>-<time>-<random>`.
+ */
+export function newDraftSession(host: DraftHost, now: number = Date.now()): string {
+  const random = Math.floor(Math.random() * 0x100000000)
+    .toString(16)
+    .padStart(8, '0');
+  return checkSessionId(`${checkDraftHost(host)}-${Math.max(0, Math.floor(now)).toString(36)}-${random}`);
+}
+
 export function checkDraftIdentity(id: DraftIdentity): DraftIdentity {
   return { project: checkProjectId(id.project), host: checkDraftHost(id.host), session: checkSessionId(id.session) };
 }

@@ -2,10 +2,10 @@
 // empty Ctrl+C, offer/restore, sessions don't cross.
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { type CapsPatch, createHarness } from '@murmo/core/testing';
+import { type CapsPatch, createHarness, ReferenceAdapter } from '@murmo/core/testing';
 import { draftIsOfferable } from '@murmo/store';
 import type { Store } from '@murmo/store/node';
-import { offerLine, rescuePlugin } from '../src/index.ts';
+import { IDLE_MS, offerGhost, offerLine, rescuePlugin } from '../src/index.ts';
 import {
   assertNoOffer,
   EMPTY_DELETE_MS,
@@ -67,19 +67,82 @@ test('restore is byte-exact after a dead session; Tab inserts plugin-origin text
   }
 });
 
-test('typing dismisses the offer and leaves the file; a non-empty composer is never replaced', async () => {
+test('typing hides the offer without ending it; an empty prompt shows it again; only Escape dismisses it', async () => {
+  // Pi (r3pic-2, r5e11g-2): any key threw the offer away for the session.
   const t = fresh();
   const store = await t.store;
   const old = identity('kept');
   await store.drafts.save(old, { text: UNICODE, cursorUTF16: UNICODE.length, revision: 1, now: MANUAL_EPOCH_MS });
   const h = await withRescue(store, 's2');
   await presentOffer(h);
-  assert.match(h.adapter.status ?? '', /Restore/);
   await h.driver.type('x');
   await h.driver.settle();
-  assert.equal(h.adapter.getDraft().text, 'x');
+  assert.equal(h.adapter.getDraft().text, 'x', 'the offer never replaces a non-empty composer');
   assert.equal(h.adapter.ghost, null);
+  assert.equal(h.adapter.status, null);
   assert.equal(await store.drafts.read(old).then((d) => d?.text), UNICODE);
+  await h.driver.key('Backspace');
+  await h.driver.settle();
+  await presentOffer(h);
+  assert.equal(await h.driver.key('Escape'), 'consume');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null);
+  assert.equal(h.adapter.ghost, null);
+  await h.driver.type('y');
+  await h.driver.key('Backspace');
+  await h.driver.settle();
+  assert.equal(h.adapter.status, null, 'dismissed for the rest of the session');
+  await h.session?.dispose();
+});
+
+test('the offer reads as an offer: one line, not the draft itself as ghost text', async () => {
+  // Pi (R2E1C-8): the whole draft as ghost looked restored, and its line breaks showed as \u000a.
+  const t = fresh();
+  const store = await t.store;
+  const text = 'fix the login bug\nthen run the tests\n\nand commit';
+  await store.drafts.save(identity('multi'), { text, cursorUTF16: 0, revision: 1, now: MANUAL_EPOCH_MS });
+  const h = await withRescue(store, 'reader');
+  await presentOffer(h);
+  assert.equal(h.adapter.ghost, 'Tab restores: fix the login bug… (+2 lines)');
+  assert.equal(offerGhost('x'.repeat(50)), `Tab restores: ${'x'.repeat(40)}…`);
+  await h.driver.key('Tab');
+  await h.driver.settle();
+  assert.equal(h.adapter.getDraft().text, text);
+  await h.session?.dispose();
+});
+
+test('a stray key typed and deleted is not saved over an older crash draft (r3pic-6)', async () => {
+  const t = fresh();
+  const store = await t.store;
+  const crashed = identity('crashed');
+  await store.drafts.save(crashed, { text: UNICODE, cursorUTF16: 0, revision: 1, now: MANUAL_EPOCH_MS });
+  const h = await withRescue(store, 'stray');
+  await h.driver.type('Z');
+  await h.driver.wait(IDLE_MS * 2);
+  await h.driver.settle();
+  await new Promise((r) => setTimeout(r, 50)); // let a save, if one was queued, reach the disk
+  await h.driver.key('Backspace');
+  await h.driver.settle();
+  await h.session?.dispose();
+  assert.equal(await store.drafts.read(identity('stray')), undefined, 'one character is not worth a save');
+  const next = await withRescue(store, 'after-clean-quit');
+  assert.match(await presentOffer(next), /Restore your last draft/);
+  await next.driver.key('Tab');
+  await next.driver.settle();
+  assert.equal(next.adapter.getDraft().text, UNICODE, 'the older crash draft is still the one offered');
+  await next.session?.dispose();
+});
+
+test('no offer where Tab never reaches plugins (Claude routes Tab natively); the draft is still kept', async () => {
+  // An offer that says "(Tab)" where Tab can't restore would be a lie.
+  const t = fresh();
+  const store = await t.store;
+  const crashed = identity('claude-dead');
+  await store.drafts.save(crashed, { text: UNICODE, cursorUTF16: 0, revision: 1, now: MANUAL_EPOCH_MS });
+  const h = await withRescue(store, 'no-tab', { caps: { keys: ['space', 'Backspace', 'Escape'] } });
+  await assertNoOffer(h);
+  assert.equal(h.adapter.ghost, null);
+  assert.equal((await store.drafts.read(crashed))?.text, UNICODE);
   await h.session?.dispose();
 });
 
@@ -190,6 +253,29 @@ test('two live sessions in one project are never offered each other (liveness lo
   const c = await withRescue(store, 'live-c');
   await presentOffer(c);
   await c.session?.dispose();
+});
+
+test('a session whose activate was cancelled at startup still holds its lock (OpenCode attaches the prompt late)', async () => {
+  // OpenCode starts the session before its prompt editor exists, so the host
+  // reads as a dialog and every activate is cancelled as stale. The lock was
+  // taken only in activate, so a second window offered this live draft.
+  const t = fresh();
+  const store = await t.store;
+  const adapter = new ReferenceAdapter();
+  adapter.setState({ dialog: true });
+  const id = identity('late-prompt');
+  const a = await createHarness({
+    runner: 'direct',
+    adapter,
+    plugins: [rescuePlugin({ drafts: store.drafts, identity: id, isPrivate: () => false })],
+  });
+  await a.driver.state({ dialog: false });
+  await a.driver.fill('typed after the prompt attached', 'typed');
+  await idleSave(a, store, id);
+  const b = await withRescue(store, 'second-window');
+  await assertNoOffer(b);
+  await a.session?.dispose();
+  await b.session?.dispose();
 });
 
 test('cross-host snapshots are not offered', async () => {

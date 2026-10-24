@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createHarness, testInlinePlugin } from '@murmo/core/testing';
 import { DRAFT_MAX_TEXT_BYTES, DRAFT_TTL_MS } from '@murmo/store';
-import { rescuePlugin } from '../src/index.ts';
+import { findOffer, rescuePlugin } from '../src/index.ts';
 import {
   assertNoOffer,
   identity,
@@ -96,11 +96,17 @@ test('restored text is not typed: a typed boundary after restore does not correc
   const store = await t.store;
   await store.drafts.save(identity('typo'), { text: 'teh', cursorUTF16: 3, revision: 1, now: MANUAL_EPOCH_MS });
   const inline = testInlinePlugin('english');
+  const offer = await findOffer(store.drafts, identity('now'), MANUAL_EPOCH_MS);
   const h = await createHarness({
     runner: 'direct',
     plugins: [
       { ...inline, builtin: true },
-      rescuePlugin({ drafts: store.drafts, identity: identity('now'), isPrivate: () => false }),
+      rescuePlugin({
+        drafts: store.drafts,
+        identity: identity('now'),
+        isPrivate: () => false,
+        ...(offer ? { offer } : {}),
+      }),
     ],
   });
   await presentOffer(h);

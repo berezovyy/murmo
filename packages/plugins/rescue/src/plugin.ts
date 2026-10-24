@@ -1,6 +1,11 @@
 // Built-in draft rescue: idle save of the unsent draft as typed, never in
 // private mode, delete on submit, Tab to restore. IO is injected (the
 // store's drafts kind); nothing runs in the key handler beyond marking dirty.
+//
+// The offer is looked up before the session starts (`findOffer`, by the
+// adapter wiring) because a hook can't wait on IO. It is shown whenever the
+// prompt is empty, hidden while there is text, and ends only on Tab (restore)
+// or Escape (dismiss).
 
 import type {
   Change,
@@ -20,6 +25,7 @@ import {
   type DraftDocument,
   type DraftIdentity,
   type Drafts,
+  draftIsOfferable,
   type HeldDraftLock,
   utf8Length,
 } from '@murmo/store';
@@ -32,6 +38,14 @@ export const IDLE_MS = 500;
 export const MAX_INTERVAL_MS = 1000;
 /** Empty composer this long, while the session lives, means a deliberate clear. */
 export const EMPTY_DELETE_MS = 10_000;
+/**
+ * A draft with fewer visible characters than this is not worth rescuing: a
+ * stray key typed and deleted must not replace an older crash draft (the
+ * save sweeps older snapshots of the project).
+ */
+export const MIN_SAVE_CHARS = 3;
+/** Code points of the draft's first line shown in the offer. */
+export const PREVIEW_CHARS = 40;
 
 const CONFORMANCE_PROJECT = '0'.repeat(64);
 
@@ -40,13 +54,12 @@ export interface RescueOptions {
   readonly identity: DraftIdentity;
   readonly isPrivate?: () => boolean | Promise<boolean>;
   /**
-   * Snapshot to offer immediately from `activate` (no IO on that hook). The
-   * plugin still takes the liveness lock and cleans up in the background.
+   * The snapshot to offer, looked up with `findOffer` before the session
+   * started: `activate` can't wait on IO. The plugin still takes the
+   * liveness lock and cleans up in the background.
    */
   readonly offer?: DraftDocument;
 }
-
-type Offer = 'none' | 'showing' | 'dismissed' | 'restored';
 
 function clockTime(ms: number): string {
   const d = new Date(ms);
@@ -57,21 +70,53 @@ export function offerLine(capturedAt: number): string {
   return `Restore your last draft from ${clockTime(capturedAt)}? (Tab)`;
 }
 
+/**
+ * The ghost line of the offer: says what Tab does and previews the first
+ * line, so the prompt never looks as if the draft were already back.
+ */
+export function offerGhost(text: string): string {
+  const lines = text.split(/\r\n|\r|\n/).filter((line) => line.trim().length > 0);
+  const first = Array.from((lines[0] ?? '').trim().replace(/\s+/g, ' '));
+  const cut = first.length > PREVIEW_CHARS;
+  const preview = `${first.slice(0, PREVIEW_CHARS).join('')}${cut || lines.length > 1 ? '…' : ''}`;
+  const more = lines.length > 1 ? ` (+${lines.length - 1} ${lines.length === 2 ? 'line' : 'lines'})` : '';
+  return `Tab restores: ${preview}${more}`;
+}
+
+/**
+ * The newest snapshot this session may offer, or undefined. Adapters call it
+ * before the session starts; any store failure means no offer.
+ */
+export async function findOffer(
+  drafts: Drafts,
+  identity: DraftIdentity,
+  now: number = Date.now(),
+): Promise<DraftDocument | undefined> {
+  try {
+    const id = checkDraftIdentity(identity);
+    const found = await drafts.findOfferable({ project: id.project, host: id.host, session: id.session, now });
+    return found && draftIsOfferable(found, now) ? found : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const OVERSIZE_STATUS = 'Draft is over 64 KiB; not saved.';
 
+/** Queues IO in order. Never rejects: a failed save or lookup must not become an unhandled rejection in the host. */
 function enqueue(chain: { current: Promise<void> }, work: () => Promise<void>): Promise<void> {
-  const run = chain.current.then(work, work);
-  chain.current = run.then(
+  const run = chain.current.then(work, work).then(
     () => undefined,
     () => undefined,
   );
+  chain.current = run;
   return run;
 }
 
 function offerEffects(version: number, snapshot: DraftDocument): Effect[] {
   return [
     { type: 'status', text: offerLine(snapshot.header.capturedAt), baseVersion: version },
-    { type: 'ghost', text: snapshot.text, baseVersion: version },
+    { type: 'ghost', text: offerGhost(snapshot.text), baseVersion: version },
   ];
 }
 
@@ -82,8 +127,28 @@ function clearUi(version: number): Effect[] {
   ];
 }
 
+/**
+ * Tab can restore only where the host routes Tab to plugins and draws the
+ * offer's ghost (the claim needs it on screen). Elsewhere the draft is still
+ * saved, but an offer that names Tab would be a lie.
+ */
+function canOffer(ctx: PluginContext): boolean {
+  const caps = ctx.host.caps;
+  return caps.ghost !== 'none' && caps.keys.includes('Tab');
+}
+
 function savable(draft: Draft): boolean {
   return draft.certainty === 'authoritative' || draft.certainty === 'tracked';
+}
+
+/** Enough visible text to be worth rescuing. */
+function worthKeeping(text: string): boolean {
+  let visible = 0;
+  for (const ch of text) {
+    if (ch.trim().length === 0) continue;
+    if (++visible >= MIN_SAVE_CHARS) return true;
+  }
+  return false;
 }
 
 export function createRescue(options: RescueOptions): Plugin {
@@ -101,8 +166,11 @@ export function createRescue(options: RescueOptions): Plugin {
   let suppressSave = false;
   let attemptedRevision: number | undefined;
   let oversizeNoted = false;
-  let offer: Offer = 'none';
-  let snapshot: DraftDocument | undefined;
+  /** The pending offer: kept until Tab restores it or Escape dismisses it. */
+  let snapshot: DraftDocument | undefined = options.offer;
+  /** Whether the offer's status and ghost are on screen. */
+  let painted = false;
+  let started = false;
 
   const stopIdle = () => {
     cancelIdle?.();
@@ -113,16 +181,27 @@ export function createRescue(options: RescueOptions): Plugin {
     cancelEmpty = undefined;
   };
 
+  const paint = (ctx: PluginContext, version: number): Effect[] | undefined => {
+    if (!snapshot || !canOffer(ctx)) return undefined;
+    painted = true;
+    return offerEffects(version, snapshot);
+  };
+  const unpaint = (version: number): Effect[] | undefined => {
+    if (!painted) return undefined;
+    painted = false;
+    return clearUi(version);
+  };
+
+  const keepable = (draft: Draft | undefined): draft is Draft =>
+    draft !== undefined && savable(draft) && worthKeeping(draft.text);
+
   const flush = (): void => {
     const time = clock;
-    const draft = last;
-    if (!time || !draft || suppressSave) return;
-    if (draft.text.length === 0 || !savable(draft)) return;
-    if (attemptedRevision !== undefined && draft.version === attemptedRevision) return;
+    if (!time || suppressSave || !keepable(last)) return;
+    if (attemptedRevision !== undefined && last.version === attemptedRevision) return;
     void enqueue(io, async () => {
-      if (suppressSave) return;
       const current = last;
-      if (!current || current.text.length === 0 || !savable(current)) return;
+      if (suppressSave || !keepable(current)) return;
       if (attemptedRevision !== undefined && current.version === attemptedRevision) return;
       if (await privateOf()) {
         await drafts.delete(identity);
@@ -157,16 +236,32 @@ export function createRescue(options: RescueOptions): Plugin {
     }, delay);
   };
 
+  /** Nothing worth keeping in the composer for 10 s while alive: a deliberate clear. */
   const scheduleEmpty = (ctx: PluginContext) => {
-    stopEmpty();
+    if (cancelEmpty) return;
     cancelEmpty = ctx.clock.setTimer(() => {
       cancelEmpty = undefined;
-      if (last && last.text.length > 0) return;
+      if (last && worthKeeping(last.text)) return;
       void enqueue(io, async () => {
-        if (last && last.text.length > 0) return;
+        if (last && worthKeeping(last.text)) return;
         await drafts.delete(identity);
       });
     }, EMPTY_DELETE_MS);
+  };
+
+  /**
+   * Lock and cleanup, once, off the hook: any `await` in a hook is cancelled
+   * (the session ticket goes stale while fs runs). From the first change too,
+   * so a host that cancels `activate` at startup still gets the lock.
+   */
+  const start = (ctx: PluginContext): void => {
+    clock = ctx.clock;
+    if (started) return;
+    started = true;
+    void enqueue(io, async () => {
+      lock = await drafts.holdLock(identity);
+      await drafts.cleanup(ctx.clock.wallTimeMs());
+    });
   };
 
   const plugin: Plugin = {
@@ -178,75 +273,49 @@ export function createRescue(options: RescueOptions): Plugin {
       { key: 'Escape', when: ['ghost-visible-by-me', 'editable'], action: 'dispatch', consume: true },
     ],
     async activate(ctx: PluginContext) {
-      clock = ctx.clock;
+      start(ctx);
       last = ctx.draft;
-      // Lock, cleanup and lookup are off this hook: any `await` here is
-      // cancelled (the session ticket goes stale while fs runs; settle on a
-      // manual clock also gives up). Offer effects must be returned without IO.
-      void enqueue(io, async () => {
-        lock = await drafts.holdLock(identity);
-        await drafts.cleanup(clock?.wallTimeMs() ?? Date.now());
-        if (snapshot || offer !== 'none') return;
-        const found = await drafts.findOfferable({
-          project: identity.project,
-          host: identity.host,
-          session: identity.session,
-          now: clock?.wallTimeMs() ?? Date.now(),
-        });
-        if (found) snapshot = found;
-      });
-      if (ctx.draft.text.length > 0) {
-        if (savable(ctx.draft)) scheduleSave(ctx);
-        return;
-      }
-      const found = options.offer;
-      if (!found) return;
-      offer = 'showing';
-      snapshot = found;
-      return offerEffects(ctx.draft.version, found);
+      if (ctx.draft.text.length === 0) return paint(ctx, ctx.draft.version);
+      if (keepable(ctx.draft)) scheduleSave(ctx);
+      else scheduleEmpty(ctx);
     },
     async onChange(change: Change, ctx: PluginContext) {
-      clock = ctx.clock;
+      start(ctx);
       last = change.draft;
       const version = change.draft.version;
-      if (offer === 'showing' && change.draft.text.length > 0) {
-        const restored = change.origin === 'plugin' && change.pluginId === RESCUE_ID;
-        offer = restored ? 'restored' : 'dismissed';
-        snapshot = undefined;
-        if (!restored) {
-          stopIdle();
-          scheduleSave(ctx);
-          return clearUi(version);
-        }
-        scheduleSave(ctx);
-        return clearUi(version);
-      }
-      if (change.draft.text.length === 0 && snapshot && (offer === 'showing' || offer === 'none')) {
-        offer = 'showing';
-        return offerEffects(version, snapshot);
-      }
+      if (change.origin === 'plugin' && change.pluginId === RESCUE_ID) snapshot = undefined;
       if (change.draft.text.length === 0) {
         stopIdle();
         scheduleEmpty(ctx);
-        return;
+        return paint(ctx, version);
       }
-      stopEmpty();
+      const effects: Effect[] = [...(unpaint(version) ?? [])];
       suppressSave = false;
       if (utf8Length(change.draft.text) > DRAFT_MAX_TEXT_BYTES) {
         stopIdle();
+        stopEmpty();
         void enqueue(io, () => drafts.delete(identity));
-        if (oversizeNoted) return;
-        oversizeNoted = true;
-        return [{ type: 'status', text: OVERSIZE_STATUS, baseVersion: version }];
+        if (!oversizeNoted) {
+          oversizeNoted = true;
+          effects.push({ type: 'status', text: OVERSIZE_STATUS, baseVersion: version });
+        }
+        return effects;
       }
       if (!savable(change.draft)) {
         stopIdle();
-        return;
+        return effects;
       }
-      scheduleSave(ctx);
+      if (worthKeeping(change.draft.text)) {
+        stopEmpty();
+        scheduleSave(ctx);
+      } else {
+        stopIdle();
+        scheduleEmpty(ctx);
+      }
+      return effects;
     },
     onKey(key: string, ctx: PluginContext) {
-      if (offer !== 'showing' || ctx.draft.text.length > 0 || !snapshot) return;
+      if (!snapshot || !painted || ctx.draft.text.length > 0) return;
       if (key === 'Tab') {
         return [
           {
@@ -263,9 +332,8 @@ export function createRescue(options: RescueOptions): Plugin {
         ];
       }
       if (key === 'Escape') {
-        offer = 'dismissed';
         snapshot = undefined;
-        return clearUi(ctx.draft.version);
+        return unpaint(ctx.draft.version);
       }
     },
     onSubmitCommitted(event: SubmitCommitted) {
@@ -284,7 +352,7 @@ export function createRescue(options: RescueOptions): Plugin {
       stopIdle();
       stopEmpty();
       await io.current;
-      await lock?.release();
+      await lock?.release().catch(() => undefined);
       lock = undefined;
     },
   };

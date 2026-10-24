@@ -62,3 +62,12 @@ export async function projectIdentity(root: string): Promise<ProjectIdentity> {
   if (!st.isDirectory()) throw new Error(`${canonical} is not a directory`);
   return { projectId: projectIdOf(canonical), root: canonical, dev: String(st.dev), ino: String(st.ino) };
 }
+
+/**
+ * The project a session started in `cwd` belongs to: its repository root, or
+ * the directory itself outside a repository (so two folders never share
+ * drafts). Same as `project_id_of_cwd` in the Rust store.
+ */
+export async function projectIdOfCwd(cwd: string): Promise<string> {
+  return projectIdOf((await findRepositoryRoot(cwd)) ?? (await fsp.realpath(cwd)));
+}

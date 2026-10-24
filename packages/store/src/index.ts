@@ -22,6 +22,7 @@ export {
   draftHeader,
   draftIsOfferable,
   encodeDraft,
+  newDraftSession,
 } from './draft.ts';
 export { sha256Hex, utf8Decode, utf8Encode, utf8Length } from './encoding.ts';
 export type { DraftHost, LogKind, StoreLayout, StoreRoots } from './layout.ts';

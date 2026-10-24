@@ -6,7 +6,7 @@ import type { CapsPatch } from '@murmo/core/testing';
 import { createHarness, type Harness, MANUAL_EPOCH_MS } from '@murmo/core/testing';
 import type { DraftIdentity } from '@murmo/store';
 import { openStore, type Store } from '@murmo/store/node';
-import { EMPTY_DELETE_MS, IDLE_MS, rescuePlugin } from '../src/index.ts';
+import { EMPTY_DELETE_MS, findOffer, IDLE_MS, rescuePlugin } from '../src/index.ts';
 
 export const PROJECT = createHash('sha256').update('rescue-test').digest('hex');
 
@@ -48,6 +48,8 @@ export async function withRescue(
 ): Promise<Harness> {
   const id = identity(session, options.host ?? 'fake');
   if (options.private) store.privacy.setConfigPrivate(true);
+  // As the adapters do: the offer is looked up before the session starts.
+  const offer = await findOffer(store.drafts, id, MANUAL_EPOCH_MS);
   return createHarness({
     // Direct runner: the executor's activate deadline is a session-clock timer,
     // and settle would fire it while we await fs (the real clock has 50 ms).
@@ -57,6 +59,7 @@ export async function withRescue(
         drafts: store.drafts,
         identity: id,
         isPrivate: () => store.privacy.isPrivate(),
+        ...(offer ? { offer } : {}),
       }),
     ],
     ...(options.caps ? { caps: options.caps } : {}),
@@ -90,19 +93,17 @@ export async function idleSave(h: Harness, store: Store, id: DraftIdentity) {
   return waitSaved(store, id);
 }
 
-/** Wait until background lock/cleanup/lookup has an offer, then surface it. */
+/** The offer on a fresh empty prompt, with no key or change first (it used to need one). */
 export async function presentOffer(h: Harness): Promise<string> {
-  return until(async () => {
-    await h.driver.move(0);
-    await h.driver.settle();
-    const status = h.adapter.status ?? '';
-    return /Restore your last draft/.test(status) ? status : undefined;
-  }, 'offer never appeared');
+  await h.driver.settle();
+  const status = h.adapter.status ?? '';
+  if (!/Restore your last draft/.test(status))
+    throw new Error(`no offer at startup (status: ${JSON.stringify(status)})`);
+  return status;
 }
 
 export async function assertNoOffer(h: Harness): Promise<void> {
   await new Promise((r) => setTimeout(r, 40));
-  await h.driver.move(0);
   await h.driver.settle();
   const status = h.adapter.status ?? '';
   if (/Restore your last draft/.test(status)) throw new Error(`unexpected offer: ${status}`);

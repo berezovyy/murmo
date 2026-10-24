@@ -69,7 +69,7 @@ export { LOCK_RETRY_MS, LOCK_STALE_MS, LOCK_TIMEOUT_MS, lockPath, withLock } fro
 export type { LogEntry, LogRead } from './logs.ts';
 export { compactLog, parseSegment, SEGMENT_BYTES } from './logs.ts';
 export type { ProjectIdentity } from './paths.ts';
-export { findRepositoryRoot, projectIdentity, projectIdOf, storeRootsFromEnv } from './paths.ts';
+export { findRepositoryRoot, projectIdentity, projectIdOf, projectIdOfCwd, storeRootsFromEnv } from './paths.ts';
 export type { PluginStorageBroker } from './plugin-storage.ts';
 export type { Privacy } from './privacy.ts';
 export type { RecordRead, RecordUpdate, UpdateOptions, UpdateResult } from './record.ts';
