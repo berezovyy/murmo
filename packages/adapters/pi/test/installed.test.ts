@@ -22,6 +22,17 @@ for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME', 'XDG_CO
 }
 after(() => rmSync(root, { recursive: true, force: true }));
 
+/** Waits for Enter's outcome, a send or a block, on the clock: counting event
+ *  loop turns ran out under a loaded parallel run before the plugin answered. */
+async function decided(session: { stats(): { blocked: number } }, sent: string[], before: number): Promise<void> {
+  const blocked = session.stats().blocked;
+  const deadline = Date.now() + 5000;
+  while (sent.length === before && session.stats().blocked === blocked) {
+    if (Date.now() > deadline) throw new Error('Enter was neither sent nor blocked within 5 s');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 async function sendInNewSession(text: string): Promise<{ sent: string[]; loaded: PluginSpec[]; grants: string[] }> {
   const env = createFakePi();
   const loaded: PluginSpec[] = [];
@@ -44,8 +55,9 @@ async function sendInNewSession(text: string): Promise<{ sent: string[]; loaded:
     };
     for (const ch of text) editor.handleInput(ch);
     await started.session.settle();
+    const outcome = decided(started.session, sent, 0);
     editor.handleInput('\r');
-    for (let i = 0; i < 200 && sent.length === 0; i++) await new Promise((resolve) => setImmediate(resolve));
+    await outcome;
     return { sent, loaded, grants: [...started.runner.grantOf('send-hold')] };
   } finally {
     await started.dispose();
@@ -101,9 +113,9 @@ test('plugin add and disable apply to an open Pi session, which acknowledges eac
   const send = async (text: string) => {
     for (const ch of text) editor.handleInput(ch);
     await started.session.settle();
-    const before = sent.length;
+    const outcome = decided(started.session, sent, sent.length);
     editor.handleInput('\r');
-    for (let i = 0; i < 200 && sent.length === before; i++) await new Promise((resolve) => setImmediate(resolve));
+    await outcome;
     editor.setText('');
   };
   try {

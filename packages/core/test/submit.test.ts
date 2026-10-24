@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PluginFactory, SubmitCommitted, SubmitUnresolved } from '@murmo/api';
 import { DEADLINES } from '@murmo/api';
-import { MENU_DISMISSED, REWRITE_DIAGNOSTIC, runPipeline } from '../src/index.ts';
+import { HOST_UI_OPEN, MENU_DISMISSED, REWRITE_DIAGNOSTIC, runPipeline } from '../src/index.ts';
 import { declaredAccess, noMenu } from '../src/submit/index.ts';
 import { createHarness, createManualClock, type DirectPluginSpec, referenceCaps } from '../src/testing/index.ts';
 
@@ -543,7 +543,7 @@ test('native UI owning the gesture blocks without sending (defensive step 1)', a
   await h.driver.state({ popup: { owner: 'completion' }, dialog: false });
   const outcome = await h.driver.submit('send');
   assert.equal(outcome.action, 'block');
-  if (outcome.action === 'block') assert.equal(outcome.reason, 'native UI owns submit gesture');
+  if (outcome.action === 'block') assert.equal(outcome.reason, HOST_UI_OPEN);
   assert.equal(h.adapter.requests.length, 0);
   assert.equal(h.adapter.getDraft().text, 'hi');
 });
@@ -643,8 +643,8 @@ test('every refusal reaches the status line once, whoever refused', async () => 
   // Status stays off while the host's own popup is up; it shows once that closes.
   await ui.driver.state({ popup: null, dialog: false });
   await ui.driver.settle();
-  assert.match(ui.adapter.status ?? '', /native UI owns submit gesture/);
-  assert.equal(notices(ui, 'native UI owns submit gesture'), 1);
+  assert.match(ui.adapter.status ?? '', /close the open menu or dialog/);
+  assert.equal(notices(ui, HOST_UI_OPEN), 1);
 
   const guarded = await createHarness({ plugins: [guard], draft: { text: 'fix TODO' } });
   await guarded.driver.submit('send');

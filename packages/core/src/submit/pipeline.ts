@@ -54,6 +54,9 @@ const blocked = (reason: string): SubmitOutcome => ({ action: 'block', reason })
 /** Enter met an open Murmo menu: the menu closed and nothing was sent. */
 export const MENU_DISMISSED = 'Menu closed. Enter again sends your text as typed.';
 
+/** Enter reached Murmo while the host's own menu or dialog was open. */
+export const HOST_UI_OPEN = 'Nothing sent: close the open menu or dialog first.';
+
 export interface PipelineOptions {
   /** `finalGuard`: skip transforms and edits; honor send/block only. */
   readonly guardsOnly?: boolean;
@@ -80,7 +83,7 @@ export async function runPipeline(
 
   // 1. Native popup or dialog (defensive; adapters should not get here).
   const state = hooks.state();
-  if (state.popup !== null || state.dialog) return blocked('native UI owns submit gesture');
+  if (state.popup !== null || state.dialog) return blocked(HOST_UI_OPEN);
 
   // 2. Plugin menu at this version: dismiss, do not count as a submit attempt.
   // Some hosts cannot tell Escape-then-Enter from Enter on the open menu, so

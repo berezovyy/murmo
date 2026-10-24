@@ -2,6 +2,7 @@ export { SubmitController, type SubmitControllerDeps, submitOptions } from './co
 export { CommitDelivery, type CommitResolution, type PendingForward } from './delivery.ts';
 export { type MenuSurface, noMenu } from './menu.ts';
 export {
+  HOST_UI_OPEN,
   MENU_DISMISSED,
   type PipelineHooks,
   type PipelineOptions,
