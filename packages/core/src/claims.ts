@@ -109,7 +109,9 @@ export function validateClaims(
       continue;
     }
     if (consume && claim.action !== 'dispatch' && !caps.keys.includes(claim.key)) {
-      notices.push(notice(plugin.name, i, `host cannot intercept ${claim.key}`));
+      // A host that cannot take a key is a known gap (Claude has no Tab):
+      // the user can't act on it, so a built-in's dropped claim stays quiet.
+      if (!plugin.builtin) notices.push(notice(plugin.name, i, `host cannot intercept ${claim.key}`));
       continue;
     }
     claims.push({ key: claim.key, when: claim.when, action: claim.action, consume });

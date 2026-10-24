@@ -104,7 +104,9 @@ test('a function predicate, unknown condition, or write without key support neve
   assert.ok(notices.some((n) => n.includes('function') || n.includes('not data')));
   assert.ok(notices.some((n) => n.includes('Enter is never consumed')));
   assert.ok(notices.some((n) => n.includes('unknown condition')));
-  assert.ok(notices.some((n) => n.includes('cannot intercept F8')));
+  // A built-in's claim on a key the host can't take is dropped quietly: a
+  // known host gap the user can't act on (fixtures/core/keys, Claude Tab).
+  assert.ok(!notices.some((n) => n.includes('cannot intercept F8')));
   assert.equal(await h.driver.key('Tab'), 'pass');
   assert.equal(await h.driver.key('Enter'), 'pass');
   assert.equal(await h.driver.key('F9'), 'pass');

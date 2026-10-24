@@ -35,6 +35,27 @@
       }
     },
     {
+      "id": "builtin-claim-on-uncapturable-key-is-quiet",
+      "note": "Real-host bug (Claude 2.1.304): once built-in notices showed beside the prompt, 'phrases: key claim 1 refused: host cannot intercept Tab' took the row. A host that cannot take a key is a known gap the user cannot act on; the claim is still dropped.",
+      "plugins": ["phrases"],
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "steps": [{ "type": "hi" }],
+      "expect": { "draft": { "text": "hi" }, "requests": [], "notices": [] }
+    },
+    {
+      "id": "third-party-claim-on-uncapturable-key-is-named",
+      "note": "A third-party plugin's author still learns the host dropped its claim.",
+      "trust": "third-party",
+      "plugins": ["phrases"],
+      "host": { "unadvertisedKeys": ["Tab"] },
+      "steps": [{ "type": "hi" }],
+      "expect": {
+        "draft": { "text": "hi" },
+        "requests": [],
+        "notices": ["phrases: key claim 1 refused: host cannot intercept Tab"]
+      }
+    },
+    {
       "id": "native-popup-tab-with-claims",
       "note": "A host popup owns Tab even when plugins claim it (Codex / and @ Tab break, r14 H4).",
       "plugins": ["autocorrect"],
