@@ -170,6 +170,8 @@ class HostSubject:
             'driver': self.driver,
             'platform': self.platform,
             'integration': self.integration.name,
+            # Every session can start from the user's own host settings (`hostConfig`).
+            'host.config-files': True,
         }
         for feature in self.integration.features:
             # `plugin.autocorrect=release` is a valued feature, as cases require it.
@@ -275,6 +277,7 @@ class HostSubject:
                 cols=self.cols, rows=self.rows, label=case['id'][:24],
                 project=paths.FIXTURES / case['project'] if case.get('project') else None,
                 project_trust=case.get('projectTrust'),
+                host_config=paths.FIXTURES / case['hostConfig'] if case.get('hostConfig') else None,
             )
             if self.ready_screen is None:
                 self.ready_screen = session.ready_screen

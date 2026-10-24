@@ -115,6 +115,21 @@ test('a projectTrust case without host.project-config fails loading', () => {
   );
 });
 
+test('a hostConfig case without host.config-files fails loading', () => {
+  // A subject that never writes the user's own host settings would pass the
+  // OpenCode theme case for the wrong reason.
+  const src = edited('hosts/opencode-config.json', (d) => {
+    if (d.defaults) d.defaults.requires = ['host=opencode'];
+  });
+  const { problems } = loadFixtures(src);
+  assert.ok(
+    problems.includes(
+      'hosts/opencode-config.json opencode-user-theme-keeps-murmo: "hostConfig" needs "requires": ["host.config-files"]',
+    ),
+    problems.join('\n'),
+  );
+});
+
 test('a moved file whose line endings changed fails its SHA-256 check (E17, E18)', () => {
   const src = fresh();
   const target = 'shortcuts/replacements/expected.json';

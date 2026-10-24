@@ -328,10 +328,13 @@ class Run:
         label: str = 'session',
         project: Path | None = None,
         project_trust: str | None = None,
+        host_config: Path | None = None,
     ) -> Session:
         """`project`: a fixture folder copied into the profile's repository
         before launch; `project_trust: 'approved'` then approves its
-        `.murmo.toml` through the integration, as a user would."""
+        `.murmo.toml` through the integration, as a user would.
+        `host_config`: a fixture folder whose `<host>/` files are the user's
+        own host settings, written before Murmo is installed."""
         host = HOSTS[host_name]
         if integration.third_party and not sandboxes.in_no_network_container():
             # Rule 7: never on the macOS host, not even under sandbox-exec.
@@ -339,7 +342,7 @@ class Run:
         prof = self.new_profile(host, install, label)
         session = Session(
             self, host, install, prof, integration, driver, cols, rows, tmux_profile,
-            project=project, project_trust=project_trust,
+            project=project, project_trust=project_trust, host_config=host_config,
         )
         self.sessions.append(session)
         try:
@@ -363,6 +366,7 @@ class Session:
     tmux_profile: str
     project: Path | None = None
     project_trust: str | None = None
+    host_config: Path | None = None
     driver: Driver | None = None
     argv: list[str] = field(default_factory=list)
     ready_screen: ScreenView | None = None
@@ -370,6 +374,10 @@ class Session:
     closed: bool = False
 
     def start(self) -> None:
+        if self.host_config is not None:
+            settings = self.host_config / self.host.name
+            if settings.is_dir():
+                shutil.copytree(settings, self.profile.config_dir(self.host.name), dirs_exist_ok=True)
         self.integration.prepare(self.host, self.profile, run=self.run)
         if self.project is not None:
             # Files only: the profile's repository keeps its own `.git`.

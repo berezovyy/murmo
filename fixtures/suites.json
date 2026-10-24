@@ -137,6 +137,12 @@
       "variants": 17
     },
     {
+      "file": "hosts/opencode-config.json",
+      "owner": "22, 27",
+      "cases": 1,
+      "variants": 1
+    },
+    {
       "file": "hosts/opencode-menu.json",
       "owner": "16, 22",
       "cases": 5,

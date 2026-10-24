@@ -195,6 +195,12 @@ export interface EditorCase {
   project?: string;
   /** Whether the user approved `project`'s `.murmo.toml` (`murmo trust`) before the host starts. */
   projectTrust?: 'approved' | 'unreviewed';
+  /**
+   * The user's own host settings, from before Murmo was installed: a folder
+   * under fixtures/ whose `<host>/` subfolder is copied into that host's
+   * config folder (OpenCode's `cli.json`, Claude's `settings.json`, …).
+   */
+  hostConfig?: string;
   trust?: Trust;
   host?: HostSetup;
   core?: { guardPolicy?: 'final-boundary' };

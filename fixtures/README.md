@@ -70,6 +70,8 @@ Offsets are UTF-16 code units everywhere. Large text uses `{"repeat": "ab", "tim
 
 **Projects.** `project` names a folder under `fixtures/` that the subject copies into the case's working repository; `projectTrust` says whether its `.murmo.toml` is approved (`approved`) or never reviewed (`unreviewed`) when the session starts. A case with `projectTrust` must `require` `host.project-config`: the pure subjects never read `.murmo.toml` and skip it, where they would otherwise pass the unreviewed case for the wrong reason.
 
+**Host settings.** `hostConfig` names a folder under `fixtures/` whose `<host>/` subfolder holds the user's own settings for that host (OpenCode's `cli.json`, Claude's `settings.json`), written into the host's config folder before Murmo is installed. The files are data, not suites, and may use the host's own format (JSONC comments). A case with `hostConfig` must `require` `host.config-files`, which only the real-host harness has.
+
 **Skips.** `requires` lists capability paths (`executor.isolated`, `fn.text.offsets`); an unmet one skips the run with its reason, never passes it. A `skip` entry is a reviewed exception with a reason; only declared skips may differ between runtimes in `compare`.
 
 **Timing.** `control: true` runs a same-time zero-plugin control; `timing.keyMs` and `timing.changeMs` are budgets over that control (lesson 65); `timing.baseline` bounds a case at a factor of another case's time. PR runs report timing; nightly runs gate on it.

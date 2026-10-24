@@ -47,14 +47,14 @@ test('uninstall keeps a config file the user changed after setup (E8)', async ()
       }),
       0,
     );
-    const cli = join(t.env.OPENCODE_CONFIG_DIR as string, 'cli.json');
-    const edited = `${JSON.stringify({ theme: 'user-edit', plugins: [] })}\n`;
-    writeFileSync(cli, edited);
+    const installed = join(t.env.CLAUDE_CONFIG_DIR as string, 'plugins', 'installed_plugins.json');
+    const edited = `${JSON.stringify({ installed: true, userEdit: true })}\n`;
+    writeFileSync(installed, edited);
     const err = capture();
     const code = await main(['uninstall', '--json'], { env: t.env, out: err.writeOut, err: err.writeErr });
     assert.notEqual(code, 0);
     assert.match(err.err.join(''), /config changed/);
-    assert.equal(readFileSync(cli, 'utf8'), edited);
+    assert.equal(readFileSync(installed, 'utf8'), edited);
   } finally {
     t.remove();
   }

@@ -2,9 +2,8 @@
 // marketplace is the local payload copy until phase 31 chooses the published
 // source. Journal replay is the uninstall source of truth (docs/plan/27).
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, symlinkSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { PACKAGE_NAME } from '@murmo/integrity';
 import { runCommand } from './detect.ts';
 import { CliError } from './errors.ts';
@@ -18,11 +17,35 @@ function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
-function writeJson(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  renameSync(tmp, path);
+/**
+ * OpenCode loads every folder in `<config>/plugins/` as a TUI plugin, apart
+ * from `cli.json`. Murmo used to add itself to `cli.json`'s `plugins`, but
+ * OpenCode decodes that file as a whole and ignores all of it when one key
+ * has a shape it doesn't expect (a `"theme": "opencode"` string from the old
+ * tui.json), which took Murmo with it; rewriting the file also dropped the
+ * user's comments and key order. The link leaves the user's files alone.
+ */
+function linkOpenCodePlugin(layout: HomeLayout, payload: string): string {
+  const folder = join(layout.dirs.opencode, 'plugins');
+  const link = join(folder, PACKAGE_NAME);
+  const target = resolve(payload);
+  mkdirSync(folder, { recursive: true });
+  let current: ReturnType<typeof lstatSync> | undefined;
+  try {
+    current = lstatSync(link);
+  } catch {
+    current = undefined;
+  }
+  if (current && !current.isSymbolicLink()) {
+    throw new CliError(`OpenCode registration failed: ${link} already exists and is not Murmo's link`, {
+      action: 'move it aside and re-run murmo setup',
+    });
+  }
+  if (current && resolve(folder, readlinkSync(link)) === target) return link;
+  const tmp = `${link}.${process.pid}.tmp`;
+  symlinkSync(target, tmp, 'dir');
+  renameSync(tmp, link);
+  return link;
 }
 
 function assertFakeClaude(layout: HomeLayout, env: NodeJS.ProcessEnv): void {
@@ -71,13 +94,8 @@ export function registerHost(
     return [r];
   }
   if (host.name === 'opencode') {
-    const file = `${layout.dirs.opencode}/cli.json`;
-    const current = readJson(file);
-    const href = pathToFileURL(payload).href;
-    const plugins = Array.isArray(current.plugins) ? current.plugins.filter((v) => v !== href) : [];
-    plugins.push(href);
-    writeJson(file, { ...current, plugins });
-    return [{ argv: ['opencode-cli.json', href], status: 0, ms: 0, stdout: href, stderr: '', host: 'opencode' }];
+    const link = linkOpenCodePlugin(layout, payload);
+    return [{ argv: ['opencode-plugin-link', link], status: 0, ms: 0, stdout: link, stderr: '', host: 'opencode' }];
   }
   // Codex: never a PATH shim. Users run `murmo codex`. Command hooks are the
   // opt-in events preview (12 of them); writing them at setup puts stock Codex

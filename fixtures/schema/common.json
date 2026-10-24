@@ -372,6 +372,7 @@
         "settings": { "$ref": "#/$defs/settings" },
         "project": { "$ref": "#/$defs/project" },
         "projectTrust": { "enum": ["approved", "unreviewed"] },
+        "hostConfig": { "$ref": "#/$defs/project" },
         "trust": { "$ref": "#/$defs/trust" },
         "host": { "$ref": "#/$defs/hostSetup" },
         "core": {

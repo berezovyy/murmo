@@ -15,6 +15,12 @@
       "!packages/api/report"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["fixtures/hosts/configs/**"],
+      "json": { "parser": { "allowComments": true } }
+    }
+  ],
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2,

@@ -108,7 +108,6 @@ export function knownFiles(layout: HomeLayout): string[] {
     join(layout.dirs.claude, 'plugins', 'installed_plugins.json'),
     join(layout.dirs.claude, 'plugins', 'known_marketplaces.json'),
     join(layout.dirs.pi, 'settings.json'),
-    join(layout.dirs.opencode, 'cli.json'),
     layout.launcher,
   ];
 }

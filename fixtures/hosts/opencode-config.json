@@ -1,0 +1,27 @@
+{
+  "kind": "editor-ops/v1",
+  "offsets": "utf16",
+  "provenance": {
+    "source": "new: 2026-10-24 real-host bug. A \"theme\" key in OpenCode's cli.json (any string value) silently turned Murmo off on OpenCode 2.1.x: OpenCode decodes cli.json as a whole and ignores all of it when one key has the wrong shape, and Murmo registered itself in that same file",
+    "license": "Apache-2.0 OR MIT",
+    "author": "murmo"
+  },
+  "defaults": {
+    "trust": "builtin",
+    "plugins": ["shortcuts"],
+    "requires": ["host=opencode", "host.config-files"]
+  },
+  "cases": [
+    {
+      "id": "opencode-user-theme-keeps-murmo",
+      "tags": ["coexist"],
+      "hostConfig": "hosts/configs/opencode-theme",
+      "note": "With the user's cli.json holding a string theme, a starter shortcut still expands: Murmo no longer depends on OpenCode reading cli.json.",
+      "steps": [{ "type": ";tst" }, { "key": "space" }, { "waitMs": 300 }],
+      "expect": {
+        "draft": { "text": "Run the test suite, fix failures, and do not edit the tests. " },
+        "requests": []
+      }
+    }
+  ]
+}

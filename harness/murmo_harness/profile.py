@@ -73,6 +73,15 @@ class Profile:
         # Outside the project, named explicitly: project config is disabled (lesson 53).
         return self.root / 'config' / 'opencode.json'
 
+    def config_dir(self, host: str) -> Path:
+        """The folder holding `host`'s own settings files."""
+        return {
+            'claude': self.claude_dir,
+            'codex': self.codex_home,
+            'pi': self.pi_dir,
+            'opencode': self.opencode_config_dir,
+        }[host]
+
     @property
     def fake_v1(self) -> str:
         return f'{self.fake_base_url}/v1'
