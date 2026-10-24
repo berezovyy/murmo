@@ -702,12 +702,12 @@ class CoreSession implements Session {
     const stage = this.#inline;
     if (!stage) return;
     const { corrections, deferred, shortcutExpanded, shortcutUndone, rejected } = stage.commit(commit);
-    this.#counters.inlineCorrections += corrections;
+    // `corrections` counts typo fixes and shortcut expansions alike; each has its own counter.
+    this.#counters.inlineCorrections += corrections - shortcutExpanded;
     for (const word of rejected) this.#options.onRejectedWord?.(word);
     this.#counters.shortcutExpanded += shortcutExpanded;
     this.#counters.shortcutUndone += shortcutUndone;
-    // `corrections` counts typo fixes and shortcut expansions alike; the notice
-    // names what actually happened.
+    // The notice names what actually happened.
     const caps = this.#hostCaps;
     if (caps && corrections > shortcutExpanded && !this.#firstTypoFix) {
       this.#firstTypoFix = true;

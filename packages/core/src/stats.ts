@@ -69,7 +69,7 @@ export class Counters {
   observerOverflow = 0;
   /** Last commit-gate denial reason (`submit-in-progress`, …). */
   lastDeniedReason: string | undefined;
-  /** Typo and shortcut corrections the inline interpreter committed (phase 07). */
+  /** Typo fixes that landed, as a word ended or at Enter (phase 07); expansions are `shortcutExpanded`. */
   inlineCorrections = 0;
   /** Shortcut expansions that landed (phase 15). Counts only; names live in `shortcutByName`. */
   shortcutExpanded = 0;
@@ -139,7 +139,7 @@ export interface SessionStats {
   readonly unresolved: number;
   readonly observerOverflow: number;
   readonly lastDeniedReason?: string;
-  /** Inline typo/shortcut corrections that landed (phase 07). */
+  /** Typo fixes that landed, as a word ended or at Enter (phase 07). Shortcut expansions are not counted here. */
   readonly inlineCorrections: number;
   /** Shortcut expansions that landed (phase 15). */
   readonly shortcutExpanded: number;

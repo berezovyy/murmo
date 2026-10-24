@@ -161,7 +161,7 @@ function observe(h: Harness, trust: Run['trust']): Observation {
     for (const [code, count] of Object.entries(stats.commits)) numbers[`commits.${code}`] = count;
     for (const [by, count] of Object.entries(stats.keyBy)) numbers[`keys.${by}`] = count;
     // The fixtures' name for plugin corrections the host committed (r4, stress, burst).
-    numbers.corrections = stats.applied + stats.inlineCorrections;
+    numbers.corrections = stats.applied + stats.inlineCorrections + stats.shortcutExpanded;
   }
   const attributed = adapter.edits.filter((e) => e.route === 'attributed');
   return {

@@ -2,7 +2,7 @@
 // and stored counters hold no expansion or draft text (E18).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createHarness } from '@murmo/core/testing';
+import { createHarness, testInlinePlugin } from '@murmo/core/testing';
 import { pluginOf } from './helpers.ts';
 
 test('immediate Backspace after an expansion adds 1 to shortcut_undone', async () => {
@@ -28,5 +28,23 @@ test('a kept expansion adds 0 to shortcut_undone', async () => {
   const stats = h.session?.stats();
   assert.equal(stats?.shortcutExpanded, 1);
   assert.equal(stats?.shortcutUndone, 0);
+  await h.session?.dispose();
+});
+
+test('an expansion counts as an expansion, not as a typo fix', async () => {
+  // inlineCorrections counted shortcut expansions too, so the typo-fix number
+  // Murmo reports grew with every shortcut typed.
+  const h = await createHarness({
+    plugins: [pluginOf({ rvw: 'Review this change.' }), testInlinePlugin('autocorrect')],
+  });
+  await h.driver.type('rvw ');
+  const shortcutOnly = h.session?.stats();
+  assert.equal(shortcutOnly?.shortcutExpanded, 1);
+  assert.equal(shortcutOnly?.inlineCorrections, 0);
+  await h.driver.type('teh ');
+  const both = h.session?.stats();
+  assert.equal(h.adapter.getDraft().text, 'Review this change. the ');
+  assert.equal(both?.inlineCorrections, 1);
+  assert.equal(both?.shortcutExpanded, 1);
   await h.session?.dispose();
 });
