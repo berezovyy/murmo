@@ -10,6 +10,10 @@ Everything runs locally. Murmo sends nothing anywhere.
 
   **Why not macOS Text Replacements?** Murmo's shortcuts work like the ones in System Settings → Keyboard → Text Replacements (`omw` becomes `On my way!`), but those only apply in native Cocoa text fields. Terminal apps don't support them, so they never reach the prompt box of a coding agent. They are also personal only, with no project file to share, and in practice single-line. Linux has nothing like them built in. Murmo runs inside each agent's own prompt box, so it works in any terminal, on macOS and Linux alike.
 
+  **How is this different from skills?** A skill is for the agent: it teaches the agent how to do a job, like releasing your app or following your team's review checklist. The agent reads it while it works, and often the agent decides when to use it. A shortcut is for you: it saves you typing the same request again and again. When you type `;rvw` and a space, the full text appears in your prompt box right away. You can read it, change it, and add your own words before you send it, and the agent only ever sees your finished prompt.
+
+  So the two work well together. Skills hold what the agent knows how to do; shortcuts hold how you like to ask. A shortcut can even ask the agent to use a skill. And your shortcuts live in one file that works in every agent Murmo supports.
+
 - **The `;` menu.** Type `;` and part of a name, alias or description, then pick a shortcut with the arrows and Enter.
 - **Draft rescue.** If the agent crashes or you quit with an unsent prompt, the next session offers it back. Tab restores it.
 - **Autocorrect (off until you turn it on).** It fixes common typos when you finish a word or press Enter (`teh` becomes `the`). It leaves code, shell commands, paths, URLs, flags, project names and pasted text alone. Backspace right after a fix undoes it. To turn it on, add this to `murmo.toml`:
