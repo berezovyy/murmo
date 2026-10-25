@@ -143,7 +143,29 @@ impl Screen {
     }
 
     pub fn has_prompt(&self) -> bool {
-        self.contents().contains('›')
+        self.prompt_row().is_some()
+    }
+
+    /// Composer row (`›`), never the vt100 cursor. Ratatui frames often leave
+    /// the cursor at home; the r10 overlay only painted when the cursor line
+    /// was the prompt, otherwise the `;` menu appeared at the top of the screen.
+    pub fn prompt_row(&self) -> Option<u16> {
+        let (rows, cols) = self.vt.screen().size();
+        let lines: Vec<String> = self.vt.screen().rows(0, cols).take(rows as usize).collect();
+        let is_prompt = |line: &str| line.trim_start().starts_with('›');
+        let (cy, _) = self.vt.screen().cursor_position();
+        if let Some(line) = lines.get(cy as usize) {
+            if is_prompt(line) {
+                return Some(cy);
+            }
+        }
+        lines.iter().enumerate().rev().find_map(|(i, line)| {
+            if is_prompt(line) {
+                Some(i as u16)
+            } else {
+                None
+            }
+        })
     }
 
     pub fn title_busy(&self) -> bool {
@@ -256,6 +278,17 @@ mod tests {
     fn unknown_until_prompt() {
         assert_eq!(classify("loading", "hi", 2, true, false), Ui::Unknown);
         assert_eq!(classify("› hi", "hi", 2, false, false), Ui::Unknown);
+    }
+
+    #[test]
+    fn prompt_row_ignores_cursor_home() {
+        let mut screen = Screen::new(24, 80);
+        let mut bytes = b"\x1b[21;1H".to_vec();
+        bytes.extend("› hello".as_bytes());
+        bytes.extend(b"\x1b[H");
+        screen.process(&bytes);
+        assert_eq!(screen.prompt_row(), Some(20));
+        assert!(screen.has_prompt());
     }
 
     #[test]

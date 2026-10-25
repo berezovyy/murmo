@@ -171,8 +171,7 @@ pub fn run(launch: Launch, self_exe: &std::path::Path) -> i32 {
         }
 
         if let Some(eng) = &engine {
-            let _ = eng.call("__tick", "");
-            eng.jobs();
+            eng.pump();
         }
         {
             let mut g = inner.borrow_mut();
@@ -541,6 +540,7 @@ fn handle_event(
             .to_string(),
         );
     }
+    eng.pump();
     if inner.borrow().overlay.dirty {
         let out = inner.borrow_mut().redraw();
         crate::pty::write_all(1, &out);

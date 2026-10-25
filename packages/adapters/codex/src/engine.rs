@@ -141,6 +141,22 @@ impl Engine {
             }
         }
     }
+
+    /// Drain 0 ms timers and promise jobs so a menu `onChange` can paint on
+    /// this key instead of the next 20 ms poll (live `;` picker lag).
+    pub fn pump(&self) {
+        for _ in 0..32 {
+            let _ = self.call("__tick", "");
+            self.jobs();
+            if !self.runtime.is_job_pending() {
+                let _ = self.call("__tick", "");
+                self.jobs();
+                if !self.runtime.is_job_pending() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {

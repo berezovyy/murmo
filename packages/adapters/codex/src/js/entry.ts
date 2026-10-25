@@ -3,7 +3,7 @@
 
 import { createPluginHost, createSession, type Session } from '@murmo/core';
 import { createInProcessExecutor } from '@murmo/executor';
-import { asSnap, type CodexAdapter, completeEdit, createAdapter, hostState } from './adapter.ts';
+import { asSnap, type CodexAdapter, completeEdit, createAdapter, hostState, labeledOrigin } from './adapter.ts';
 import { codexCaps } from './caps.ts';
 import { continueReply, createCodexBroker, handleCodexHookSync } from './events.ts';
 import { createHost } from './host.ts';
@@ -45,7 +45,7 @@ function boot(): void {
 
   const specs = builtinSpecs(config);
   adapter = createAdapter(host, {
-    menu: false,
+    menu: true,
     ghost: false,
     ...(config.hostVersion ? { version: config.hostVersion } : {}),
   });
@@ -56,7 +56,7 @@ function boot(): void {
     grants: {
       autocorrect: ['draft:read', 'draft:write'],
       shortcuts: ['draft:read', 'draft:write'],
-      menu: ['draft:read'],
+      menu: ['draft:read', 'draft:write'],
       rescue: ['draft:read', 'draft:write', 'submit:observe'],
     },
   });
@@ -145,10 +145,14 @@ g.__event = (line: string) => {
     if (e.kind === 'key' && e.key) value = adapter.key(e.key);
     if (e.kind === 'submit') adapter.startSubmit(e.gesture === 'queue' ? 'queue' : 'send');
     if (e.kind === 'change') {
-      adapter.publish({
-        draft: adapter.draft(),
-        origin: e.origin === 'typed' || e.origin === 'paste' || e.origin === 'history' ? e.origin : 'unknown',
-      });
+      // Inline receipts publish this key with deltas. A second, delta-less
+      // publish resyncs typedSpans to [] so the `;` menu never sees a typed trigger.
+      if (!lastInlineBefore) {
+        adapter.publish({
+          draft: adapter.draft(),
+          origin: labeledOrigin(e.origin),
+        });
+      }
     }
     return JSON.stringify({
       value,
@@ -228,12 +232,12 @@ g.__inlineDone = (line: string) => {
     if (valid && replay) {
       adapter.publish({
         draft: d,
-        origin: e.replaced ? 'plugin' : e.origin === 'typed' ? 'typed' : 'unknown',
+        origin: e.replaced ? 'plugin' : labeledOrigin(e.origin),
         before: replay.before,
         deltas: replay.deltas,
       });
     } else if (lastInlineBefore) {
-      adapter.publish({ draft: d, origin: 'unknown', before: lastInlineBefore });
+      adapter.publish(adapter.adoptNative(lastInlineBefore, labeledOrigin(e.origin), e.splice));
     }
     lastInlineBefore = undefined;
     adapter.lastPlan = null;

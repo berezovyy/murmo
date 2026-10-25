@@ -117,7 +117,7 @@ impl Probes {
                     "nativeCompletion": false,
                     "attributed": false,
                 },
-                "menu": false,
+                "menu": true,
                 "ghost": "none",
                 "highlight": "none",
                 "edit": { "certainties": ["tracked"], "selection": false, "attributed": false },

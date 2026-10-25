@@ -55,3 +55,32 @@ test('Working title is busy even when the ledger says idle (E9)', () => {
   });
   assert.equal(hostState(snap).busy, true);
 });
+
+test('native typed semicolon is covered so the menu trigger can see it', () => {
+  mockHost({
+    draft: { text: '', cursor: 0, version: 0 },
+    state: 'idle',
+    known: true,
+    title: 'Ready',
+    probed: true,
+  });
+  const adapter = createAdapter(
+    (op, data) =>
+      JSON.parse((globalThis as unknown as { __host: (s: string) => string }).__host(JSON.stringify({ op, ...data }))),
+    { menu: true },
+  );
+  const before = adapter.draft();
+  adapter.applyNative(
+    asSnap({
+      draft: { text: ';', cursor: 1, version: 1 },
+      state: 'idle',
+      known: true,
+      title: 'Ready',
+      probed: true,
+    }),
+  );
+  const change = adapter.adoptNative(before, 'typed', { from: 0, to: 0, length: 1 });
+  assert.deepEqual(adapter.draft().typedSpans, [[0, 1]]);
+  assert.equal(change.deltas?.[0]?.insert, ';');
+  assert.equal(change.origin, 'typed');
+});

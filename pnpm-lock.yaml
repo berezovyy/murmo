@@ -106,6 +106,9 @@ importers:
       '@murmo/plugin-shortcuts':
         specifier: workspace:*
         version: link:../../plugins/shortcuts
+      '@murmo/provenance':
+        specifier: workspace:*
+        version: link:../../provenance
       '@murmo/store':
         specifier: workspace:*
         version: link:../../store

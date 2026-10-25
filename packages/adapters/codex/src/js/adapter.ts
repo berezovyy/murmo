@@ -1,6 +1,6 @@
 // Adapter the core session talks to. Transport is the Rust wrapper.
 
-import type { ActionResult, Change, Draft, Edit, HostState, KeyId, Range } from '@murmo/api';
+import type { ActionResult, Change, Draft, DraftDelta, Edit, HostState, KeyId, Origin, Range } from '@murmo/api';
 import type {
   Adapter,
   EditResult,
@@ -13,8 +13,31 @@ import type {
   Unsubscribe,
 } from '@murmo/api/adapter';
 import { BoundaryBook } from '@murmo/core';
+import { applyChange, type TypingRules } from '@murmo/provenance';
 import { codexCaps } from './caps.ts';
 import type { HostBridge } from './host.ts';
+
+const TYPING: TypingRules = { evidence: 'host-labeled', keyBursts: true };
+
+export function labeledOrigin(value: string | undefined): Origin {
+  return value === 'typed' || value === 'paste' || value === 'history' ? value : 'unknown';
+}
+
+export interface NativeSplice {
+  readonly from: number;
+  readonly to: number;
+  readonly length: number;
+}
+
+/** Splices the wrapper reports for a native (non-replace) key. */
+export function deltasFromSplice(before: Draft, after: Draft, origin: Origin, splice?: NativeSplice): DraftDelta[] {
+  if (before.text === after.text) return [];
+  if (splice) {
+    const insert = after.text.slice(splice.from, splice.from + splice.length);
+    return [{ origin, from: splice.from, to: splice.to, insert }];
+  }
+  return [{ origin, from: 0, to: before.text.length, insert: after.text }];
+}
 
 export interface Snap {
   draft: { text: string; cursor: number; version: number };
@@ -76,6 +99,8 @@ export interface CodexAdapter extends Adapter {
   pendingEdits: Map<number, PendingEdit>;
   lastPlan: InlineAnswer | null;
   applyNative(next: Snap): void;
+  /** Cover a native key so onChange sees typed spans (the `;` menu trigger). */
+  adoptNative(before: Draft, origin: Origin, splice?: NativeSplice): Change;
   draft(): Draft;
   render(kind: 'ghost' | 'menu' | 'status', value: unknown, version: number): ActionResult;
   key(id: KeyId): 'consume' | 'pass';
@@ -123,6 +148,14 @@ export function createAdapter(
     applyNative(next) {
       self.snap = next;
       if (!self.snap.known) self.spans = [];
+    },
+    adoptNative(before, origin, splice) {
+      const after = self.draft();
+      const deltas = deltasFromSplice(before, after, origin, splice);
+      if (deltas.length) {
+        self.spans = applyChange(before, deltas, TYPING).typedSpans.map((r) => [r[0], r[1]] as Range);
+      }
+      return { draft: self.draft(), origin, before, deltas };
     },
     render(kind, value, version) {
       if (version !== self.snap.draft.version) return { status: 'stale' };

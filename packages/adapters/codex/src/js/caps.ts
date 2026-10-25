@@ -1,5 +1,5 @@
-// Advertised HostCapabilities. Menu and ghost stay off until prompt detection
-// is hardened (phase 23 hand-off). inline.maxBytes is 800 (800-scalar cap).
+// Advertised HostCapabilities. Live `murmo-codex` turns the overlay menu on
+// via createAdapter({ menu: true }); ghost stays off. inline.maxBytes is 800.
 
 import type { KeyId } from '@murmo/api';
 import { isCanonicalKey, NAMED_KEYS } from '@murmo/api';

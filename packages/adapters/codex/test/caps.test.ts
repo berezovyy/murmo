@@ -1,4 +1,5 @@
-// Codex reports 800-byte inline ceiling and menu off (phase 03/23 hand-offs).
+// Codex reports 800-byte inline ceiling. Menu overlay is on so `;` can pick
+// a shortcut; ghost stays off (phase 23 drawing, live request).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { codexCaps, INLINE_MAX_BYTES } from '../src/js/caps.ts';
@@ -11,12 +12,13 @@ test('inline.maxBytes is 800 because the scalar cap binds first (E20, phase 03)'
   assert.equal(caps.inline.commitReceipt, 'transport-write');
   assert.equal(caps.submit.committed, 'none');
   assert.equal(caps.menu, false);
+  assert.equal(codexCaps({ menu: true }).menu, true);
   assert.equal(caps.ghost, 'none');
   assert.equal(caps.inputOriginEvidence, 'host-labeled');
   assert.deepEqual(caps.edit.certainties, ['tracked']);
 });
 
-test('overlay stays off until an explicit opt-in (lesson 39)', () => {
+test('menu overlay can opt in; ghost stays end-only when requested', () => {
   const on = codexCaps({ menu: true, ghost: true });
   assert.equal(on.menu, true);
   assert.equal(on.ghost, 'end-only');
