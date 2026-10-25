@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="media/logo/logo.png" width="380" alt="Murmo" />
+  <img src="media/logo/banner.png" width="100%" alt="Murmo" />
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="media/films/hero.mp4">Watch with sound</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#quick-start">Quick start</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#features">Features</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#shortcuts">Shortcuts</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#plugins">Plugins</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#faq">FAQ</a>
+  <a href="#quick-start">Quick start</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#features">Features</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#shortcuts">Shortcuts</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#plugins">Plugins</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#faq">FAQ</a>
 </p>
 
 ## Why Murmo

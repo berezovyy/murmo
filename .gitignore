@@ -28,10 +28,12 @@ __pycache__/
 # Agent worktrees made by Claude Code
 /.claude/worktrees/
 
-# README film: only the rendered films and the README logo are committed; the HyperFrames
+# README film: only the README film and banner are committed; the HyperFrames
 # source, render script and masters stay on disk.
 /media/*
 !/media/films/
+/media/films/*
+!/media/films/hero.webp
 !/media/logo/
 /media/logo/*
-!/media/logo/logo.png
+!/media/logo/banner.png
