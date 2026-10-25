@@ -149,37 +149,6 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", h.finalize())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::english_table_path;
-    use std::fs;
-    use std::sync::Mutex;
-
-    static ENV: Mutex<()> = Mutex::new(());
-
-    #[test]
-    fn packed_package_root_finds_english_bin() {
-        let _g = ENV.lock().unwrap();
-        let dir = std::env::temp_dir().join(format!("murmo-table-{}", std::process::id()));
-        fs::create_dir_all(dir.join("data/en")).unwrap();
-        fs::write(dir.join("data/en/english.bin"), [0u8; 32]).unwrap();
-        std::env::remove_var("MURMO_ENGLISH_TABLE");
-        std::env::set_var("MURMO_PACKAGE_ROOT", &dir);
-        let path = english_table_path().expect("table under MURMO_PACKAGE_ROOT");
-        assert!(path.ends_with("english.bin"));
-        std::env::remove_var("MURMO_PACKAGE_ROOT");
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn table_entries_reads_packed_count() {
-        let mut bytes = vec![0u8; 32];
-        bytes[4..8].copy_from_slice(&88_525u32.to_le_bytes());
-        assert_eq!(super::table_entries(&bytes), Some(88_525));
-        assert_eq!(super::table_entries(&[1, 2, 3]), None);
-    }
-}
-
 pub fn table_entries(bytes: &[u8]) -> Option<u32> {
     if bytes.len() < 8 {
         return None;
@@ -241,4 +210,35 @@ pub fn load_english_table() -> Option<(Vec<u8>, Value)> {
         "asset": "english.bin",
     });
     Some((bytes, meta))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::english_table_path;
+    use std::fs;
+    use std::sync::Mutex;
+
+    static ENV: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn packed_package_root_finds_english_bin() {
+        let _g = ENV.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("murmo-table-{}", std::process::id()));
+        fs::create_dir_all(dir.join("data/en")).unwrap();
+        fs::write(dir.join("data/en/english.bin"), [0u8; 32]).unwrap();
+        std::env::remove_var("MURMO_ENGLISH_TABLE");
+        std::env::set_var("MURMO_PACKAGE_ROOT", &dir);
+        let path = english_table_path().expect("table under MURMO_PACKAGE_ROOT");
+        assert!(path.ends_with("english.bin"));
+        std::env::remove_var("MURMO_PACKAGE_ROOT");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn table_entries_reads_packed_count() {
+        let mut bytes = vec![0u8; 32];
+        bytes[4..8].copy_from_slice(&88_525u32.to_le_bytes());
+        assert_eq!(super::table_entries(&bytes), Some(88_525));
+        assert_eq!(super::table_entries(&[1, 2, 3]), None);
+    }
 }

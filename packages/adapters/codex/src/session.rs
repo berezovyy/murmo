@@ -259,6 +259,9 @@ mod tests {
         let mut probes = Probes::new();
         probes.finish(true, true, true, true, true, true, false);
         assert!(edit_gate(&probes, true, true, Ui::Idle));
-        assert!(probes.transport_on(), "bracketed paste is enough; echo is advisory");
+        assert!(
+            probes.transport_on(),
+            "bracketed paste is enough; echo is advisory"
+        );
     }
 }

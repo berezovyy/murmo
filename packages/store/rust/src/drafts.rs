@@ -767,9 +767,17 @@ mod tests {
         let temp = crate::files::temp_path(&dir.join("x.draft"), "").unwrap();
         fs::write(&temp, b"partial").unwrap();
         let written = crate::now_ms() as f64;
-        assert_eq!(remove_stale_temps_at(&dir, written + 60_000.0).unwrap(), 0, "a live writer's fresh temp stays");
+        assert_eq!(
+            remove_stale_temps_at(&dir, written + 60_000.0).unwrap(),
+            0,
+            "a live writer's fresh temp stays"
+        );
         assert!(temp.exists());
-        assert_eq!(remove_stale_temps_at(&dir, written + 2.0 * 3_600_000.0).unwrap(), 1, "an hour-old temp goes");
+        assert_eq!(
+            remove_stale_temps_at(&dir, written + 2.0 * 3_600_000.0).unwrap(),
+            1,
+            "an hour-old temp goes"
+        );
         assert!(!temp.exists());
         let _ = fs::remove_dir_all(&dir);
     }
