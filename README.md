@@ -7,6 +7,9 @@ Everything runs locally. Murmo sends nothing anywhere.
 ## What you get
 
 - **Shortcuts.** Type `;rvw` and a space, and it expands into a full prompt. Your own shortcuts live in `~/.config/murmo/murmo.toml`, which setup creates with a few to try. A project's `.murmo.toml` shares shortcuts with the team; run `murmo trust` to review it before it turns on. Templates can hold `<field>` placeholders with defaults. Edits to either file apply without restarting the agent.
+
+  **Why not macOS Text Replacements?** Murmo's shortcuts work like the ones in System Settings → Keyboard → Text Replacements (`omw` becomes `On my way!`), but those only apply in native Cocoa text fields. Terminal apps don't support them, so they never reach the prompt box of a coding agent. They are also personal only, with no project file to share, and in practice single-line. Linux has nothing like them built in. Murmo runs inside each agent's own prompt box, so it works in any terminal, on macOS and Linux alike.
+
 - **The `;` menu.** Type `;` and part of a name, alias or description, then pick a shortcut with the arrows and Enter.
 - **Draft rescue.** If the agent crashes or you quit with an unsent prompt, the next session offers it back. Tab restores it.
 - **Autocorrect (off until you turn it on).** It fixes common typos when you finish a word or press Enter (`teh` becomes `the`). It leaves code, shell commands, paths, URLs, flags, project names and pasted text alone. Backspace right after a fix undoes it. To turn it on, add this to `murmo.toml`:
